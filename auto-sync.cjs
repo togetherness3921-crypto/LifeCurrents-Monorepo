@@ -41,7 +41,7 @@ function startVite() {
 function startSupabaseSync() {
   console.log(`${colors.green}[SUPABASE]${colors.reset} 🗄️  Starting Supabase sync...`);
   const syncScriptPath = path.join(__dirname, 'scripts', 'supabase-sync.js');
-  
+
   supabaseProcess = spawn('node', [syncScriptPath], {
     stdio: 'inherit',
     shell: true,
@@ -113,17 +113,17 @@ setInterval(sync, 15000);
 function cleanup() {
   console.log(`\n${colors.purple}[MONOREPO]${colors.reset} 👋 Shutting down...`);
   watcher.close();
-  
+
   if (viteProcess) {
     console.log(`${colors.blue}[VITE]${colors.reset} 🛑 Stopping Vite...`);
     viteProcess.kill();
   }
-  
+
   if (supabaseProcess) {
     console.log(`${colors.green}[SUPABASE]${colors.reset} 🛑 Stopping Supabase sync...`);
     supabaseProcess.kill();
   }
-  
+
   process.exit(0);
 }
 
