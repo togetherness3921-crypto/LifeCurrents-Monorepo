@@ -21,7 +21,8 @@ let supabaseProcess = null;
 // --- Vite Dev Server ---
 function startVite() {
   console.log(`${colors.blue}[VITE]${colors.reset} 🎨 Starting Vite dev server...`);
-  viteProcess = spawn('npm', ['run', 'dev', '--workspace=@lifecurrents/frontend'], {
+  viteProcess = spawn('npm', ['run', 'dev'], {
+    cwd: path.join(__dirname, 'packages', 'frontend'),
     stdio: 'inherit',
     shell: true,
   });

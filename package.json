@@ -3,20 +3,15 @@
   "version": "1.0.0",
   "private": true,
   "description": "LifeCurrents - A unified monorepo for frontend and worker",
-  "type": "module",
-  "workspaces": [
-    "packages/frontend",
-    "packages/worker"
-  ],
   "scripts": {
-    "dev": "npm run dev --workspace=@lifecurrents/frontend",
-    "dev:worker": "npm run dev --workspace=@lifecurrents/worker",
-    "dev:all": "concurrently --names \"FRONTEND,WORKER\" -c \"bgBlue.bold,bgCyan.bold\" \"npm run dev --workspace=@lifecurrents/frontend\" \"npm run dev --workspace=@lifecurrents/worker\"",
-    "build": "npm run build --workspace=@lifecurrents/frontend && npm run build --workspace=@lifecurrents/worker",
-    "build:frontend": "npm run build --workspace=@lifecurrents/frontend",
-    "build:worker": "npm run deploy --workspace=@lifecurrents/worker",
-    "lint": "npm run lint --workspace=@lifecurrents/frontend",
-    "preview": "npm run preview --workspace=@lifecurrents/frontend",
+    "dev": "cd packages/frontend && npm run dev",
+    "dev:worker": "cd packages/worker && npm run dev",
+    "dev:all": "concurrently --names \"FRONTEND,WORKER\" -c \"bgBlue.bold,bgCyan.bold\" \"cd packages/frontend && npm run dev\" \"cd packages/worker && npm run dev\"",
+    "build": "cd packages/frontend && npm run build && cd ../.. && cd packages/worker && npm run deploy",
+    "build:frontend": "cd packages/frontend && npm run build",
+    "build:worker": "cd packages/worker && npm run deploy",
+    "lint": "cd packages/frontend && npm run lint",
+    "preview": "cd packages/frontend && npm run preview",
     "auto-sync": "node auto-sync.cjs",
     "db:push": "cd supabase && npx supabase db push",
     "db:pull": "cd supabase && npx supabase db pull",
@@ -32,4 +27,3 @@
     "npm": ">=9.0.0"
   }
 }
-
