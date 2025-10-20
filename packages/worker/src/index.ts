@@ -250,6 +250,7 @@ interface ConversationSummaryRecord {
 
 type ConversationSummaryResponse = {
     id: string;
+    thread_id: string;
     summary_level: SummaryLevel;
     summary_period_start: string;
     content: string;
@@ -504,9 +505,10 @@ export class MyMCP extends McpAgent {
     }
 
     private toConversationSummaryResponse(row: ConversationSummaryRecord): ConversationSummaryResponse {
-        const { id, summary_level, summary_period_start, content, created_by_message_id, created_at } = row;
+        const { id, thread_id, summary_level, summary_period_start, content, created_by_message_id, created_at } = row;
         const summary: ConversationSummaryResponse = {
             id,
+            thread_id,
             summary_level,
             summary_period_start,
             content,
@@ -1327,13 +1329,16 @@ export class MyMCP extends McpAgent {
             'get_conversation_summaries',
             getConversationSummariesParams.shape,
             async ({ conversation_id, message_id }) => {
+                console.log('[Worker] get_conversation_summaries called', { conversation_id, message_id });
                 try {
                     const normalizedConversationId = this.normalizeId(conversation_id, 'conversation_id');
                     const normalizedMessageId = this.normalizeId(message_id, 'message_id');
                     const ancestorIds = await this.getAncestralMessageIds(normalizedConversationId, normalizedMessageId);
                     const uniqueAncestorIds = Array.from(new Set(ancestorIds));
+                    console.log(`[Worker] Found ${uniqueAncestorIds.length} ancestor message IDs for thread ${normalizedConversationId}`);
 
                     if (uniqueAncestorIds.length === 0) {
+                        console.log('[Worker] No ancestors found, returning empty summaries');
                         return createToolResponse('get_conversation_summaries', true, { summaries: [] });
                     }
 
@@ -1347,14 +1352,17 @@ export class MyMCP extends McpAgent {
                         .order('created_at', { ascending: true });
 
                     if (error) {
+                        console.error('[Worker] Failed to fetch conversation summaries from database:', error);
                         throw new Error(`Failed to fetch conversation summaries: ${error.message}`);
                     }
 
                     const rawSummaries = (data ?? []) as ConversationSummaryRecord[];
+                    console.log(`[Worker] Found ${rawSummaries.length} summaries for thread ${normalizedConversationId}`);
                     const summaries = rawSummaries.map((row) => this.toConversationSummaryResponse(row));
 
                     return createToolResponse('get_conversation_summaries', true, { summaries });
                 } catch (error: any) {
+                    console.error('[Worker] get_conversation_summaries error:', error);
                     return createToolResponse('get_conversation_summaries', false, undefined, { message: error?.message ?? 'Unknown error' });
                 }
             }
@@ -1364,6 +1372,7 @@ export class MyMCP extends McpAgent {
             'create_conversation_summary',
             createConversationSummaryParams.shape,
             async ({ conversation_id, summary_level, summary_period_start, content, created_by_message_id }) => {
+                console.log('[Worker] create_conversation_summary called', { conversation_id, summary_level, summary_period_start });
                 try {
                     const normalizedConversationId = this.normalizeId(conversation_id, 'conversation_id');
                     const normalizedMessageId = this.normalizeId(created_by_message_id, 'created_by_message_id');
@@ -1418,8 +1427,10 @@ export class MyMCP extends McpAgent {
                         throw new Error('Failed to create conversation summary: insert returned no data.');
                     }
 
+                    console.log('[Worker] Successfully created summary:', { id: data.id, summary_level: data.summary_level });
                     return createToolResponse('create_conversation_summary', true, { summary: this.toConversationSummaryResponse(data as ConversationSummaryRecord) });
                 } catch (error: any) {
+                    console.error('[Worker] create_conversation_summary error:', error);
                     return createToolResponse('create_conversation_summary', false, undefined, { message: error?.message ?? 'Unknown error' });
                 }
             }
@@ -1429,6 +1440,7 @@ export class MyMCP extends McpAgent {
             'get_messages_for_period',
             getMessagesForPeriodParams.shape,
             async ({ conversation_id, message_id, period_start, period_end }) => {
+                console.log('[Worker] get_messages_for_period called', { conversation_id, period_start, period_end });
                 try {
                     const normalizedConversationId = this.normalizeId(conversation_id, 'conversation_id');
                     const normalizedMessageId = this.normalizeId(message_id, 'message_id');
@@ -1443,28 +1455,34 @@ export class MyMCP extends McpAgent {
 
                     const ancestorIds = await this.getAncestralMessageIds(normalizedConversationId, normalizedMessageId);
                     const uniqueAncestorIds = Array.from(new Set(ancestorIds));
+                    console.log(`[Worker] Found ${uniqueAncestorIds.length} ancestor message IDs for period query`);
 
                     if (uniqueAncestorIds.length === 0) {
+                        console.log('[Worker] No ancestors found, returning empty messages');
                         return createToolResponse('get_messages_for_period', true, { messages: [] });
                     }
 
+                    console.log(`[Worker] Querying chat_messages: thread_id=${normalizedConversationId}, created_at >= ${normalizedPeriodStart} AND < ${normalizedPeriodEnd}`);
                     const { data, error } = await supabase
                         .from('chat_messages')
                         .select('*')
                         .eq('thread_id', normalizedConversationId)
                         .in('id', uniqueAncestorIds)
                         .gte('created_at', normalizedPeriodStart)
-                        .lte('created_at', normalizedPeriodEnd)
+                        .lt('created_at', normalizedPeriodEnd)
                         .order('created_at', { ascending: true });
 
                     if (error) {
+                        console.error('[Worker] Failed to fetch messages for period from database:', error);
                         throw new Error(`Failed to fetch messages for period: ${error.message}`);
                     }
 
                     const messages = (data ?? []) as ChatMessageRow[];
+                    console.log(`[Worker] Found ${messages.length} messages in period ${normalizedPeriodStart} to ${normalizedPeriodEnd}`);
 
                     return createToolResponse('get_messages_for_period', true, { messages });
                 } catch (error: any) {
+                    console.error('[Worker] get_messages_for_period error:', error);
                     return createToolResponse('get_messages_for_period', false, undefined, { message: error?.message ?? 'Unknown error' });
                 }
             }
