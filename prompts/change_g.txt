@@ -1,0 +1,76 @@
+**IMPORTANT: THE NAME OF THIS IS "CHANGE G - IMPLEMENT DECLARATIVE FUZZY TIME BOUNDARIES". "CHANGE G" MUST BE INCLUDED AT THE BEGINNING OF THE NAME**
+
+### Part 1 — Comprehensive Project Context: Change G
+
+This document equips a fresh agent with complete context for Change G: declarative fuzzy time boundaries. It details the product, architecture, rendering surfaces, and the data patterns needed to introduce fuzzy boundaries without schema churn.
+
+Product identity and purpose
+- LifeCurrents is a Vite/React/TypeScript SPA to align daily actions with long‑term goals via:
+  - Causal graph visualization (React Flow),
+  - AI chat integrated with MCP tools (Worker),
+  - Preview build ingest/review (Supabase Realtime),
+  - In‑app audio transcription (Worker → Groq),
+  - PWA service worker for updates.
+
+Architecture overview
+- Frontend
+  - `CausalGraph.tsx` renders graph nodes/edges from `graph_documents` and triggers initial fit; panels show daily/time‑based views.
+  - `DailyCalendarPanel.tsx` (or similar timeline component) renders time‑boxed tasks from node metadata (`scheduled_start`, optional end) as calendar rows/blocks.
+  - Hooks: `useGraphData` (load/transform nodes), `useChatContext`, `useMcp`, etc.
+  - UI kit: shadcn/ui + Tailwind tokens; gradients and transparency for fades.
+
+- Backend (Worker)
+  - MCP tools: `get_graph_structure`, `get_todays_context`, and `patch_graph_document` handle reading and writing node data. The Worker simply persists arbitrary JSON fields in nodes (e.g., a `FuzzyBoundary` object) since it applies JSON Patch without bespoke validation.
+
+- Data (Supabase)
+  - `graph_documents` (id→JSONB) stores nodes keyed by id with fields like `label`, `type`, `status`, `parents`, `percentage_of_parent`, optional `scheduled_start`. This JSONB can store additional structured objects; no DDL is required for Change G.
+
+What Change G delivers
+- A declarative representation of fuzzy boundaries around a `scheduled_start` or `scheduled_end` using a structured object, e.g.:
+  ```ts
+  type FuzzyBoundary = { time: string; fuzzy_minutes: number };
+  type Scheduled = string | FuzzyBoundary;
+  ```
+- Rendering logic that interprets a `FuzzyBoundary` by calculating a fade window around its center `time` and paints a transparent gradient (fade‑in or fade‑out) over the task block.
+- Natural color blending where two adjacent tasks both declare fuzzy boundaries due to overlapping transparent gradients (no special color‑mixing math necessary).
+
+Surfaces likely to change
+- Type definitions (frontend) for node metadata: allow `scheduled_start` and/or `scheduled_end` to be a union of `string | FuzzyBoundary`.
+- Calendar/timeline component: parse the union type; compute fade ranges using half of `fuzzy_minutes` before/after `time`; apply CSS linear‑gradient with alpha to construct fade zones.
+- System instruction: teach models how to emit `FuzzyBoundary` when the user describes soft transitions (e.g., "around 23:00 over ~30 minutes").
+- MCP: no code changes required; JSON Patch already supports arbitrary shape.
+
+Quality bars
+- Keep the rendering efficient: compute fade windows once per render; avoid reflow loops.
+- Maintain accessibility: visual fades must maintain legibility and not hide critical contrast for text within blocks.
+- Backward compatibility: plain string timestamps continue to render with hard boundaries.
+
+Naming directive
+- The canonical name of this effort is **Change G**. Prefix branches/PRs/commits accordingly (e.g., `Change G - Fuzzy boundaries`). This overrides other naming schemes.
+
+---
+
+### Part 2 — Directive: Change G - Implement Declarative Fuzzy Time Boundaries
+
+**Objective:**
+To introduce a "fuzzy boundary" concept for tasks, allowing the AI and user to define a duration of ambiguity around a start or end time. The frontend will interpret this data to render a visual, transparent gradient, creating a natural "fade" effect where tasks overlap in the calendar view.
+
+**User Story:**
+As a user, I want to be able to schedule my tasks in a way that reflects the fluid nature of real life. For transitions like "finishing work" and "starting family time," I want to define the boundary as "fuzzy" (e.g., "ending around 5 PM over 30 minutes"). I expect to see this represented visually on my calendar as a soft, gradual fade from one task into the next, rather than a hard, unrealistic cutoff.
+
+**Current Behavior (The Problem):**
+All tasks have hard start and end times. There is no way to represent a gradual, ambiguous transition between two activities. Any overlap in the schedule is treated as a conflict or a rendering anomaly, not as an intentional "fuzzy" period.
+
+**Required Behavior (The Solution):**
+1.  **A New Data Structure for Fuzziness:** The system must support a new, declarative way to define a fuzzy time boundary. Instead of a simple time string, a task's `scheduled_start` or `scheduled_end` should be able to be an object that specifies both a center `time` and a `fuzzy_minutes` duration.
+2.  **AI Understanding:** The AI assistant must be taught this new syntax so that when a user describes a fuzzy transition, the AI can correctly structure the data to represent that intent.
+3.  **Visual Representation as a Gradient:** The UI component that renders the schedule must be updated to interpret this new data structure.
+    *   When it encounters a fuzzy boundary, it must render that portion of the task as a `linear-gradient`.
+    *   For a fuzzy end time, the gradient should fade from the task's solid color to `transparent`.
+    *   For a fuzzy start time, the gradient should fade from `transparent` to the task's solid color.
+4.  **Automatic Color Blending:** The implementation must use transparency in the gradients. This will ensure that when two adjacent tasks both have fuzzy boundaries, their transparent fades will overlap and create a natural, blended color effect (e.g., yellow fading to transparent over blue fading to transparent will create a region of green) without needing any complex color-mixing logic.
+
+**Implementation Directive:**
+The title of this initiative is **Change G**. Use this identifier (e.g., "Change G - ...") in any resulting commits or branches. This overrides any other naming conventions.
+
+You are to analyze the existing `Node` data structure and the frontend component responsible for rendering the schedule. You will design and implement the necessary changes to support this feature. You are responsible for defining the new `FuzzyBoundary` object structure within the application's types, updating the AI's system instructions to teach it this new format, and implementing the UI logic to parse this data and render the correct transparent gradient effects. No backend changes are required for this task.

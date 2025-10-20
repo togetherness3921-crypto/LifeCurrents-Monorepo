@@ -1,0 +1,84 @@
+**IMPORTANT: THE NAME OF THIS IS "CHANGE C - IMPLEMENT REAL-TIME AUDIO CHUNKING AND TRANSCRIPTION". "CHANGE C" MUST BE INCLUDED AT THE BEGINNING OF THE NAME**
+
+### Part 1 — Comprehensive Project Context: Change C
+
+This document equips a fresh agent with everything needed to deliver Change C. It explains the product, codebase, and the surfaces most relevant to real-time audio chunking and transcription.
+
+Project identity and purpose
+- LifeCurrents is a Vite/React/TypeScript SPA. It helps users align daily actions with long‑term goals through:
+  - Causal graph visualization (React Flow).
+  - AI chat with MCP tools hosted on a Cloudflare Worker.
+  - PR preview ingestion and review (Supabase Realtime).
+  - In‑app audio transcription appended to the chat input.
+  - PWA service worker for rapid upgrades.
+
+High‑level architecture
+- Frontend (React/Vite/TS)
+  - Chat surface: `src/components/chat/ChatPane.tsx` (streams LLM updates, collects tool calls, executes tools, sends follow‑ups); `ChatMessage.tsx` (renders message UI); `SettingsDialog.tsx` (config tabs).
+  - Hooks: `useAudioTranscriptionRecorder` orchestrates MediaRecorder, chunk creation, queueing, retries, and final transcript assembly. `useMcp` exposes MCP tools via the Worker. `useModelSelection`, `useConversationContext`, `useSystemInstructions` feed the chat pipeline. `usePreviewBuilds` handles realtime builds.
+  - Services: `src/services/transcription.ts` posts `FormData` with audio chunks to `${VITE_WORKER_BASE_URL}/api/transcribe`.
+  - Transport to models: `src/services/openRouter.ts` provides `getGeminiResponse`, streaming content, reasoning, and tool_calls. A tool‑call gate aborts on the first partial tool_call and re‑requests non‑stream for a complete payload when needed.
+  - Recording UI: `RecordingStatusBar.tsx` (waveform, timer, status), `ConnectivityStatusBar.tsx` (queued/failure/retry indicators); these consume state from the recorder hook.
+
+- Backend (Cloudflare Worker `remote-mcp-server-authless/`)
+  - `src/index.ts` defines `/api/transcribe` which proxies to Groq `whisper-large-v3` using secret `GROQ_API_KEY`.
+  - MCP tools are unrelated to transcription but coexist in the same Worker (SSE `/sse`, RPC `/mcp`).
+
+- Data (Supabase)
+  - Not directly involved in audio uploads; the Worker proxies transcription to Groq and returns text; frontend appends to the chat input (not auto‑sent).
+
+Code layout of interest
+- `src/hooks/useAudioTranscriptionRecorder.ts` — orchestrates MediaRecorder lifecycle, chunk edges, queue, retries, and final transcript.
+- `src/components/chat/RecordingStatusBar.tsx` — renders waveform, timer, and controls; must reflect recording vs processing states.
+- `src/services/transcription.ts` — posts each chunk to Worker.
+- `src/components/chat/ChatPane.tsx` — consumes final transcript via callback to append text to input.
+
+Operational expectations
+- While recording, chunks are produced at 30s intervals; each chunk should immediately enter a bounded‑concurrency upload/transcribe queue.
+- On stop, only the last partial chunk remains to process; overall finalize should be rapid.
+- UI must change from Recording → Processing instantly on stop; timer freezes; waveform hides; an indicator communicates “processing final chunk…”.
+- Connectivity bar must show queued failures and allow retry.
+
+What Change C delivers (high level)
+- Real‑time chunk processing pipeline with responsive UI feedback and near‑instant finalization when stopping.
+
+Constraints & expectations
+- Concurrency must be bounded; backoff/retry on failures; resilient to intermittent connectivity.
+- Never lose recorded audio when failures occur; queue persists in component state during the session.
+- Final transcript must be assembled in chronological order of chunk timestamps.
+- Avoid blocking the UI thread; keep waveform smooth.
+
+Surfaces likely to change
+- `useAudioTranscriptionRecorder.ts`: switch `ondataavailable` to finalize each chunk immediately; maintain state machine for `queued/uploading/completed/failed`; add `isProcessing` state set on stop until final transcript assembled.
+- `RecordingStatusBar.tsx` and `ConnectivityStatusBar.tsx`: reflect `isProcessing`, chunk counters `completed/total`, and control availability; hide waveform when processing.
+- `transcription.ts`: ensure per‑chunk POST with metadata (sequence index, timestamps) for proper ordering.
+
+Naming directive
+- The canonical name of this effort is **Change C**. Prefix branches/PRs/commits accordingly (e.g., `Change C - Real-time chunking`). This overrides other naming schemes for pipeline traceability.
+
+---
+
+### Part 2 — Directive: Change C - Implement Real-Time Audio Chunking and Transcription
+
+**Objective:**
+To refactor the audio transcription feature to process audio in 30-second chunks *during* the recording, not after. This will eliminate the long processing delay when a recording is stopped and provide a responsive, real-time user experience.
+
+**User Story:**
+As a user, when I record a long audio message, I want the transcription to begin immediately in the background, chunk by chunk, and I want the UI to show me this real-time progress. When I click "Stop," I expect the final, complete transcript to appear almost instantly, because the only remaining work should be the transcription of the last few seconds of audio.
+
+**Current Behavior (The Problem):**
+The application currently defers all transcription work until after the recording is stopped. While recording, audio data is collected in memory. When the user clicks "Stop," all the collected data is sent for transcription at once. This results in a long, frustrating delay for any recording longer than a few seconds, during which the UI is unresponsive and provides no feedback on the progress of the upload or transcription. The chunk counter in the UI is non-functional and misleading.
+
+**Required Behavior (The Solution):**
+1.  **Process Chunks in Real Time:** The system must be modified to process each 30-second chunk of audio as soon as it becomes available *during* the recording session.
+2.  **Provide Real-Time UI Feedback:** The user interface must be updated to reflect this real-time activity:
+    *   The chunk counter (e.g., "X of Y chunks complete") must update dynamically throughout the recording session. As each 30-second interval passes, "Y" should increment. As each chunk's transcription is successfully completed, "X" should increment.
+3.  **Instantaneous "Stop" Action:** Clicking the "Stop" button should be a near-instantaneous operation from the user's perspective.
+    *   The UI must immediately transition from a "Recording" state to a "Processing" state (e.g., hiding the waveform, stopping the timer, and showing a processing indicator).
+    *   The only work remaining upon stopping should be to process the final, partial audio chunk. The final transcript should therefore appear very quickly.
+4.  **Maintain Final Transcript Assembly:** The system must still wait until all chunks (including the final partial one) are transcribed before assembling them in the correct order and appending the complete text to the chat input.
+
+**Implementation Directive:**
+The title of this initiative is **Change C**. Use this identifier (e.g., "Change C - ...") in any resulting commits or branches. This overrides any other naming conventions.
+
+You are to analyze the existing audio recording logic, primarily within the `useAudioTranscriptionRecorder.ts` hook. You will refactor this hook to move from a "record-then-process" model to a "record-and-process-in-parallel" model. You are responsible for determining the specific implementation details, including modifying the `MediaRecorder` event handlers, introducing a new "processing" state for the UI, and ensuring the user interface components are updated to provide the required real-time feedback.

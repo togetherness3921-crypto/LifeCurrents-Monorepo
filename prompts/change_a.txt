@@ -1,0 +1,129 @@
+**IMPORTANT: THE NAME OF THIS IS "CHANGE A - IMPLEMENT STATEFUL VERSIONED GRAPH HISTORY". "CHANGE A" MUST BE INCLUDED AT THE BEGINNING OF THE NAME**
+
+### Part 1 — Comprehensive Project Context: Change A
+
+This document equips a fresh agent with everything needed to work in this repository and successfully deliver Change A. It provides a complete, accurate picture of the product vision, architecture, data model, code layout, operational behavior, and the specific surfaces relevant to Change A.
+
+Project identity and purpose
+- LifeCurrents is a Vite/React/TypeScript SPA that helps users align daily actions with long‑term goals.
+- Core pillars:
+  - A causal graph (React Flow) to model objectives and dependencies.
+  - An AI chat interface (OpenRouter models) integrated with MCP tools hosted on a Cloudflare Worker.
+  - Preview build ingestion and review inside the app (Supabase Realtime).
+  - In‑app audio transcription that appends text into the chat input (Worker proxies to Groq Whisper).
+  - PWA behavior via a service worker for seamless updates.
+
+High‑level architecture
+- Frontend (React/Vite/TS)
+  - Entry: `src/main.tsx`, app shell/routing: `src/App.tsx`, pages in `src/pages/`.
+  - Chat experience: `src/components/chat/ChatPane.tsx` (streaming, tool calls, follow‑up), `ChatMessage.tsx` (message rendering), `SettingsDialog.tsx` (multi‑tab settings).
+  - Hooks that expose domain state:
+    - `useChatContext` (threads/messages/drafts), `useModelSelection`, `useSystemInstructions`.
+    - `useMcp` (connects to MCP Worker), `useConversationContext` (message transforms),
+      `useAudioTranscriptionRecorder` (MediaRecorder chunking), `usePreviewBuilds` (Supabase realtime).
+  - UI kit: `shadcn/ui`, icons: `lucide-react`.
+  - React Flow graph: `src/components/CausalGraph.tsx` renders and fits the graph and orchestrates layout.
+  - Transport to models (OpenRouter): `src/services/openRouter.ts` with a streaming client (`getGeminiResponse`) that emits content, reasoning, and tool call deltas; a gate is used to switch to non‑stream for complete tool call payloads when required by certain models.
+
+- Backend (Cloudflare Worker project `remote-mcp-server-authless/`)
+  - Entry: `remote-mcp-server-authless/src/index.ts`.
+  - Endpoints:
+    - `/sse` and `/mcp` for MCP (SSE + RPC) to expose tools to the model.
+    - `/api/transcribe` to proxy audio to Groq Whisper (`whisper-large-v3`) using Worker secret `GROQ_API_KEY`.
+  - MCP tools implemented in `MyMCP` (Zod‑validated inputs):
+    - `get_system_instructions()` → returns the current instruction content.
+    - `update_system_instructions(new_instructions_content)` → persists content to Supabase.
+    - `get_todays_context()` → returns nodes relevant to today and score context.
+    - `get_graph_structure(start_node_id, depth)` → returns a subgraph and true‑percentage calculations.
+    - `patch_graph_document(patches)` → applies RFC‑6902 JSON Patch via `fast-json-patch`, recalculates child percentages, persists to Supabase, and returns the updated document plus score context.
+
+- Data (Supabase)
+  - `graph_documents` (id→JSONB data): primary store of nodes, edges/relationships via `parents`, and viewport.
+  - `system_instructions` (id, title, content, timestamps): source of truth for model instructions.
+  - `preview_builds` (CI‑ingested Pages previews) consumed in the app with realtime updates.
+  - For Change A (already provisioned): `graph_document_versions` (id, data, created_at); `chat_messages.graph_document_version_id` (nullable FK) — used to bind a message to a specific graph snapshot.
+
+Core frontend flows
+- Chat + tool calling
+  - Client assembles messages (system + history + user), optionally provides tool definitions to the model, streams response chunks (content/reasoning/tool_calls), and, if tools are requested, calls MCP tools through the Worker.
+  - After executing tools, the client sends a follow‑up turn containing tool call messages and tool results to continue the conversation.
+  - A streaming gate converts partial tool‑call deltas to a single non‑stream re‑request for providers that stream tool calls in fragments.
+- Audio transcription
+  - `useAudioTranscriptionRecorder` orchestrates MediaRecorder, produces 30s chunks, queues uploads, retries, and appends the final transcript to the chat input once all chunks are complete.
+- Graph visualization
+  - `CausalGraph.tsx` renders the graph using React Flow, triggers an initial fit view, and relies on `graph_documents` JSON for rendering + layout.
+- Preview builds
+  - GH Action + script insert rows into `preview_builds`. `usePreviewBuilds` subscribes to realtime and drives Settings badge + list UI.
+
+Configuration and secrets
+- Frontend env: `VITE_WORKER_BASE_URL`, Supabase URL + anon key, `VITE_OPENROUTER_API_KEY`.
+- Worker secrets: `GROQ_API_KEY`.
+- Do not expose secrets in the client. All third‑party key usage flows through the Worker.
+
+Code layout (high‑value locations)
+- Frontend `src/`
+  - `components/chat/` (ChatPane, ChatMessage, SettingsDialog, RecordingStatusBar, etc.)
+  - `components/` (CausalGraph, panels, UI atoms in `components/ui/`)
+  - `hooks/` (chat/model/mcp/system-instructions/audio/preview builds/service worker)
+  - `services/` (openRouter, transcription, layout/services, etc.)
+  - `integrations/supabase/` (client and types)
+  - `lib/` (config, mcp client, serviceWorkerManager)
+- Worker `remote-mcp-server-authless/` (MCP tools + `/api/transcribe`)
+- Supabase
+  - `supabase/migrations/` for schema history and `scripts/apply_and_verify_schema.cjs` for targeted DDL.
+- Sync utilities
+  - `scripts/supabase-sync.js` (two‑way sync of `synced_files/graph_data.json` and system instructions file), plus `auto-sync.cjs` root watcher and sub‑project auto‑sync.
+
+Operational behavior & quality bars
+- PWA: safe activation and optional SKIP_WAITING.
+- Realtime: dedupe list updates on client.
+- Accessibility: keyboard shortcuts for mic, ARIA labels, status messages for retries.
+- Performance: audio waveform smooth; concurrent uploads bounded; graph layout fast; streaming UI responsive.
+- Security: keys never in the client; Worker owns secret‑bearing calls.
+
+What Change A delivers (high level)
+- A “stateful timeline” for the graph. Each graph‑modifying AI action snapshots the full graph JSON into `graph_document_versions` and links the resulting assistant message to that snapshot via `chat_messages.graph_document_version_id`.
+- Clicking any message restores the graph view to the linked snapshot (or to a defined default state for messages without a snapshot), enabling forking from historical context.
+
+Constraints & expectations for Change A
+- Backfill behavior: old messages without a version id must not break the UI; revert to a configurable default.
+- Snapshot atomicity: creation of a new graph snapshot and message linkage must be consistent with the patch that produced it.
+- UX clarity: users should understand when they are in a historical view vs the live graph, and can return to the live state.
+
+Surfaces you will likely touch
+- Worker: `patch_graph_document` (after successful persistence, create snapshot row and surface the new version id in the tool response payload).
+- Frontend:
+  - Chat pipeline in `ChatPane.tsx` to capture `new_graph_version_id` from tool results and store it on the corresponding assistant message.
+  - Chat state (`useChatContext`) to persist/load the `graph_document_version_id` field.
+  - Graph loader/view state (e.g., a small adapter in the graph rendering flow) to fetch and render the snapshot when a message is selected.
+  - UI affordance to indicate “Historical view” + “Return to live”.
+- Database: already provisioned schema (verify indices/permissions as needed).
+
+Naming directive
+- The formal, canonical name of this effort is **Change A**. Use this exact moniker at the start of every branch name, PR title, commit subject, and any generated document (e.g., `Change A - Stateful graph versions`). This directive overrides other naming conventions so downstream tools and humans can trace lineage across forks.
+
+---
+
+### Part 2 — Directive: Change A - Implement Stateful, Versioned Graph History
+
+**Objective:**
+Implement a "stateful timeline" that links the application's core graph data state to the conversation history. When a user interacts with a message in a thread, the application's graph must revert to the exact state it was in when that message was created. This will enable true "time-travel" within a conversation, allowing users to fork or continue from any past point with the correct historical context.
+
+**User Story:**
+As a user, when I click on a message from a past conversation, I want the main graph visualization to instantly update, showing me exactly what the graph looked like at that specific moment in time, so I can accurately understand the context of that part of the conversation and branch off from it if I choose.
+
+**Current Behavior (The Problem):**
+The application is stateless. The graph view *only* displays the single, most recent "live" version of the graph data. There is no link between the messages in the chat history and the historical states of the graph. Clicking on old messages has no effect on the graph visualization.
+
+**Required Behavior (The Solution):**
+1.  **Snapshot on Change:** The system must automatically save an immutable snapshot of the entire `graph_documents` data every time it is modified by an AI tool call.
+2.  **Link to History:** The assistant message that is generated *following* a graph modification must be permanently linked to the new graph snapshot that was just created.
+3.  **Revert on Interaction:** Clicking on any message in the chat history must trigger a state change:
+    *   If the message has a linked graph snapshot, the main graph view must immediately re-render to display that historical state.
+    *   If the message has no linked snapshot (e.g., it's an old message created before this system existed, or the turn did not involve a graph change), the graph view must revert to a pre-defined "default" state.
+4.  **Seamless Forking:** This time-travel functionality must be seamless. When a user forks a conversation from a historical point, any subsequent AI interactions must operate on that historical graph state, ensuring perfect contextual continuity.
+
+**Implementation Directive:**
+The title of this initiative is **Change A**. Use this identifier (e.g., "Change A - ...") in any resulting commits or branches. This overrides any other naming conventions.
+
+You are to analyze the existing architecture, including the database schema, the backend MCP server, and the frontend state management. Based on this analysis, you will design and implement the necessary full-stack changes to enable this feature. You are responsible for determining the specific implementation details, such as creating new database tables for versioning, modifying the tool-call logic on the backend to create snapshots, and updating the frontend to handle state reversion on user interaction. The necessary database schema changes have already been applied: a `graph_document_versions` table now exists, and a `graph_document_version_id` foreign key has been added to the `chat_messages` table.

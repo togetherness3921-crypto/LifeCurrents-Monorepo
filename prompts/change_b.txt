@@ -1,0 +1,98 @@
+**IMPORTANT: THE NAME OF THIS IS "CHANGE B - IMPLEMENT CLAUDE-INSPIRED UI REDESIGN". "CHANGE B" MUST BE INCLUDED AT THE BEGINNING OF THE NAME**
+
+### Part 1 — Comprehensive Project Context: Change B
+
+This document equips a fresh agent with everything needed to work in this repository and successfully deliver Change B. It provides a complete picture of the product vision, architecture, data model, code layout, operational behavior, and the specific surfaces relevant to Change B (UI redesign).
+
+Project identity and purpose
+- LifeCurrents is a Vite/React/TypeScript SPA that helps users align daily actions with long‑term goals through:
+  - A causal graph (React Flow) modeling objectives and dependencies.
+  - An AI chat interface (OpenRouter) integrated with MCP tools hosted on a Cloudflare Worker.
+  - PR preview ingest/review in‑app (Supabase Realtime).
+  - In‑app audio transcription (Worker → Groq Whisper) appended to chat input.
+  - PWA service worker for seamless updates.
+
+High‑level architecture
+- Frontend (React/Vite/TS)
+  - Entry `src/main.tsx`; shell/routing `src/App.tsx`; pages in `src/pages/`.
+  - Chat flow: `src/components/chat/ChatPane.tsx` (streaming, tool calling), `ChatMessage.tsx` (rendering), `SettingsDialog.tsx` (multi‑tab: Instructions/Context/Model/Builds).
+  - Hooks: `useChatContext` (threads/messages), `useModelSelection`, `useSystemInstructions`, `useConversationContext`, `useMcp`, `useAudioTranscriptionRecorder`, `usePreviewBuilds`, `useServiceWorkerRefresh`.
+  - Graph: `src/components/CausalGraph.tsx` uses React Flow; initial fit; coordinates layout.
+  - Transport: `src/services/openRouter.ts` streams content, reasoning, and tool_calls with a tool‑call streaming gate for models that stream partial tool_call deltas (re‑requests non‑stream for a complete payload).
+  - UI kit: `shadcn/ui` + `lucide-react`; styling via Tailwind with theme tokens.
+
+- Backend (Cloudflare Worker `remote-mcp-server-authless/`)
+  - Entry `src/index.ts`; MCP over `/sse` and `/mcp`; audio `/api/transcribe` proxy to Groq (secret `GROQ_API_KEY`).
+  - MCP tools: `get_system_instructions`, `update_system_instructions`, `get_todays_context`, `get_graph_structure`, `patch_graph_document` (RFC‑6902 patches + percentage recalculation + Supabase persistence).
+
+- Data (Supabase)
+  - `graph_documents` (id→JSONB document with nodes + viewport),
+  - `system_instructions` (id/title/content),
+  - `preview_builds` (PR → Pages preview URLs; realtime in UI),
+  - Additional tables (e.g., chat threads/messages) power chat UX.
+
+Code layout (high‑value locations)
+- `src/components/ui/` (buttons, inputs, accordion, badge, dialog, slider, etc.)
+- `src/components/chat/` (ChatPane, ChatMessage, SettingsDialog, RecordingStatusBar)
+- `src/components/` (CausalGraph, Daily panels)
+- `src/index.css`, `src/custom-styles.css`, Tailwind config `tailwind.config.ts`
+- Icons and assets under `public/` and `src/components/ui/`
+
+Operational expectations
+- PWA updates with explicit refresh banner (via `useServiceWorkerRefresh`).
+- Realtime updates (Supabase) drive Builds badge and list without page refresh.
+- Accessibility (ARIA, keyboard mic toggle), performance (smooth waveform; efficient graph rendering), and security (no client secrets).
+
+What Change B delivers (high level)
+- A polished, light, warm theme inspired by Claude’s UI. The new theme must feel inviting, professional, and cohesive across all surfaces, with careful attention to color balance, contrast, and hierarchy.
+
+Constraints & expectations for Change B
+- Theme must be centrally tokenized (Tailwind theme) so components inherit the palette.
+- Maintain readability/contrast ratios; avoid pure black text—prefer charcoal/brown to reduce eye strain.
+- Provide subtle component separation via neutral borders and elevated backgrounds—no heavy shadows.
+- Causal graph nodes/edges should harmonize with the new palette while preserving clarity (active/selected/hover states clear).
+
+Surfaces you will likely touch
+- Tailwind theme: `tailwind.config.ts` (extend colors: background/foreground/primary/muted/border/card/secondary etc.).
+- Global styles: `src/index.css`, `src/custom-styles.css` (set body background, text color defaults, selection, focus rings).
+- UI components: `src/components/ui/*` (override hardcoded colors if present; ensure reliance on Tailwind tokens).
+- Chat surfaces: `ChatPane.tsx`, `ChatMessage.tsx`, `SettingsDialog.tsx` (panel surfaces, accordions, badges, think/tool sections).
+- Graph visuals: `CausalGraph.tsx` (node fill/stroke/selected, background grid color, edge colors consistent with theme tokens).
+- Recording UI: `RecordingStatusBar.tsx`, `ConnectivityStatusBar.tsx` (status colors aligned with palette).
+- Favicon/manifest if necessary to match brand feel.
+
+Quality bars
+- Uniformity: all components consume theme tokens; no stray hex codes.
+- Tested across light/dark environments (even if removing dark mode now, ensure no leftover dark tokens break UI).
+- Screenshots before/after for review in PR.
+
+Naming directive
+- The canonical name of this effort is **Change B**. Prefix all branches/PRs/commits and internal docs with this moniker (e.g., `Change B - Theme tokens and palette`). This overrides other naming schemes for pipeline traceability.
+
+---
+
+### Part 2 — Directive: Change B - Implement Claude-Inspired UI Redesign
+
+**Objective:**
+To completely overhaul the application's visual theme, transitioning from the current dark mode to a light, minimalist, and professional aesthetic directly inspired by the Claude AI platform. The goal is to create a more inviting, warm, and focused user experience by adopting its color palette and design philosophy.
+
+**User Story:**
+As a user, I want the application to have a beautiful, clean, and modern interface that feels warm and professional, similar to the Claude AI platform. The current dark theme feels heavy, and I want a lighter, more refined aesthetic that makes the application pleasant to use for extended periods.
+
+**Current Behavior (The Problem):**
+The application uses a standard dark theme. While functional, it lacks a distinct, polished brand identity and can feel generic and utilitarian.
+
+**Required Behavior (The Solution):**
+1.  **Adopt the New Color Palette:** The entire application must be re-themed to match the provided screenshots of the Claude AI interface. This includes:
+    *   **Background:** A warm, soft, off-white/cream color as the primary canvas.
+    *   **Text:** A dark, desaturated brown or charcoal for all text to ensure high readability without the harshness of pure black.
+    *   **Accent:** A muted, warm orange/coral for primary interactive elements like the "Send" button and other key highlights.
+    *   **UI Elements:** Pure white for input fields to create subtle contrast, and soft grays/beiges for borders, inactive elements, and secondary panels.
+2.  **Maintain Visual Hierarchy:** The redesign must preserve a clear visual hierarchy. Use subtle borders and slight variations in background color to delineate different UI sections (like the "Thought Process" or "Tool Call" panels) without creating a cluttered feel.
+3.  **Component Consistency:** All UI components, including buttons, input fields, accordions, dialogs, and the causal graph itself, must be updated to align with the new theme for a cohesive experience.
+4.  **Preserve Readability and Usability:** The new theme must maintain or improve the readability of all text and the usability of all interactive elements.
+
+**Implementation Directive:**
+The title of this initiative is **Change B**. Use this identifier (e.g., "Change B - ...") in any resulting commits or branches. This overrides any other naming conventions.
+
+You are to analyze the provided screenshots to extract the target color palette and design principles. Based on this analysis, you will refactor the application's styling, primarily by updating the theme configuration in `tailwind.config.ts` and making targeted adjustments to global CSS and individual components as needed. You are responsible for ensuring the final result is a polished, professional, and comprehensive implementation of the new aesthetic across the entire application.

@@ -1,0 +1,74 @@
+**IMPORTANT: THE NAME OF THIS IS "CHANGE I - IMPLEMENT SEQUENTIAL AND INTERLEAVED UI FOR ASSISTANT RESPONSES". "CHANGE I" MUST BE INCLUDED AT THE BEGINNING OF THE NAME**
+
+### Part 1 — Comprehensive Project Context: Change I
+
+This document equips a fresh agent to implement Change I: render assistant turns as an ordered, interleaved sequence of steps (thinking, tool calls, text) rather than overwriting single fields. It describes the chat pipeline, current data model, and the surfaces to refactor.
+
+Product and architecture essentials
+- LifeCurrents is a Vite/React/TypeScript SPA that unifies:
+  - A causal graph (React Flow),
+  - An AI chat integrated with MCP tools (Cloudflare Worker),
+  - Preview build ingest/review (Supabase Realtime),
+  - Audio transcription (Worker → Groq), and
+  - PWA upgrades.
+
+Chat pipeline overview
+- `src/components/chat/ChatPane.tsx` drives the conversation turn:
+  - Builds messages (system → history → user),
+  - Calls `getGeminiResponse` to stream deltas (content, reasoning, tool_calls),
+  - On tool_calls: executes them via `useMcp().callTool` and sends a follow‑up turn with tool_call + tool results messages,
+  - Uses a tool‑call streaming gate (abort + non‑stream re‑request) for models that stream partial tool_calls.
+- `src/services/openRouter.ts` reads SSE chunks, parsing deltas for content (assistant text), reasoning (thinking tokens), and tool_calls; provides `onStream` callback updates.
+- `src/components/chat/ChatMessage.tsx` renders a single message bubble; currently shows a single "thinking" block, a block of tool calls, and a single text content region—later deltas overwrite earlier ones.
+- `useChatContext` stores threads/messages/drafts and offers helpers to update messages.
+
+Current pain
+- Assistant turns can contain multiple segments of thinking and text interleaved with tool calls. The current UI overwrites earlier thinking/text with later segments, losing the narrative of how the assistant arrived at its final answer.
+
+What Change I delivers
+- A new assistant message structure that is an ordered array of `steps`, where each step is one of:
+  - `{ type: 'thinking', content: string }`
+  - `{ type: 'tool_call', call: ToolCall }` (with status/response if applicable)
+  - `{ type: 'text', content: string }`
+- Rendering that maps over `steps` in order and displays each element with the appropriate component (accordion for thinking/tool_call; paragraph for text), preserving chronology.
+
+Surfaces likely to change
+- Types/state (`useChatContext`): update the `Message` interface to add `steps?: AssistantStep[]`, keep `content` for user messages; deprecate assistant‑only top‑level `thinking`/`toolCalls`/`content` in favor of `steps`.
+- Streaming assembly (`ChatPane.tsx`): in `onStream`, append new steps:
+  - When `reasoning` arrives: append or coalesce with the last thinking step,
+  - When `toolCall` delta arrives: create/update a tool_call step for that id,
+  - When `content` arrives: append or coalesce with the last text step.
+- Tool execution updates: when results arrive, locate the matching tool_call step and attach `response`/`status`.
+- Rendering (`ChatMessage.tsx`): iterate over `message.steps` and render each with existing components (accordion for thinking/tool_call; plain text block for text), maintaining order.
+
+Quality bars
+- No step is overwritten by a later step; chronology is preserved.
+- Streaming remains smooth; UI updates are batched to avoid layout jank.
+- Backward compatibility: existing messages without `steps` still render (fallback to the legacy fields).
+
+Naming directive
+- The canonical name of this effort is **Change I**. Prefix branches/PRs/commits with this tag (e.g., `Change I - Interleaved assistant steps`). This overrides other naming schemes.
+
+---
+
+### Part 2 — Directive: Change I - Implement Sequential and Interleaved UI for Assistant Responses
+
+**Objective:**
+To refactor the chat message UI to display the assistant's actions—thinking, tool calls, and text output—as a sequential, interleaved log rather than as separate, overwriting sections. Each step in the AI's process should be rendered in the order it occurs, creating a clear, chronological story of how the assistant arrived at its final answer.
+
+**User Story:**
+As a user, when the AI performs a complex, multi-step task involving several thoughts, tool calls, and intermediate text outputs, I want to see a clear, chronological log of these steps in the order they happened. I don't want the AI's later thoughts to erase its earlier thoughts; I want to follow its entire reasoning process from start to finish.
+
+**Current Behavior (The Problem):**
+The UI for an assistant's message is composed of static, separate sections for "thinking," "tool calls," and "text content." When the AI performs a multi-step task, it overwrites the content of these sections. For example, the second "thinking" step erases the first one, and any intermediate text output is lost or conflated with the final answer. This makes it impossible to follow the AI's chain of reasoning.
+
+**Required Behavior (The Solution):**
+1.  **Sequential Rendering:** All components of an assistant's turn (thinking, tool calls, text) must be rendered sequentially in the order they are generated.
+2.  **Interleaved Content:** The UI must support interleaving these different types of content. A valid sequence could be: Thinking -> Tool Call -> Thinking -> Text Output -> Thinking -> Final Answer.
+3.  **No Overwriting:** At no point should a later step in the AI's process overwrite or replace the UI of an earlier step in the same turn. Each new step must be appended to the message bubble.
+4.  **Data Model Evolution:** The underlying data model for an assistant's message must be changed from a single object with discrete properties to an ordered array of "step" objects, where each object represents one part of the sequence (e.g., `{ type: 'thinking', content: '...' }`).
+
+**Implementation Directive:**
+The title of this initiative is **Change I**. Use this identifier (e.g., "Change I - ...") in any resulting commits or branches. This overrides any other naming conventions.
+
+You are to analyze the existing chat message data structure and UI components (`ChatMessage.tsx` and the `useChatContext` state). You will refactor the message data model to support an ordered sequence of steps and update the rendering logic to iterate through and display this sequence chronologically. You are also responsible for modifying the streaming logic in `ChatPane.tsx` to correctly build this new `steps` array as updates arrive from the model.

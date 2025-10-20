@@ -1,0 +1,7 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+
+- To modify system instructions, edit the corresponding file in the `synced_files/system_instructions/` directory. These changes are automatically synced with the Supabase database via the `auto-sync` script.

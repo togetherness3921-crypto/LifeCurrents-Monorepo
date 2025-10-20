@@ -1,0 +1,88 @@
+**IMPORTANT: THE NAME OF THIS IS "CHANGE D - IMPLEMENT PER-CONVERSATION SETTINGS PERSISTENCE". "CHANGE D" MUST BE INCLUDED AT THE BEGINNING OF THE NAME**
+
+### Part 1 — Comprehensive Project Context: Change D
+
+This document equips a fresh agent with the complete context needed to implement Change D: per‑conversation settings persistence. It summarizes product purpose, system architecture, key data models, and the surfaces you will modify.
+
+Product identity and purpose
+- LifeCurrents is a Vite/React/TypeScript SPA to align daily actions with long‑term goals via:
+  - Causal graph visualization (React Flow),
+  - AI chat integrated with MCP tools (Worker),
+  - Preview build ingestion/review (Supabase Realtime),
+  - In‑app audio transcription (Worker → Groq), and
+  - PWA service worker for seamless updates.
+
+Architecture overview
+- Frontend (React/Vite/TS)
+  - `src/components/chat/ChatPane.tsx` orchestrates model streaming, tool calls, and the follow‑up request.
+  - `src/components/chat/ChatMessage.tsx` renders assistant/user messages and tool interactions.
+  - `src/components/chat/SettingsDialog.tsx` renders tabs for Instructions, Context, Model, and Builds.
+  - Hooks powering the chat:
+    - `useChatContext` stores threads/messages/drafts and navigation between branches;
+    - `useModelSelection` stores currently selected model (now to be made thread‑aware);
+    - `useSystemInstructions` loads and manages the active system instruction;
+    - `useConversationContext` manages optional transforms injected into messages;
+    - `useMcp` talks to the Worker; `usePreviewBuilds` handles realtime builds; others provide UX and PWA utilities.
+  - Styling: Tailwind + shadcn/ui components with `lucide-react` icons.
+
+- Backend (Cloudflare Worker `remote-mcp-server-authless/`)
+  - MCP over `/sse` + `/mcp`: tools to read/update graph and instructions; `/api/transcribe` for Whisper proxy.
+  - Not directly used in Change D except if instructions are read for the active thread’s selected instruction.
+
+- Data (Supabase)
+  - `chat_threads` now includes:
+    - `selected_model_id` (text),
+    - `selected_instruction_id` (text; FK to `system_instructions.id`),
+    - `context_config` (jsonb) for arbitrary context/transforms.
+  - `system_instructions` holds available instruction options (id/title/content).
+  - `graph_documents`, `preview_builds`, and others continue to operate as before.
+
+Current frontend behavior (pre‑Change D)
+- Settings behave globally across threads. New threads may start with defaults rather than inheriting the current context. Switching threads does not restore thread‑specific settings automatically.
+
+What Change D delivers
+- Make settings thread‑aware and persistent:
+  - Selecting a model/instruction/context in a thread saves those values to `chat_threads`.
+  - Switching threads restores that thread’s saved settings automatically.
+  - Creating a new thread clones the currently active thread’s settings.
+  - Conversations created prior to this change must gracefully fall back to defaults.
+
+Surfaces likely to change
+- `useChatContext` — extend the `Thread` type with `selectedModelId`, `selectedInstructionId`, `contextConfig`; provide `updateThreadSettings(threadId, settings)` to mutate both local state and Supabase (debounced).
+- `useModelSelection`, `useSystemInstructions`, `useConversationContext` — refactor to derive their selected values from the active thread instead of local hook state; their setters should call `updateThreadSettings`.
+- `SettingsDialog.tsx` — minimal wiring updates to consume the refactored hooks; the UI contract remains the same.
+- Thread creation flow — update `createThread` to copy settings from the active thread or apply initial defaults if none.
+- Data access — Supabase reads/writes for `chat_threads` with the new columns.
+
+Quality bars
+- No regressions in chat behavior; tool‑intent gating and streaming stay intact.
+- No perceptible UI lag when switching threads or saving settings (debounce writes; optimistic updates).
+- Backward compatibility for older threads without settings.
+
+Naming directive
+- The canonical name of this effort is **Change D**. Prefix all branches/PRs/commits with this tag (e.g., `Change D - Thread-aware settings`). This overrides other naming schemes.
+
+---
+
+### Part 2 — Directive: Change D - Implement Per-Conversation Settings Persistence
+
+**Objective:**
+To make the chat settings—specifically the selected Model, System Instruction, and Context—persistent for each individual conversation thread. This ensures that a user's chosen configuration for a conversation is automatically saved and restored, and that new conversations intelligently inherit the settings of the previous one.
+
+**User Story:**
+As a user, I want the application to remember my chosen Model, System Instruction, and Context settings for each of my conversations individually. When I switch between different chat threads, my preferred setup for that specific conversation should be automatically restored without me having to reconfigure it every time. When I start a new chat, it should logically start with the same settings I was just using.
+
+**Current Behavior (The Problem):**
+Settings are applied globally and are not saved per-conversation. If a user configures a specific model and instruction for "Conversation A" and then switches to "Conversation B," those settings incorrectly persist. When they switch back to "Conversation A," they have to manually re-select their original settings. Furthermore, creating a new chat resets to a hardcoded default, ignoring the user's current context.
+
+**Required Behavior (The Solution):**
+1.  **Stateful Conversations:** Each conversation thread must have its own persistent state for the selected Model, System Instruction, and Context configuration.
+2.  **Automatic Restoration:** When a user selects a conversation thread, the application must automatically load and apply the settings that were last saved for that specific thread.
+3.  **Automatic Saving:** Any change made to the settings within a conversation must be automatically and transparently saved for that conversation.
+4.  **Intelligent Inheritance:** When a new conversation is created, it must inherit all the settings from the previously active conversation. This provides a seamless and logical workflow.
+5.  **Graceful Fallback:** For conversations that were created before this system existed (and therefore have no saved settings), the application must gracefully fall back to a predefined default configuration without crashing or losing functionality.
+
+**Implementation Directive:**
+The title of this initiative is **Change D**. Use this identifier (e.g., "Change D - ...") in any resulting commits or branches. This overrides any other naming conventions.
+
+You are to analyze the existing architecture, including the database schema and the frontend state management hooks (`useChatContext`, `useModelSelection`, `useSystemInstructions`, etc.). You will design and implement the necessary full-stack changes to enable this feature. You are responsible for determining the specific implementation details, such as modifying the state management logic to be thread-aware and persisting these settings to the database. The necessary database schema changes have already been applied: the `chat_threads` table now contains `selected_model_id`, `selected_instruction_id`, and `context_config` columns.

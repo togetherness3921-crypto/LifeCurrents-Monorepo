@@ -1,0 +1,634 @@
+{
+  "nodes": {
+    "live_forever": {
+      "type": "objectiveNode",
+      "graph": "main",
+      "label": "Live Forever",
+      "status": "not-started",
+      "parents": [],
+      "createdAt": "2025-09-22T10:00:00.000Z",
+      "percentage_of_parent": 100,
+      "true_percentage_of_total": 100
+    },
+    "tell_mirna_happy": {
+      "type": "objectiveNode",
+      "color": "#d1b3ff",
+      "graph": "main",
+      "label": "Tell Mirna to be happy",
+      "status": "in-progress",
+      "parents": [
+        "mirna_2025_10_19_1900"
+      ],
+      "createdAt": "2025-10-17T21:40:00Z",
+      "scheduled_end": "2025-10-20T00:05:00Z",
+      "scheduled_start": "2025-10-20T00:00:00Z",
+      "percentage_of_parent": 100,
+      "true_percentage_of_total": 0.17647058823529413
+    },
+    "health_development": {
+      "type": "objectiveNode",
+      "color": "#fdfd96",
+      "graph": "main",
+      "label": "Professional Engine: Stein / 5-year / WebDev / Consulting > Health Development",
+      "status": "not-started",
+      "parents": [
+        "live_forever"
+      ],
+      "createdAt": "2025-10-16T22:55:00Z",
+      "percentage_of_parent": 30,
+      "true_percentage_of_total": 30
+    },
+    "build_life_currents": {
+      "type": "objectiveNode",
+      "color": "#bde0fe",
+      "graph": "main",
+      "label": "Build and Use Life Currents (MCP)",
+      "status": "in-progress",
+      "parents": [
+        "health_development"
+      ],
+      "createdAt": "2025-10-16T22:55:00Z",
+      "percentage_of_parent": 50,
+      "true_percentage_of_total": 15
+    },
+    "call_mom_2025_10_16": {
+      "type": "objectiveNode",
+      "color": "#c7f9cc",
+      "graph": "main",
+      "label": "Call Mom (parallel during transit)",
+      "notes": "Parallel task during walk/Uber window.",
+      "status": "in-progress",
+      "parents": [
+        "deep_work_2025_10_17_1030"
+      ],
+      "createdAt": "2025-10-16T22:55:00Z",
+      "scheduled_end": "2025-10-16T23:35:00Z",
+      "scheduled_start": "2025-10-16T22:50:00Z",
+      "percentage_of_parent": 5.882352941176471,
+      "true_percentage_of_total": 0.17647058823529413
+    },
+    "wake_2025_10_18_1000": {
+      "type": "objectiveNode",
+      "color": "#fdfd96",
+      "graph": "main",
+      "label": "Wake + get ready (Sat)",
+      "status": "not-started",
+      "parents": [
+        "deep_work_2025_10_19_1015"
+      ],
+      "createdAt": "2025-10-16T22:55:00Z",
+      "scheduled_end": "2025-10-18T15:40:00Z",
+      "scheduled_start": "2025-10-18T15:00:00Z",
+      "percentage_of_parent": 5.882352941176471,
+      "true_percentage_of_total": 0.17647058823529413
+    },
+    "wake_2025_10_19_0745": {
+      "type": "objectiveNode",
+      "color": "#fdfd96",
+      "graph": "main",
+      "label": "Wake/prep (Sun)",
+      "status": "not-started",
+      "parents": [
+        "deep_work_2025_10_19_1015"
+      ],
+      "createdAt": "2025-10-16T22:55:00Z",
+      "scheduled_end": "2025-10-19T13:15:00Z",
+      "scheduled_start": "2025-10-19T12:45:00Z",
+      "percentage_of_parent": 5.882352941176471,
+      "true_percentage_of_total": 0.17647058823529413
+    },
+    "work_2025_10_18_1530": {
+      "type": "objectiveNode",
+      "color": "#bde0fe",
+      "graph": "main",
+      "label": "Work window (Sat short, high‑leverage)",
+      "status": "not-started",
+      "parents": [
+        "deep_work_2025_10_19_1015",
+        "build_life_currents"
+      ],
+      "createdAt": "2025-10-16T22:55:00Z",
+      "scheduled_end": "2025-10-18T22:30:00Z",
+      "scheduled_start": "2025-10-18T20:30:00Z",
+      "percentage_of_parent": 5.882352941176471,
+      "true_percentage_of_total": 1.0588235294117647
+    },
+    "yoga_2025_10_17_0830": {
+      "type": "objectiveNode",
+      "color": "#fdfd96",
+      "graph": "main",
+      "label": "Yoga (8:30–9:15 am)",
+      "status": "not-started",
+      "parents": [
+        "deep_work_2025_10_17_1030"
+      ],
+      "createdAt": "2025-10-16T22:55:00Z",
+      "scheduled_end": "2025-10-17T14:15:00Z",
+      "scheduled_start": "2025-10-17T13:30:00Z",
+      "percentage_of_parent": 5.882352941176471,
+      "true_percentage_of_total": 0.17647058823529413
+    },
+    "yoga_2025_10_19_0830": {
+      "type": "objectiveNode",
+      "color": "#fdfd96",
+      "graph": "main",
+      "label": "Yoga (Sun 8:30–9:30)",
+      "status": "not-started",
+      "parents": [
+        "deep_work_2025_10_19_1015"
+      ],
+      "createdAt": "2025-10-16T22:55:00Z",
+      "scheduled_end": "2025-10-19T14:30:00Z",
+      "scheduled_start": "2025-10-19T13:30:00Z",
+      "percentage_of_parent": 5.882352941176471,
+      "true_percentage_of_total": 0.17647058823529413
+    },
+    "lunch_2025_10_18_1400": {
+      "type": "objectiveNode",
+      "color": "#ffb3ba",
+      "graph": "main",
+      "label": "Lunch / visit (fuzzy)",
+      "status": "not-started",
+      "parents": [
+        "deep_work_2025_10_19_1015"
+      ],
+      "createdAt": "2025-10-16T22:55:00Z",
+      "scheduled_end": "2025-10-18T20:30:00Z",
+      "scheduled_start": "2025-10-18T19:00:00Z",
+      "percentage_of_parent": 5.882352941176471,
+      "true_percentage_of_total": 0.17647058823529413
+    },
+    "mirna_2025_10_16_2230": {
+      "type": "objectiveNode",
+      "color": "#d1b3ff",
+      "graph": "main",
+      "label": "Mirna time",
+      "status": "in-progress",
+      "parents": [
+        "deep_work_2025_10_17_1030"
+      ],
+      "createdAt": "2025-10-16T22:55:00Z",
+      "scheduled_end": "2025-10-17T05:00:00Z",
+      "scheduled_start": "2025-10-17T03:30:00Z",
+      "percentage_of_parent": 5.882352941176471,
+      "true_percentage_of_total": 0.17647058823529413
+    },
+    "mirna_2025_10_18_2300": {
+      "type": "objectiveNode",
+      "color": "#d1b3ff",
+      "graph": "main",
+      "label": "Mirna time (Sat late)",
+      "status": "not-started",
+      "parents": [
+        "deep_work_2025_10_19_1015"
+      ],
+      "createdAt": "2025-10-16T22:55:00Z",
+      "scheduled_end": "2025-10-19T05:30:00Z",
+      "scheduled_start": "2025-10-19T04:00:00Z",
+      "percentage_of_parent": 5.882352941176471,
+      "true_percentage_of_total": 0.17647058823529413
+    },
+    "mirna_2025_10_19_1900": {
+      "type": "objectiveNode",
+      "color": "#d1b3ff",
+      "graph": "main",
+      "label": "Mirna time (Sun evening)",
+      "status": "in-progress",
+      "parents": [
+        "deep_work_2025_10_19_1015"
+      ],
+      "createdAt": "2025-10-16T22:55:00Z",
+      "scheduled_end": "2025-10-20T03:30:00Z",
+      "scheduled_start": "2025-10-20T00:00:00Z",
+      "percentage_of_parent": 5.882352941176471,
+      "true_percentage_of_total": 0.17647058823529413
+    },
+    "rally_2025_10_18_1040": {
+      "type": "objectiveNode",
+      "color": "#ffb3ba",
+      "graph": "main",
+      "label": "Rally / Estes context",
+      "status": "not-started",
+      "parents": [
+        "deep_work_2025_10_19_1015"
+      ],
+      "createdAt": "2025-10-16T22:55:00Z",
+      "scheduled_end": "2025-10-18T19:00:00Z",
+      "scheduled_start": "2025-10-18T15:40:00Z",
+      "percentage_of_parent": 5.882352941176471,
+      "true_percentage_of_total": 0.17647058823529413
+    },
+    "sleep_2025_10_17_0030": {
+      "type": "objectiveNode",
+      "color": "#f8f9fa",
+      "graph": "main",
+      "label": "Sleep (target 12:30 am)",
+      "status": "in-progress",
+      "parents": [
+        "deep_work_2025_10_17_1030"
+      ],
+      "createdAt": "2025-10-16T22:55:00Z",
+      "scheduled_end": "2025-10-17T12:45:00Z",
+      "scheduled_start": "2025-10-17T05:30:00Z",
+      "percentage_of_parent": 5.882352941176471,
+      "true_percentage_of_total": 0.17647058823529413
+    },
+    "sleep_2025_10_19_0100": {
+      "type": "objectiveNode",
+      "color": "#f8f9fa",
+      "graph": "main",
+      "label": "Sleep (Sat→Sun ~1:00–1:30 am)",
+      "status": "not-started",
+      "parents": [
+        "deep_work_2025_10_19_1015"
+      ],
+      "createdAt": "2025-10-16T22:55:00Z",
+      "scheduled_end": "2025-10-19T12:45:00Z",
+      "scheduled_start": "2025-10-19T06:00:00Z",
+      "percentage_of_parent": 5.882352941176471,
+      "true_percentage_of_total": 0.17647058823529413
+    },
+    "sleep_2025_10_19_2330": {
+      "type": "objectiveNode",
+      "color": "#f8f9fa",
+      "graph": "main",
+      "label": "Sleep (Sun ~11:30 pm)",
+      "status": "in-progress",
+      "parents": [
+        "build_life_currents"
+      ],
+      "createdAt": "2025-10-16T22:55:00Z",
+      "scheduled_end": "2025-10-20T05:30:00Z",
+      "scheduled_start": "2025-10-20T04:30:00Z",
+      "percentage_of_parent": 20,
+      "true_percentage_of_total": 3
+    },
+    "dinner_2025_10_19_1800": {
+      "type": "objectiveNode",
+      "color": "#eceff1",
+      "graph": "main",
+      "label": "Dinner (Sun)",
+      "status": "not-started",
+      "parents": [
+        "deep_work_2025_10_19_1015"
+      ],
+      "createdAt": "2025-10-16T22:55:00Z",
+      "scheduled_end": "2025-10-20T00:00:00Z",
+      "scheduled_start": "2025-10-19T23:00:00Z",
+      "percentage_of_parent": 5.882352941176471,
+      "true_percentage_of_total": 0.17647058823529413
+    },
+    "wildfire_2025_10_18_1900": {
+      "type": "objectiveNode",
+      "color": "#c7f9cc",
+      "graph": "main",
+      "label": "Event: Wildfire (target early exit)",
+      "status": "not-started",
+      "parents": [
+        "deep_work_2025_10_19_1015"
+      ],
+      "createdAt": "2025-10-16T22:55:00Z",
+      "scheduled_end": "2025-10-19T02:30:00Z",
+      "scheduled_start": "2025-10-19T00:00:00Z",
+      "percentage_of_parent": 5.882352941176471,
+      "true_percentage_of_total": 0.17647058823529413
+    },
+    "deep_work_2025_10_16_1305": {
+      "type": "objectiveNode",
+      "color": "#bde0fe",
+      "graph": "main",
+      "label": "Deep Work: Thu Oct 16 1:05–5:45 pm",
+      "status": "in-progress",
+      "parents": [
+        "build_life_currents"
+      ],
+      "createdAt": "2025-10-16T22:55:00Z",
+      "scheduled_end": "2025-10-16T22:45:00Z",
+      "scheduled_start": "2025-10-16T18:05:00Z",
+      "percentage_of_parent": 20,
+      "true_percentage_of_total": 3
+    },
+    "deep_work_2025_10_17_1030": {
+      "type": "objectiveNode",
+      "color": "#bde0fe",
+      "graph": "main",
+      "label": "Deep Work: Fri Oct 17 10:30 am – 9:00 pm",
+      "status": "not-started",
+      "parents": [
+        "build_life_currents"
+      ],
+      "createdAt": "2025-10-16T22:55:00Z",
+      "scheduled_end": "2025-10-18T02:00:00Z",
+      "scheduled_start": "2025-10-17T15:30:00Z",
+      "percentage_of_parent": 20,
+      "true_percentage_of_total": 3
+    },
+    "deep_work_2025_10_19_1015": {
+      "type": "objectiveNode",
+      "color": "#bde0fe",
+      "graph": "main",
+      "label": "Deep Work: Sun Oct 19 10:15 am – 6:00 pm",
+      "status": "not-started",
+      "parents": [
+        "build_life_currents"
+      ],
+      "createdAt": "2025-10-16T22:55:00Z",
+      "scheduled_end": "2025-10-19T23:00:00Z",
+      "scheduled_start": "2025-10-19T15:15:00Z",
+      "percentage_of_parent": 20,
+      "true_percentage_of_total": 3
+    },
+    "fri_mirna_2025_10_17_2230": {
+      "type": "objectiveNode",
+      "color": "#d1b3ff",
+      "graph": "main",
+      "label": "Mirna time (Fri evening)",
+      "status": "not-started",
+      "parents": [
+        "deep_work_2025_10_17_1030"
+      ],
+      "createdAt": "2025-10-17T18:00:00Z",
+      "scheduled_end": "2025-10-18T06:00:00Z",
+      "scheduled_start": "2025-10-18T03:30:00Z",
+      "percentage_of_parent": 5.882352941176471,
+      "true_percentage_of_total": 0.17647058823529413
+    },
+    "fri_sleep_2025_10_18_0130": {
+      "type": "objectiveNode",
+      "color": "#f8f9fa",
+      "graph": "main",
+      "label": "Sleep (Fri->Sat ~1:30 am)",
+      "status": "not-started",
+      "parents": [
+        "deep_work_2025_10_19_1015"
+      ],
+      "createdAt": "2025-10-17T18:00:00Z",
+      "scheduled_end": "2025-10-18T15:00:00Z",
+      "scheduled_start": "2025-10-18T06:00:00Z",
+      "percentage_of_parent": 5.882352941176471,
+      "true_percentage_of_total": 0.17647058823529413
+    },
+    "wait_uber_2025_10_16_1755": {
+      "type": "objectiveNode",
+      "color": "#e6f4ff",
+      "graph": "main",
+      "label": "Wait/meet Uber",
+      "status": "in-progress",
+      "parents": [
+        "deep_work_2025_10_17_1030"
+      ],
+      "createdAt": "2025-10-16T22:55:00Z",
+      "scheduled_end": "2025-10-16T23:05:00Z",
+      "scheduled_start": "2025-10-16T22:55:00Z",
+      "percentage_of_parent": 5.882352941176471,
+      "true_percentage_of_total": 0.17647058823529413
+    },
+    "wake_meds_2025_10_17_0745": {
+      "type": "objectiveNode",
+      "color": "#fdfd96",
+      "graph": "main",
+      "label": "Wake / pills / brief Mirna connect / get ready",
+      "status": "not-started",
+      "parents": [
+        "deep_work_2025_10_17_1030"
+      ],
+      "createdAt": "2025-10-16T22:55:00Z",
+      "scheduled_end": "2025-10-17T13:15:00Z",
+      "scheduled_start": "2025-10-17T12:45:00Z",
+      "percentage_of_parent": 5.882352941176471,
+      "true_percentage_of_total": 0.17647058823529413
+    },
+    "walk_home_2025_10_16_1745": {
+      "type": "objectiveNode",
+      "color": "#e6f4ff",
+      "graph": "main",
+      "label": "Walk home (parallel: order Uber)",
+      "status": "in-progress",
+      "parents": [
+        "deep_work_2025_10_17_1030"
+      ],
+      "createdAt": "2025-10-16T22:55:00Z",
+      "scheduled_end": "2025-10-16T22:55:00Z",
+      "scheduled_start": "2025-10-16T22:45:00Z",
+      "percentage_of_parent": 5.882352941176471,
+      "true_percentage_of_total": 0.17647058823529413
+    },
+    "wind_down_2025_10_16_2400": {
+      "type": "objectiveNode",
+      "color": "#eceff1",
+      "graph": "main",
+      "label": "Wind down",
+      "status": "in-progress",
+      "parents": [
+        "deep_work_2025_10_17_1030"
+      ],
+      "createdAt": "2025-10-16T22:55:00Z",
+      "scheduled_end": "2025-10-17T05:30:00Z",
+      "scheduled_start": "2025-10-17T05:00:00Z",
+      "percentage_of_parent": 5.882352941176471,
+      "true_percentage_of_total": 0.17647058823529413
+    },
+    "decompress_2025_10_16_2100": {
+      "type": "objectiveNode",
+      "color": "#eceff1",
+      "graph": "main",
+      "label": "Decompress / light admin",
+      "status": "in-progress",
+      "parents": [
+        "deep_work_2025_10_17_1030"
+      ],
+      "createdAt": "2025-10-16T22:55:00Z",
+      "scheduled_end": "2025-10-17T03:30:00Z",
+      "scheduled_start": "2025-10-17T02:00:00Z",
+      "percentage_of_parent": 5.882352941176471,
+      "true_percentage_of_total": 0.17647058823529413
+    },
+    "decompress_2025_10_18_2200": {
+      "type": "objectiveNode",
+      "color": "#eceff1",
+      "graph": "main",
+      "label": "Decompress (Sat late)",
+      "status": "not-started",
+      "parents": [
+        "deep_work_2025_10_19_1015"
+      ],
+      "createdAt": "2025-10-16T22:55:00Z",
+      "scheduled_end": "2025-10-19T04:00:00Z",
+      "scheduled_start": "2025-10-19T03:00:00Z",
+      "percentage_of_parent": 5.882352941176471,
+      "true_percentage_of_total": 0.17647058823529413
+    },
+    "mens_group_2025_10_16_1900": {
+      "type": "objectiveNode",
+      "color": "#c7f9cc",
+      "graph": "main",
+      "label": "Men's Group",
+      "status": "in-progress",
+      "parents": [
+        "deep_work_2025_10_17_1030"
+      ],
+      "createdAt": "2025-10-16T22:55:00Z",
+      "scheduled_end": "2025-10-17T01:30:00Z",
+      "scheduled_start": "2025-10-17T00:00:00Z",
+      "percentage_of_parent": 5.882352941176471,
+      "true_percentage_of_total": 0.17647058823529413
+    },
+    "transition_2025_10_17_0915": {
+      "type": "objectiveNode",
+      "color": "#e6f4ff",
+      "graph": "main",
+      "label": "Transition (home/shower/dress)",
+      "status": "not-started",
+      "parents": [
+        "deep_work_2025_10_17_1030"
+      ],
+      "createdAt": "2025-10-16T22:55:00Z",
+      "scheduled_end": "2025-10-17T15:00:00Z",
+      "scheduled_start": "2025-10-17T14:15:00Z",
+      "percentage_of_parent": 5.882352941176471,
+      "true_percentage_of_total": 0.17647058823529413
+    },
+    "transition_2025_10_19_0930": {
+      "type": "objectiveNode",
+      "color": "#e6f4ff",
+      "graph": "main",
+      "label": "Transition (Sun home/shower/dress)",
+      "status": "not-started",
+      "parents": [
+        "deep_work_2025_10_19_1015"
+      ],
+      "createdAt": "2025-10-16T22:55:00Z",
+      "scheduled_end": "2025-10-19T15:15:00Z",
+      "scheduled_start": "2025-10-19T14:30:00Z",
+      "percentage_of_parent": 5.882352941176471,
+      "true_percentage_of_total": 0.17647058823529413
+    },
+    "dinner_azaz_2025_10_18_1700": {
+      "type": "objectiveNode",
+      "color": "#c7f9cc",
+      "graph": "main",
+      "label": "Dinner with Azaz (tentative)",
+      "status": "not-started",
+      "parents": [
+        "deep_work_2025_10_19_1015"
+      ],
+      "createdAt": "2025-10-16T22:55:00Z",
+      "scheduled_end": "2025-10-18T23:15:00Z",
+      "scheduled_start": "2025-10-18T22:00:00Z",
+      "percentage_of_parent": 5.882352941176471,
+      "true_percentage_of_total": 0.17647058823529413
+    },
+    "fri_downtime_2025_10_17_2100": {
+      "type": "objectiveNode",
+      "color": "#eceff1",
+      "graph": "main",
+      "label": "Downtime / power down",
+      "status": "not-started",
+      "parents": [
+        "deep_work_2025_10_17_1030"
+      ],
+      "createdAt": "2025-10-17T18:00:00Z",
+      "scheduled_end": "2025-10-18T03:30:00Z",
+      "scheduled_start": "2025-10-18T02:00:00Z",
+      "percentage_of_parent": 5.882352941176471,
+      "true_percentage_of_total": 0.17647058823529413
+    },
+    "transit_home_2025_10_16_2030": {
+      "type": "objectiveNode",
+      "color": "#e6f4ff",
+      "graph": "main",
+      "label": "Wrap-up + ride/walk home",
+      "status": "in-progress",
+      "parents": [
+        "deep_work_2025_10_17_1030"
+      ],
+      "createdAt": "2025-10-16T22:55:00Z",
+      "scheduled_end": "2025-10-17T02:00:00Z",
+      "scheduled_start": "2025-10-17T01:30:00Z",
+      "percentage_of_parent": 5.882352941176471,
+      "true_percentage_of_total": 0.17647058823529413
+    },
+    "transit_home_2025_10_18_2130": {
+      "type": "objectiveNode",
+      "color": "#e6f4ff",
+      "graph": "main",
+      "label": "Transit home (Sat late)",
+      "status": "not-started",
+      "parents": [
+        "deep_work_2025_10_19_1015"
+      ],
+      "createdAt": "2025-10-16T22:55:00Z",
+      "scheduled_end": "2025-10-19T03:00:00Z",
+      "scheduled_start": "2025-10-19T02:30:00Z",
+      "percentage_of_parent": 5.882352941176471,
+      "true_percentage_of_total": 0.17647058823529413
+    },
+    "uber_to_mens_2025_10_16_1805": {
+      "type": "objectiveNode",
+      "color": "#e6f4ff",
+      "graph": "main",
+      "label": "Uber to Men's Group (~25–30 min)",
+      "status": "in-progress",
+      "parents": [
+        "deep_work_2025_10_17_1030"
+      ],
+      "createdAt": "2025-10-16T22:55:00Z",
+      "scheduled_end": "2025-10-16T23:35:00Z",
+      "scheduled_start": "2025-10-16T23:05:00Z",
+      "percentage_of_parent": 5.882352941176471,
+      "true_percentage_of_total": 0.17647058823529413
+    },
+    "arrive_buffer_2025_10_16_1835": {
+      "type": "objectiveNode",
+      "color": "#e6f4ff",
+      "graph": "main",
+      "label": "Arrive/buffer",
+      "status": "in-progress",
+      "parents": [
+        "deep_work_2025_10_17_1030"
+      ],
+      "createdAt": "2025-10-16T22:55:00Z",
+      "scheduled_end": "2025-10-17T00:00:00Z",
+      "scheduled_start": "2025-10-16T23:35:00Z",
+      "percentage_of_parent": 5.882352941176471,
+      "true_percentage_of_total": 0.17647058823529413
+    },
+    "transit_coffee_2025_10_17_1000": {
+      "type": "objectiveNode",
+      "color": "#e6f4ff",
+      "graph": "main",
+      "label": "Transit to coffee shop",
+      "status": "not-started",
+      "parents": [
+        "deep_work_2025_10_17_1030"
+      ],
+      "createdAt": "2025-10-16T22:55:00Z",
+      "scheduled_end": "2025-10-17T15:30:00Z",
+      "scheduled_start": "2025-10-17T15:00:00Z",
+      "percentage_of_parent": 5.882352941176471,
+      "true_percentage_of_total": 0.17647058823529413
+    },
+    "transit_wildfire_2025_10_18_1815": {
+      "type": "objectiveNode",
+      "color": "#e6f4ff",
+      "graph": "main",
+      "label": "Transit to revival (Wildfire)",
+      "status": "not-started",
+      "parents": [
+        "deep_work_2025_10_19_1015"
+      ],
+      "createdAt": "2025-10-16T22:55:00Z",
+      "scheduled_end": "2025-10-19T00:00:00Z",
+      "scheduled_start": "2025-10-18T23:15:00Z",
+      "percentage_of_parent": 5.882352941176471,
+      "true_percentage_of_total": 0.17647058823529413
+    }
+  },
+  "viewport": {
+    "x": 110,
+    "y": 251.91463414634146,
+    "zoom": 3.3841463414634148
+  },
+  "active_node": "get_cuvitru",
+  "historical_progress": {}
+}

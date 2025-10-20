@@ -1,0 +1,114 @@
+**IMPORTANT: THE NAME OF THIS IS "CHANGE F - IMPLEMENT MULTI-FILE SYSTEM INSTRUCTION SYNCHRONIZATION". "CHANGE F" MUST BE INCLUDED AT THE BEGINNING OF THE NAME**
+
+### Part 1 — Comprehensive Project Context: Change F
+
+This document equips a fresh agent with complete context to implement Change F: multi‑file system instruction synchronization. It covers the product, architecture, relevant code paths, current sync behavior, and the exact surfaces to modify.
+
+Product identity and purpose
+- LifeCurrents is a Vite/React/TypeScript SPA designed to align daily actions with long‑term goals through:
+  - A causal graph visualization (React Flow) for objectives/dependencies.
+  - An AI chat interface that uses MCP tools hosted in a Cloudflare Worker.
+  - Preview build ingest/review in‑app using Supabase Realtime.
+  - In‑app audio transcription via the Worker → Groq Whisper.
+  - PWA behavior with a service worker for seamless upgrades.
+
+Architecture overview
+- Frontend (React/Vite/TS)
+  - Chat pipeline: `src/components/chat/ChatPane.tsx` (streams, tool calls, follow‑ups), `ChatMessage.tsx` (rendering), `SettingsDialog.tsx` (tabs for Instructions/Context/Model/Builds).
+  - Hooks: `useSystemInstructions` (reads/writes instruction content through MCP); `useMcp` (Worker transport); `useModelSelection`, `useConversationContext`, `useChatContext`, `usePreviewBuilds`, `useAudioTranscriptionRecorder`.
+  - Services: `src/services/openRouter.ts` for model streaming; gate for tool‑call streaming.
+
+- Backend (Cloudflare Worker `remote-mcp-server-authless/`)
+  - MCP over `/sse` + `/mcp`; `/api/transcribe` proxies to Groq.
+  - Tools: `get_system_instructions` and `update_system_instructions` interact with the `system_instructions` table.
+
+- Data (Supabase)
+  - `system_instructions` (id TEXT, title TEXT, content TEXT, created_at, updated_at) — the authoritative store for one or more instruction entries used by the model.
+  - Other tables: `graph_documents`, `preview_builds`, chat tables, etc., not directly modified by this change.
+
+Current sync utilities & behavior
+- `scripts/supabase-sync.js` performs two‑way syncing for:
+  - `synced_files/graph_data.json` ⇄ `graph_documents(id='main').data` (works).
+  - `synced_files/system_instructions.ts` ⇄ `system_instructions(id='main').content` (broken because the data model uses multiple rows, not a single `main`).
+- `auto-sync.cjs` orchestrates concurrent watchers: root project, Worker subproject, and a Supabase sync job.
+- Realtime: The script subscribes to Supabase Postgres changes to reflect remote mutations locally; chokidar watches local files to reflect local mutations remotely.
+
+What Change F delivers
+- Replace the single‑file instruction sync with a robust, two‑way, directory‑based system:
+  - Local directory: `synced_files/system_instructions/`
+  - One file per instruction row, filename derived from `title` (sanitized).
+  - Full two‑way sync covering CREATE/UPDATE/DELETE from both directions, with a clear conflict strategy.
+
+Requirements & constraints
+- File format:
+  - Each instruction file should contain TypeScript that exports the instruction content, e.g.
+    ```ts
+    export const instructionTitle = `Empathetic Dialogue`;
+    export const instructionContent = `...full prompt text...`;
+    ```
+  - Alternatively, if you prefer fewer exports, use a single default export object with `{ id?, title, content }`. Pick one and enforce consistently in the sync script.
+- File naming & sanitation:
+  - Use a reversible mapping between title and filename (e.g., remove spaces and non‑alphanumerics, PascalCase + `.ts`).
+  - On remote title change, handle local rename (delete old file, write new) without leaving orphan files.
+- Initial sync rules:
+  - On startup, fetch all rows, reconcile to the local directory: create/update files for rows; delete stray local files with no matching row.
+- Change detection rules:
+  - Local→Remote:
+    - `add` → INSERT new row with title/content (generate `id` server‑side if needed).
+    - `change` → UPDATE row content (and title if file renamed).
+    - `unlink` → DELETE row.
+  - Remote→Local (Supabase realtime):
+    - INSERT/UPDATE → write or rewrite corresponding `.ts` file.
+    - DELETE → remove corresponding local file.
+- Conflict strategy:
+  - Prefer “most recent wins” using `updated_at` from DB versus local mtime (or write our own `.meta` cache). Minimize thrash by setting `isWritingLocal/isWritingRemote` guards as the current script does.
+- Backward compatibility:
+  - Remove the legacy `synced_files/system_instructions.ts` single‑file path from the script, but keep an adapter that reads it one last time if present to bootstrap one instruction row (optional migration helper).
+
+Surfaces likely to change
+- `scripts/supabase-sync.js` — refactor heavily:
+  - Add directory constants, watchdog over `synced_files/system_instructions/**/*`.
+  - Implement title↔filename mapping helpers.
+  - Implement full CRUD for local events and Supabase realtime events.
+  - Adjust initial sync path to perform reconciliation (and cleanup of stray files).
+- `auto-sync.cjs` — no change besides log messaging.
+- `useSystemInstructions` — unchanged; it still uses MCP tools that interact directly with Supabase; the sync script ensures repo state reflects DB state for developer workflows.
+
+Quality bars
+- No data loss on rename; idempotent behavior on repeated events.
+- Stable real‑time behavior without infinite write loops (use `isWritingLocal/isWritingRemote` guards properly).
+- Clear logging for added/updated/deleted instructions with titles and filenames.
+
+Naming directive
+- The canonical name of this effort is **Change F**. Prefix branches/PRs/commits accordingly (e.g., `Change F - Multi-file system instruction sync`). This overrides other naming schemes.
+
+---
+
+### Part 2 — Directive: Change F - Implement Multi-File System Instruction Synchronization
+
+**Objective:**
+To overhaul the synchronization mechanism for system instructions, replacing the current broken, single-file system with a robust, two-way, multi-file synchronization system. This will sync each row from the `system_instructions` table in Supabase to a corresponding local `.ts` file, enabling developers and the AI to manage system instructions as version-controlled files.
+
+**User Story:**
+As a developer and advanced user, I want every system instruction to exist as a separate, human-readable file in the local codebase. I need the ability to create, edit, or delete these instruction files in my text editor, and have those changes automatically and reliably sync to and from the Supabase database. This will allow me to version-control our prompts and manage them as a core part of the application's source code.
+
+**Current Behavior (The Problem):**
+The `auto-sync` script contains a component (`scripts/supabase-sync.js`) that is supposed to handle two-way synchronization of system instructions. However, it is fundamentally broken. It is hardcoded to look for a single database row with a specific ID (`'main'`), which is incompatible with our actual data model where each instruction is a separate row with a unique ID. As a result, no synchronization of system instructions is currently functional.
+
+**Required Behavior (The Solution):**
+1.  **Directory-Based Sync:** The synchronization logic must be rewritten to operate on a directory, `synced_files/system_instructions/`, instead of a single file.
+2.  **File-per-Instruction:** Each row in the `system_instructions` database table must correspond to a single file in that directory. The filename should be derived from the instruction's `title` (e.g., "Empathetic Dialogue" becomes `EmpatheticDialogue.ts`).
+3.  **Full Two-Way Synchronization:** The script must handle all synchronization scenarios:
+    *   **Remote to Local:**
+        *   When an instruction is created or updated in the database, the corresponding local file must be created or updated.
+        *   When an instruction is deleted from the database, the corresponding local file must be deleted.
+    *   **Local to Remote:**
+        *   When a new file is added to the directory, a new row must be inserted into the database table.
+        *   When a file's content is modified, the `content` of the corresponding database row must be updated.
+        *   When a file is deleted, the corresponding database row must be deleted.
+4.  **Initial Sync and Cleanup:** On startup, the script must perform an initial sync to make the local directory perfectly reflect the state of the database, including deleting any local files that do not have a corresponding entry in the database.
+
+**Implementation Directive:**
+The title of this initiative is **Change F**. Use this identifier (e.g., "Change F - ...") in any resulting commits or branches. This overrides any other naming conventions.
+
+You are to analyze the existing, non-functional synchronization script located at `scripts/supabase-sync.js`. You will completely refactor this script to implement the robust, directory-based, two-way synchronization logic described above. You are responsible for handling all aspects of the implementation, including the mapping between database titles and filenames, and the event handling for local file changes (create, update, delete) and remote database changes (INSERT, UPDATE, DELETE).

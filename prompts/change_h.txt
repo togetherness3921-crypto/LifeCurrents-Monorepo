@@ -1,0 +1,67 @@
+**IMPORTANT: THE NAME OF THIS IS "CHANGE H - IMPLEMENT ZOOM-TO-NODE ON GRAPH CLICK". "CHANGE H" MUST BE INCLUDED AT THE BEGINNING OF THE NAME**
+
+### Part 1 — Comprehensive Project Context: Change H
+
+This document equips a fresh agent with the context needed to add zoom‑to‑node on graph click. It covers the product architecture, graph rendering, and the surfaces to modify for a smooth, animated focus behavior.
+
+Product identity and purpose
+- LifeCurrents is a Vite/React/TypeScript SPA that aligns daily actions with long‑term goals via:
+  - A causal graph (React Flow) modeling objectives/dependencies,
+  - An AI chat with MCP tools hosted in a Cloudflare Worker,
+  - Preview build review with Supabase Realtime,
+  - In‑app audio transcription (Worker → Groq Whisper), and
+  - PWA service worker updates.
+
+Graph architecture (frontend)
+- `src/components/CausalGraph.tsx` renders the React Flow graph from `graph_documents` JSON:
+  - Nodes are keyed by id and contain metadata like `label`, `type`, `status`, `parents`, and percentages.
+  - A one‑time `fitView` occurs after data/layout settle.
+  - Layout/persistence helpers in `src/services/` determine node positions and viewport storage.
+- The React Flow instance supports imperative commands (`fitView`, `zoomTo`, `setCenter`) and event props (`onNodeClick`), which makes implementing click‑to‑focus straightforward.
+
+Chat architecture
+- `ChatPane.tsx` manages the streaming LLM flow and tool calls; unrelated to this feature except where the UI may reflect the selected node (optional future tie‑in with Notes panel from Change E).
+
+Data (Supabase)
+- `graph_documents` JSONB is the source for nodes/edges/viewport; this feature doesn’t modify schema.
+
+What Change H delivers
+- Clicking on any node in the graph animates the viewport to center and zoom onto that node, mirroring any existing behavior triggered from other panels (e.g., In Progress list).
+
+Surfaces likely to change
+- `CausalGraph.tsx`:
+  - Add an `onNodeClick` handler that extracts the clicked node id and coordinates.
+  - Reuse (or factor) the same focus routine used when focusing nodes from external UI.
+  - Invoke `reactFlowInstance.fitView({ nodes: [node], duration: 800, padding: 0.2 })` or `setCenter/zoomTo` combination for smooth animation.
+- If a central helper exists (e.g., `focusNode(nodeId)`), route both entry points (external panel, graph click) through that single path.
+
+Quality bars
+- Smooth animation (~600–1000ms) without stutter; works for large graphs.
+- Accurate centering at different zoom levels and viewport sizes.
+- No interference with drag/pan gestures; only click triggers focus.
+
+Naming directive
+- The canonical name of this effort is **Change H**. Prefix branches/PRs/commits accordingly (e.g., `Change H - Zoom-to-node on click`). This overrides other naming schemes.
+
+---
+
+### Part 2 — Directive: Change H - Implement Zoom-to-Node on Graph Click
+
+**Objective:**
+To implement a "zoom-to-node" feature directly within the causal graph UI. When a user clicks on any node in the graph, the viewport should smoothly animate to center and zoom in on that selected node.
+
+**User Story:**
+As a user, when I am exploring the main graph view, I want to be able to simply click on any node to instantly and smoothly focus on it. This should work just like when I click on an item in the "In Progress" list, allowing me to easily navigate and focus on specific parts of my plan without having to manually pan and zoom.
+
+**Current Behavior (The Problem):**
+Clicking on a node within the graph visualization does nothing. The only way to focus the view on a specific node is to find and click its corresponding entry in a separate UI panel (like the "In Progress" list). This is unintuitive and makes direct interaction with the graph feel static and limited.
+
+**Required Behavior (The Solution):**
+1.  **Click to Focus:** A click event on any node within the main React Flow graph canvas must trigger a "zoom-to-node" action.
+2.  **Smooth Animation:** The viewport transition must be a smooth animation, not an instantaneous jump. The view should pan and zoom gracefully to center the selected node.
+3.  **Consistent Behavior:** This new interaction must reuse the same underlying focusing logic that is already triggered by clicking on items in other UI panels, ensuring a consistent user experience across the application.
+
+**Implementation Directive:**
+The title of this initiative is **Change H**. Use this identifier (e.g., "Change H - ...") in any resulting commits or branches. This overrides any other naming conventions.
+
+You are to analyze the existing graph component (`CausalGraph.tsx`) and the state management logic that handles focusing the graph view. You will implement the necessary changes to capture click events on graph nodes and trigger the existing "zoom-to-node" functionality. You are responsible for ensuring the implementation is efficient and that the resulting animation is smooth and responsive.

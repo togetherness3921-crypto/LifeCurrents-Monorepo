@@ -1,0 +1,33 @@
+{
+  "name": "lifecurrents-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "LifeCurrents - A unified monorepo for frontend and worker",
+  "type": "module",
+  "workspaces": [
+    "packages/frontend",
+    "packages/worker"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=@lifecurrents/frontend",
+    "dev:worker": "npm run dev --workspace=@lifecurrents/worker",
+    "dev:all": "concurrently --names \"FRONTEND,WORKER\" -c \"bgBlue.bold,bgCyan.bold\" \"npm run dev --workspace=@lifecurrents/frontend\" \"npm run dev --workspace=@lifecurrents/worker\"",
+    "build": "npm run build --workspace=@lifecurrents/frontend && npm run build --workspace=@lifecurrents/worker",
+    "build:frontend": "npm run build --workspace=@lifecurrents/frontend",
+    "build:worker": "npm run deploy --workspace=@lifecurrents/worker",
+    "lint": "npm run lint --workspace=@lifecurrents/frontend",
+    "preview": "npm run preview --workspace=@lifecurrents/frontend",
+    "db:push": "cd supabase && npx supabase db push",
+    "db:pull": "cd supabase && npx supabase db pull",
+    "db:types": "npx supabase gen types typescript --local > packages/frontend/src/integrations/supabase/types.ts",
+    "db:deploy": "npm run db:push && npm run db:types"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  }
+}
+

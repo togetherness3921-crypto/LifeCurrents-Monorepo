@@ -1,0 +1,80 @@
+**IMPORTANT: THE NAME OF THIS IS "CHANGE E - IMPLEMENT GRAPH NOTES AND FOCUSED CONTEXT TOOL". "CHANGE E" MUST BE INCLUDED AT THE BEGINNING OF THE NAME**
+
+### Part 1 — Comprehensive Project Context: Change E
+
+This document equips a fresh agent with complete context to implement Change E: node notes and a focused node-details tool. It summarizes product architecture, key modules, and surfaces affected by this change.
+
+Product identity and purpose
+- LifeCurrents is a Vite/React/TypeScript SPA for aligning daily actions with long‑term goals via:
+  - Causal graph visualization (React Flow),
+  - AI chat w/ MCP tools (Worker),
+  - PR preview ingest/review (Supabase Realtime),
+  - Audio transcription (Worker → Groq), and
+  - PWA service worker.
+
+Architecture overview
+- Frontend (React/Vite/TS)
+  - Chat: `ChatPane.tsx` streams LLM output and manages tool calls; `ChatMessage.tsx` renders; `SettingsDialog.tsx` configures Instructions/Context/Model/Builds.
+  - Graph: `CausalGraph.tsx` renders nodes/edges from `graph_documents` and performs initial fit; layout/persistence helpers live under `src/services/`.
+  - Hooks: `useMcp`, `useChatContext`, `useModelSelection`, `useSystemInstructions`, `useConversationContext`, `usePreviewBuilds`, `useAudioTranscriptionRecorder`.
+  - Styling: shadcn/ui + Tailwind tokens.
+
+- Backend (Cloudflare Worker `remote-mcp-server-authless/`)
+  - MCP endpoints `/sse`, `/mcp`; `/api/transcribe` proxies to Groq.
+  - Tools include: `get_system_instructions`, `update_system_instructions`, `get_todays_context`, `get_graph_structure`, `patch_graph_document` (RFC‑6902 JSON Patch + percentage squishing + Supabase persistence). Change E will add `get_node_details`.
+
+- Data (Supabase)
+  - `graph_documents` contains JSONB data keyed by `id` (e.g., `main`), with nodes keyed by id; edges implicit via `parents`; viewport stored alongside.
+  - `system_instructions` stores id/title/content; the app reads/writes instruction content via MCP.
+
+What Change E delivers
+- A `notes` field (optional string) for each node to capture unstructured context.
+- A Notes panel visible when a node is selected, with editable text saved via patch.
+- A new tool `get_node_details(node_id)` that returns the full node and all immediate children (including `notes`), enabling targeted context without dumping the entire graph.
+- `get_graph_structure` remains high‑level and should exclude `notes` to keep payloads small.
+
+Surfaces likely to change
+- Worker (`remote-mcp-server-authless/src/index.ts`):
+  - Define a Zod schema for `get_node_details` input; implement lookup of parent + immediate children; include `notes`.
+  - Optionally validate presence of `node_id`; return structured payload similar to other tools.
+- Frontend:
+  - Type updates for `Node` interface (add `notes?: string`). Ensure both frontend and backend agree.
+  - `CausalGraph.tsx` → integrate with a global `selectedNodeId` and expose selection to the Notes panel.
+  - New component `NotesPanel.tsx` (or add a tab/column) to render/edit `notes`; on edit, call MCP `patch_graph_document` with an `op: 'replace'` for `nodes/{id}/notes`.
+  - Minor changes to state management to ensure selection persists while editing.
+
+Quality bars
+- Simple, debounced save of notes; optimistic UI update with error fallback.
+- No increase in payload size for high‑level tools; `notes` only fetched via `get_node_details` or targeted views like Today’s Context where notes are valuable.
+- No regressions to graph layout/fit behavior.
+
+Naming directive
+- The canonical name of this effort is **Change E**. Prefix branches/PRs/commits accordingly (e.g., `Change E - Node notes + node-details tool`).
+
+---
+
+### Part 2 — Directive: Change E - Implement Graph Notes and Focused Context Tool
+
+**Objective:**
+To introduce a `notes` field for all graph nodes, display these notes in a dedicated UI panel, and create a new, more focused AI tool for investigating specific areas of the graph. This will allow both the user and the AI to access richer, more detailed context on individual items without being overwhelmed by data from the entire graph.
+
+**User Story:**
+As a user, I want to be able to add detailed notes or unstructured thoughts to any node on my graph and easily view them when I select that node. As an AI assistant, when analyzing the graph, I want a way to "zoom in" on a specific section to retrieve all relevant details, including these notes, so I can make more informed decisions without having to request the entire, potentially massive, graph structure.
+
+**Current Behavior (The Problem):**
+Nodes in the graph are atomic; they consist of a title and a few state properties but have no place to store rich, unstructured text. The AI's only tool for exploring the graph, `get_graph_structure`, is a blunt instrument that either returns the whole graph or a limited-depth view, making it difficult to get detailed context about a specific area.
+
+**Required Behavior (The Solution):**
+1.  **Notes on Nodes:** The system must support an optional `notes` field (a string of text) for every node in the graph data structure.
+2.  **Dedicated Notes UI:** A new, dedicated panel must be added to the main user interface. When the user clicks on a node in the graph, this panel should display the notes for that selected node.
+3.  **Editable Notes:** The user must be able to add or edit the notes for the selected node directly from this new UI panel, with changes saved automatically.
+4.  **A New, Focused AI Tool:** A new MCP tool, `get_node_details`, must be created.
+    *   This tool should accept a single `node_id` as its parameter.
+    *   It should return the full data for the requested node *and* the full data for all of its immediate children.
+    *   Crucially, the data returned by this tool must include the `notes` field for each node.
+5.  **Updated High-Level Tool:** The existing `get_graph_structure` tool must be modified to *exclude* the `notes` field from its response. This keeps the high-level overview tool lightweight and fast, reinforcing the need for the AI to use the new `get_node_details` tool when it requires deeper context.
+
+**Implementation Directive:**
+The title of this initiative is **Change E**. Use this identifier (e.g., "Change E - ...") in any resulting commits or branches. This overrides any other naming conventions.
+
+You are to analyze the existing architecture, including the `Node` data structure, the backend MCP server, and the frontend UI components. You will design and implement the necessary full-stack changes to enable this feature. You are responsible for determining the specific implementation details, such as creating the new UI panel, managing the "selected node" state on the frontend, implementing the new `get_node_details` tool on the backend worker, and modifying the existing tools as described.
