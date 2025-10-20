@@ -33,7 +33,6 @@ packages/*/dist
 packages/*/build
 
 # Environment files
-.env
 .env.local
 .env.*.local
 
