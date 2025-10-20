@@ -3,10 +3,10 @@ import { getGeminiResponse } from './openRouter';
 import type { Message, SummaryLevel } from '@/hooks/chatProviderContext';
 import type { ToolExecutionResult } from '@/lib/mcp/types';
 
-const DATE_FORMAT = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-const WEEK_RANGE_FORMAT = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' });
-const MONTH_YEAR_FORMAT = new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' });
-const TIME_FORMAT = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' });
+const DATE_FORMAT = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+const WEEK_RANGE_FORMAT = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' });
+const MONTH_YEAR_FORMAT = new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric', timeZone: 'UTC' });
+const TIME_FORMAT = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' });
 
 type SummaryMap = Record<SummaryLevel, Map<string, ConversationSummaryRecord>>;
 
@@ -14,7 +14,7 @@ type ActionStatus = 'pending' | 'running' | 'success' | 'error';
 
 export interface ConversationSummaryRecord {
     id: string;
-    conversation_id: string;
+    thread_id: string;
     summary_level: SummaryLevel;
     summary_period_start: string;
     content: string;
@@ -141,12 +141,12 @@ const normaliseSummaryRecord = (input: unknown): ConversationSummaryRecord | nul
         return null;
     }
     const id = typeof record.id === 'string' ? record.id : `summary-${record.summary_level}-${record.summary_period_start}`;
-    const conversation_id = typeof record.conversation_id === 'string' ? record.conversation_id : '';
+    const thread_id = typeof record.thread_id === 'string' ? record.thread_id : '';
     const created_by_message_id =
         typeof record.created_by_message_id === 'string' ? record.created_by_message_id : '';
     return {
         id,
-        conversation_id,
+        thread_id,
         summary_level: record.summary_level as SummaryLevel,
         summary_period_start: record.summary_period_start,
         content: record.content,
@@ -298,7 +298,7 @@ const createSummaryRecord = async (
         const parsed = parseToolJson<unknown>(payload, 'create_conversation_summary');
         const record = normaliseSummaryRecord(parsed) ?? {
             id: `local-${level}-${periodStart.toISOString()}`,
-            conversation_id: conversationId,
+            thread_id: conversationId,
             summary_level: level,
             summary_period_start: periodStart.toISOString(),
             content,
