@@ -1,10 +1,53 @@
-const { exec } = require('child_process');
+const { exec, spawn } = require('child_process');
 const chokidar = require('chokidar');
+const path = require('path');
 
-console.log('[MONOREPO] 🚀 Auto-Sync: Most Recent Changes Win');
+console.log('[MONOREPO] 🚀 Auto-Sync: Most Recent Changes Win + Dev Services');
 let isSyncing = false;
+let viteProcess = null;
+let supabaseProcess = null;
 
-// --- Sync Function: Most Recent Wins ---
+// --- Vite Dev Server ---
+function startVite() {
+  console.log('[MONOREPO] 🎨 Starting Vite dev server...');
+  viteProcess = spawn('npm', ['run', 'dev', '--workspace=@lifecurrents/frontend'], {
+    stdio: 'inherit',
+    shell: true,
+  });
+
+  viteProcess.on('error', (error) => {
+    console.error('[MONOREPO] ❌ Vite error:', error);
+  });
+
+  viteProcess.on('exit', (code) => {
+    if (code !== 0 && code !== null) {
+      console.warn(`[MONOREPO] ⚠️ Vite exited with code ${code}`);
+    }
+  });
+}
+
+// --- Supabase Sync ---
+function startSupabaseSync() {
+  console.log('[MONOREPO] 🗄️  Starting Supabase sync...');
+  const syncScriptPath = path.join(__dirname, 'scripts', 'supabase-sync.js');
+
+  supabaseProcess = spawn('node', [syncScriptPath], {
+    stdio: 'inherit',
+    shell: true,
+  });
+
+  supabaseProcess.on('error', (error) => {
+    console.error('[MONOREPO] ❌ Supabase sync error:', error);
+  });
+
+  supabaseProcess.on('exit', (code) => {
+    if (code !== 0 && code !== null) {
+      console.warn(`[MONOREPO] ⚠️ Supabase sync exited with code ${code}`);
+    }
+  });
+}
+
+// --- Git Sync Function: Most Recent Wins ---
 function sync() {
   if (isSyncing) return;
   isSyncing = true;
@@ -54,10 +97,31 @@ watcher.on('all', (event, path) => {
 
 // --- Periodic Sync (every 15 seconds) ---
 setInterval(sync, 15000);
-console.log('[MONOREPO] Monitoring files and checking remote every 15s...');
 
-process.on('SIGINT', () => {
-  console.log('\n[MONOREPO] 👋 Stopped.');
+// --- Cleanup Handler ---
+function cleanup() {
+  console.log('\n[MONOREPO] 👋 Shutting down...');
   watcher.close();
+
+  if (viteProcess) {
+    console.log('[MONOREPO] 🛑 Stopping Vite...');
+    viteProcess.kill();
+  }
+
+  if (supabaseProcess) {
+    console.log('[MONOREPO] 🛑 Stopping Supabase sync...');
+    supabaseProcess.kill();
+  }
+
   process.exit(0);
-});
+}
+
+process.on('SIGINT', cleanup);
+process.on('SIGTERM', cleanup);
+
+// --- Initialize ---
+console.log('[MONOREPO] 🚀 Initializing services...');
+startVite();
+startSupabaseSync();
+console.log('[MONOREPO] 📁 Monitoring files and checking remote every 15s...');
+console.log('[MONOREPO] Press Ctrl+C to stop all services.');
