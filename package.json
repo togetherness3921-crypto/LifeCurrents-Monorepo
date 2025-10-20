@@ -17,12 +17,14 @@
     "build:worker": "npm run deploy --workspace=@lifecurrents/worker",
     "lint": "npm run lint --workspace=@lifecurrents/frontend",
     "preview": "npm run preview --workspace=@lifecurrents/frontend",
+    "auto-sync": "node auto-sync.cjs",
     "db:push": "cd supabase && npx supabase db push",
     "db:pull": "cd supabase && npx supabase db pull",
     "db:types": "npx supabase gen types typescript --local > packages/frontend/src/integrations/supabase/types.ts",
     "db:deploy": "npm run db:push && npm run db:types"
   },
   "devDependencies": {
+    "chokidar": "^4.0.3",
     "concurrently": "^9.2.1"
   },
   "engines": {
