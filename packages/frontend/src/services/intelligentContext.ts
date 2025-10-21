@@ -707,6 +707,97 @@ const filterRecentMessages = (history: Message[], now: Date, forcedRecentCount: 
     return history.filter((message) => recentIds.has(message.id));
 };
 
+/**
+ * Generates a programmatic summary of a tool call based on its name and arguments.
+ * This is deterministic and does not require LLM generation.
+ */
+const generateToolCallSummary = (toolName: string, argsJson: string): string => {
+    try {
+        const args = typeof argsJson === 'string' ? JSON.parse(argsJson) : argsJson;
+
+        if (toolName === 'patch_graph_document') {
+            const patches = typeof args.patches === 'string' ? JSON.parse(args.patches) : args.patches;
+            if (Array.isArray(patches)) {
+                const operations = patches.reduce((counts: Record<string, number>, patch: any) => {
+                    const op = patch.op || 'unknown';
+                    counts[op] = (counts[op] || 0) + 1;
+                    return counts;
+                }, {});
+
+                const summary = Object.entries(operations)
+                    .map(([op, count]) => `${count} ${op}`)
+                    .join(', ');
+
+                return JSON.stringify({
+                    status: 'success',
+                    outcome: `Graph patched: ${summary} operations.`
+                });
+            }
+        }
+
+        // Generic summary for other tools
+        return JSON.stringify({
+            status: 'success',
+            outcome: `${toolName} executed successfully.`
+        });
+    } catch (error) {
+        return JSON.stringify({
+            status: 'success',
+            outcome: `${toolName} completed.`
+        });
+    }
+};
+
+/**
+ * Compresses stale tool call responses in-memory for LLM context.
+ * A tool call is "stale" if it occurred before the most recent user message.
+ * The UI is never modified - this only affects messages sent to the LLM.
+ */
+export const compressStaleToolCalls = (messages: Message[]): Message[] => {
+    if (!messages || messages.length === 0) {
+        return messages;
+    }
+
+    // Find the index of the most recent user message
+    let mostRecentUserIndex = -1;
+    for (let i = messages.length - 1; i >= 0; i--) {
+        if (messages[i].role === 'user') {
+            mostRecentUserIndex = i;
+            break;
+        }
+    }
+
+    // If no user message found, or it's the first message, nothing is stale
+    if (mostRecentUserIndex <= 0) {
+        return messages;
+    }
+
+    // Create a deep copy to avoid mutating the original
+    const compressedMessages = messages.map((msg) => ({ ...msg }));
+
+    // Compress tool calls in messages before the most recent user message
+    for (let i = 0; i < mostRecentUserIndex; i++) {
+        const message = compressedMessages[i];
+
+        if (message.role === 'assistant' && message.toolCalls && message.toolCalls.length > 0) {
+            // Deep copy tool calls array
+            message.toolCalls = message.toolCalls.map((call) => {
+                // Only compress successful tool calls with responses
+                if (call.status === 'success' && call.response) {
+                    const compressedResponse = generateToolCallSummary(call.name, call.arguments);
+                    return {
+                        ...call,
+                        response: compressedResponse
+                    };
+                }
+                return { ...call };
+            });
+        }
+    }
+
+    return compressedMessages;
+};
+
 export const prepareIntelligentContext = async (
     options: PrepareIntelligentContextOptions
 ): Promise<IntelligentContextResult> => {
@@ -717,7 +808,7 @@ export const prepareIntelligentContext = async (
     if (!options.branchHeadMessageId) {
         return {
             systemMessages: [],
-            recentMessages: filterRecentMessages(historyChain, now, forcedRecentCount),
+            recentMessages: compressStaleToolCalls(filterRecentMessages(historyChain, now, forcedRecentCount)),
         };
     }
 
@@ -747,7 +838,7 @@ export const prepareIntelligentContext = async (
 
     return {
         systemMessages,
-        recentMessages: filterRecentMessages(historyChain, now, forcedRecentCount),
+        recentMessages: compressStaleToolCalls(filterRecentMessages(historyChain, now, forcedRecentCount)),
     };
 };
 
