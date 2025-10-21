@@ -1,13 +1,15 @@
 import { createContext } from 'react';
+import type { ConversationSummaryRecord, SummaryLevel } from '@/types/conversationSummary';
 import type { ConversationContextMode } from './conversationContextProviderContext';
 
 export interface ConversationContextConfig {
     mode: ConversationContextMode;
     customMessageCount: number;
     summaryPrompt: string;
+    forcedRecentMessageCount: number;
 }
 
-export type SummaryLevel = 'DAY' | 'WEEK' | 'MONTH';
+export type { SummaryLevel } from '@/types/conversationSummary';
 
 export interface ContextActionState {
     id: string;
@@ -43,6 +45,7 @@ export interface Message {
     updatedAt?: Date;
     threadId?: string;
     contextActions?: ContextActionState[];
+    persistedSummaries?: ConversationSummaryRecord[];
 }
 
 export interface NewMessageInput {

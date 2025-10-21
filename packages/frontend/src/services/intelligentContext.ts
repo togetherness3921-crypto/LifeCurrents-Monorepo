@@ -1,6 +1,7 @@
 import type { ApiMessage } from './openRouter';
 import { getGeminiResponse } from './openRouter';
-import type { Message, SummaryLevel } from '@/hooks/chatProviderContext';
+import type { Message } from '@/hooks/chatProviderContext';
+import type { ConversationSummaryRecord, SummaryLevel } from '@/types/conversationSummary';
 import type { ToolExecutionResult } from '@/lib/mcp/types';
 
 const DATE_FORMAT = new Intl.DateTimeFormat(undefined, {
@@ -16,16 +17,6 @@ const TIME_FORMAT = new Intl.DateTimeFormat(undefined, { timeZone: 'UTC', hour: 
 type SummaryMap = Record<SummaryLevel, Map<string, ConversationSummaryRecord>>;
 
 type ActionStatus = 'pending' | 'running' | 'success' | 'error';
-
-export interface ConversationSummaryRecord {
-    id: string;
-    thread_id: string;
-    summary_level: SummaryLevel;
-    summary_period_start: string;
-    content: string;
-    created_by_message_id: string;
-    created_at?: string;
-}
 
 interface ToolMessage {
     id: string;
@@ -45,6 +36,7 @@ export interface SummarizeActionUpdate {
     status?: ActionStatus;
     content?: string;
     error?: string;
+    persistedSummary?: ConversationSummaryRecord;
 }
 
 export interface PrepareIntelligentContextOptions {
@@ -58,6 +50,7 @@ export interface PrepareIntelligentContextOptions {
     registerAction: (descriptor: SummarizeActionDescriptor) => string;
     updateAction: (actionId: string, update: SummarizeActionUpdate) => void;
     now?: Date;
+    forcedRecentMessageCount: number;
 }
 
 export interface IntelligentContextResult {
@@ -458,7 +451,11 @@ const ensureDaySummaries = async (
                     : await generateSummaryText(options, 'DAY', label, transcript);
             const record = await createSummaryRecord(options, summaryMap, 'DAY', periodStart, summaryText);
             if (record) {
-                options.updateAction(actionId, { status: 'success', content: summaryText });
+                options.updateAction(actionId, {
+                    status: 'success',
+                    content: summaryText,
+                    persistedSummary: record,
+                });
             } else {
                 options.updateAction(actionId, {
                     status: 'error',
@@ -526,7 +523,11 @@ const ensureWeekSummaries = async (
             const summaryText = await generateSummaryText(options, 'WEEK', label, sourceText);
             const record = await createSummaryRecord(options, summaryMap, 'WEEK', weekStart, summaryText);
             if (record) {
-                options.updateAction(actionId, { status: 'success', content: summaryText });
+                options.updateAction(actionId, {
+                    status: 'success',
+                    content: summaryText,
+                    persistedSummary: record,
+                });
             } else {
                 options.updateAction(actionId, {
                     status: 'error',
@@ -595,7 +596,11 @@ const ensureMonthSummaries = async (
             const summaryText = await generateSummaryText(options, 'MONTH', label, sourceText);
             const record = await createSummaryRecord(options, summaryMap, 'MONTH', monthStart, summaryText);
             if (record) {
-                options.updateAction(actionId, { status: 'success', content: summaryText });
+                options.updateAction(actionId, {
+                    status: 'success',
+                    content: summaryText,
+                    persistedSummary: record,
+                });
             } else {
                 options.updateAction(actionId, {
                     status: 'error',
@@ -680,7 +685,7 @@ const buildSystemMessages = (
     return { systemMessages, yesterdaySummary };
 };
 
-const filterRecentMessages = (history: Message[], now: Date): Message[] => {
+const filterRecentMessages = (history: Message[], now: Date, forcedRecentCount: number): Message[] => {
     if (!history || history.length === 0) {
         return [];
     }
@@ -691,8 +696,11 @@ const filterRecentMessages = (history: Message[], now: Date): Message[] => {
             recentIds.add(message.id);
         }
     });
-    const lastSix = history.slice(Math.max(0, history.length - 6));
-    lastSix.forEach((message) => recentIds.add(message.id));
+    const tailCount = Math.min(6, Math.max(0, Math.round(forcedRecentCount)));
+    if (tailCount > 0) {
+        const tail = history.slice(Math.max(0, history.length - tailCount));
+        tail.forEach((message) => recentIds.add(message.id));
+    }
     if (recentIds.size === history.length) {
         return [...history];
     }
@@ -708,7 +716,7 @@ export const prepareIntelligentContext = async (
     if (!options.branchHeadMessageId) {
         return {
             systemMessages: [],
-            recentMessages: filterRecentMessages(historyChain, now),
+            recentMessages: filterRecentMessages(historyChain, now, options.forcedRecentMessageCount),
         };
     }
 
@@ -738,7 +746,7 @@ export const prepareIntelligentContext = async (
 
     return {
         systemMessages,
-        recentMessages: filterRecentMessages(historyChain, now),
+        recentMessages: filterRecentMessages(historyChain, now, options.forcedRecentMessageCount),
     };
 };
 

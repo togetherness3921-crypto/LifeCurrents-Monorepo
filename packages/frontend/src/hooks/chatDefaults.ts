@@ -8,4 +8,5 @@ export const DEFAULT_CONTEXT_CONFIG: ConversationContextConfig = {
     mode: 'all-middle-out',
     customMessageCount: 20,
     summaryPrompt: DEFAULT_SUMMARY_PROMPT,
+    forcedRecentMessageCount: 0,
 };

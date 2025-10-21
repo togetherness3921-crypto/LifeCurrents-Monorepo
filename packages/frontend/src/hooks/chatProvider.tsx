@@ -1,6 +1,7 @@
 import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '@/integrations/supabase/client';
+import type { ConversationSummaryRecord, SummaryLevel } from '@/types/conversationSummary';
 import {
   ChatContext,
   ChatThread,
@@ -47,6 +48,16 @@ type SupabaseDraftRow = {
   updated_at: string | null;
 };
 
+type SupabaseConversationSummaryRow = {
+  id: string;
+  thread_id: string;
+  summary_level: SummaryLevel;
+  summary_period_start: string;
+  content: string | null;
+  created_by_message_id: string;
+  created_at: string | null;
+};
+
 type LegacyThread = {
   id: string;
   title: string;
@@ -71,7 +82,9 @@ const nowIso = () => new Date().toISOString();
 
 const CONTEXT_MIN = 1;
 const CONTEXT_MAX = 200;
-const VALID_CONTEXT_MODES = new Set(['last-8', 'all-middle-out', 'custom', 'intelligent']);
+const FORCED_RECENT_MIN = 0;
+const FORCED_RECENT_MAX = 6;
+const VALID_CONTEXT_MODES = new Set(['all-middle-out', 'custom', 'intelligent']);
 
 const clampCustomMessageCount = (value: unknown): number => {
   const numeric = typeof value === 'number' ? value : Number(value);
@@ -79,6 +92,14 @@ const clampCustomMessageCount = (value: unknown): number => {
     return DEFAULT_CONTEXT_CONFIG.customMessageCount;
   }
   return Math.min(CONTEXT_MAX, Math.max(CONTEXT_MIN, Math.round(numeric)));
+};
+
+const clampForcedRecentMessageCount = (value: unknown): number => {
+  const numeric = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(numeric)) {
+    return DEFAULT_CONTEXT_CONFIG.forcedRecentMessageCount;
+  }
+  return Math.min(FORCED_RECENT_MAX, Math.max(FORCED_RECENT_MIN, Math.round(numeric)));
 };
 
 const sanitizeModelId = (value: unknown): string => {
@@ -109,12 +130,20 @@ const sanitizeContextConfig = (input: unknown): ChatThread['contextConfig'] => {
     return base;
   }
   const maybeMode = (candidate as { mode?: unknown }).mode;
-  if (VALID_CONTEXT_MODES.has(maybeMode as string)) {
+  if (maybeMode === 'last-8') {
+    base.mode = 'custom';
+    base.customMessageCount = clampCustomMessageCount(8);
+  } else if (VALID_CONTEXT_MODES.has(maybeMode as string)) {
     base.mode = maybeMode as ChatThread['contextConfig']['mode'];
   }
   if ('customMessageCount' in (candidate as Record<string, unknown>)) {
     base.customMessageCount = clampCustomMessageCount(
       (candidate as { customMessageCount?: unknown }).customMessageCount
+    );
+  }
+  if ('forcedRecentMessageCount' in (candidate as Record<string, unknown>)) {
+    base.forcedRecentMessageCount = clampForcedRecentMessageCount(
+      (candidate as { forcedRecentMessageCount?: unknown }).forcedRecentMessageCount
     );
   }
   if (typeof (candidate as { summaryPrompt?: unknown }).summaryPrompt === 'string') {
@@ -255,6 +284,7 @@ const parseMessageRows = (rows: SupabaseMessageRow[]): MessageStore => {
       updatedAt,
       threadId: row.thread_id,
       contextActions: [],
+      persistedSummaries: [],
     };
     store[row.id] = baseMessage;
   });
@@ -274,6 +304,55 @@ const parseMessageRows = (rows: SupabaseMessageRow[]): MessageStore => {
   });
 
   return store;
+};
+
+const SUMMARY_LEVEL_ORDER: Record<SummaryLevel, number> = {
+  DAY: 0,
+  WEEK: 1,
+  MONTH: 2,
+};
+
+const mapSummaryRow = (row: SupabaseConversationSummaryRow): ConversationSummaryRecord => ({
+  id: row.id,
+  thread_id: row.thread_id,
+  summary_level: (row.summary_level ?? 'DAY') as SummaryLevel,
+  summary_period_start: row.summary_period_start,
+  content: row.content ?? '',
+  created_by_message_id: row.created_by_message_id,
+  created_at: row.created_at ?? undefined,
+});
+
+const groupSummariesByMessage = (
+  rows: SupabaseConversationSummaryRow[]
+): Map<string, ConversationSummaryRecord[]> => {
+  const summaryByMessage = new Map<string, ConversationSummaryRecord[]>();
+  rows.forEach((row) => {
+    if (!row.created_by_message_id) {
+      return;
+    }
+    const record = mapSummaryRow(row);
+    if (!summaryByMessage.has(record.created_by_message_id)) {
+      summaryByMessage.set(record.created_by_message_id, []);
+    }
+    summaryByMessage.get(record.created_by_message_id)!.push(record);
+  });
+
+  summaryByMessage.forEach((list, key) => {
+    const sorted = list
+      .slice()
+      .sort((a, b) => {
+        const levelDelta = SUMMARY_LEVEL_ORDER[a.summary_level] - SUMMARY_LEVEL_ORDER[b.summary_level];
+        if (levelDelta !== 0) {
+          return levelDelta;
+        }
+        const aTime = new Date(a.summary_period_start).getTime();
+        const bTime = new Date(b.summary_period_start).getTime();
+        return aTime - bTime;
+      });
+    summaryByMessage.set(key, sorted);
+  });
+
+  return summaryByMessage;
 };
 
 const legacyMessagesToSupabase = (
@@ -498,6 +577,11 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
           .select('*');
         if (messageError) throw messageError;
 
+        const { data: summaryRows, error: summaryError } = await supabase
+          .from('conversation_summaries')
+          .select('*');
+        if (summaryError) throw summaryError;
+
         const { data: draftRows, error: draftError } = await supabase
           .from('chat_drafts')
           .select('*');
@@ -513,6 +597,15 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         }
 
         const messageStore = parseMessageRows((messageRows ?? []) as SupabaseMessageRow[]);
+
+        const summaryByMessageId = groupSummariesByMessage(
+          (summaryRows ?? []) as SupabaseConversationSummaryRow[]
+        );
+
+        Object.values(messageStore).forEach((message) => {
+          const summaries = summaryByMessageId.get(message.id);
+          message.persistedSummaries = summaries ? summaries.map((summary) => ({ ...summary })) : [];
+        });
 
         const parsedThreads = (refreshedThreads ?? []).map((row) =>
           toChatThread(row as SupabaseThreadRow, messageStore)
@@ -669,6 +762,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         updatedAt: createdAt,
         threadId,
         contextActions: [],
+        persistedSummaries: [],
       };
 
       setMessages((previous) => {
@@ -683,32 +777,30 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         return updated;
       });
 
-      setThreads((previous) =>
-        previous.map((thread) => {
-          if (thread.id !== threadId) return thread;
+      const updatedThread = updateThreadState(threadId, (thread) => {
+        const selectedChildByMessageId = { ...thread.selectedChildByMessageId };
+        let rootChildren = [...thread.rootChildren];
+        let selectedRootChild = thread.selectedRootChild;
 
-          const selectedChildByMessageId = { ...thread.selectedChildByMessageId };
-          let rootChildren = [...thread.rootChildren];
-          let selectedRootChild = thread.selectedRootChild;
+        if (messageData.parentId) {
+          selectedChildByMessageId[messageData.parentId] = id;
+        } else {
+          rootChildren = [...rootChildren, id];
+          selectedRootChild = id;
+        }
 
-          if (messageData.parentId) {
-            selectedChildByMessageId[messageData.parentId] = id;
-          } else {
-            rootChildren = [...rootChildren, id];
-            selectedRootChild = id;
-          }
+        return {
+          ...thread,
+          leafMessageId: id,
+          selectedChildByMessageId,
+          rootChildren,
+          selectedRootChild,
+        };
+      });
 
-          const updatedThread: ChatThread = {
-            ...thread,
-            leafMessageId: id,
-            selectedChildByMessageId,
-            rootChildren,
-            selectedRootChild,
-          };
-          persistThreadState(updatedThread);
-          return updatedThread;
-        })
-      );
+      if (updatedThread) {
+        persistThreadState(updatedThread);
+      }
 
       const newRow: SupabaseMessageRow = {
         id,
@@ -726,7 +818,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
 
       return newMessage;
     },
-    [persistThreadState]
+    [persistThreadState, updateThreadState]
   );
 
   const updateMessage = useCallback(
