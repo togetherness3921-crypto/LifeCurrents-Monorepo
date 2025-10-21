@@ -4,8 +4,12 @@ export const DEFAULT_SUMMARY_PROMPT = `You are LifeCurrents' memory summarizer. 
 
 export const DEFAULT_MODEL_ID = 'google/gemini-2.5-pro';
 
+export const FORCED_RECENT_MESSAGES_MIN = 0;
+export const FORCED_RECENT_MESSAGES_MAX = 6;
+
 export const DEFAULT_CONTEXT_CONFIG: ConversationContextConfig = {
     mode: 'all-middle-out',
     customMessageCount: 20,
     summaryPrompt: DEFAULT_SUMMARY_PROMPT,
+    forcedRecentMessages: FORCED_RECENT_MESSAGES_MIN,
 };

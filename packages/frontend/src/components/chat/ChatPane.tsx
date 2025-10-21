@@ -36,6 +36,79 @@ const MAX_AGENT_ITERATIONS = 8;
 
 type SerializableToolCall = NonNullable<Message['toolCalls']>[number];
 
+const PROMPT_TIME_FORMAT = new Intl.DateTimeFormat(undefined, {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+});
+
+const PROMPT_DATE_FORMAT = new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    day: '2-digit',
+});
+
+const resolveTimestampSource = (input?: Date): Date => {
+    if (input instanceof Date && !Number.isNaN(input.getTime())) {
+        return input;
+    }
+    return new Date();
+};
+
+const formatPromptTimestamp = (date?: Date): string => {
+    const resolved = resolveTimestampSource(date);
+    return `[${PROMPT_TIME_FORMAT.format(resolved)} | ${PROMPT_DATE_FORMAT.format(resolved)}]`;
+};
+
+const prependTimestampToContent = (date: Date | undefined, content: string): string => {
+    const prefix = formatPromptTimestamp(date);
+    const safeContent = typeof content === 'string' ? content : String(content ?? '');
+    return safeContent.length > 0 ? `${prefix} ${safeContent}` : prefix;
+};
+
+const normaliseToolContentToString = (result: unknown): string | null => {
+    if (!result) {
+        return null;
+    }
+
+    if (typeof result === 'string') {
+        const trimmed = result.trim();
+        return trimmed.length > 0 ? trimmed : null;
+    }
+
+    if (Array.isArray(result)) {
+        const joined = result
+            .map((item) => (typeof item === 'string' ? item : JSON.stringify(item)))
+            .join('\n')
+            .trim();
+        return joined.length > 0 ? joined : null;
+    }
+
+    if (typeof result === 'object') {
+        const payload = result as { content?: unknown; text?: unknown };
+        const rawContent = payload.content ?? payload.text;
+        if (typeof rawContent === 'string') {
+            const trimmed = rawContent.trim();
+            return trimmed.length > 0 ? trimmed : null;
+        }
+        if (Array.isArray(rawContent)) {
+            const joined = rawContent
+                .map((item) => (typeof item === 'string' ? item : JSON.stringify(item)))
+                .join('\n')
+                .trim();
+            return joined.length > 0 ? joined : null;
+        }
+        if (rawContent && typeof rawContent === 'object') {
+            try {
+                return JSON.stringify(rawContent, null, 2);
+            } catch {
+                return null;
+            }
+        }
+    }
+
+    return null;
+};
+
 const ensureJsonArguments = (value: SerializableToolCall['arguments']): string => {
     if (typeof value === 'string') {
         const trimmed = value.trim();
@@ -133,7 +206,7 @@ const serialiseMessageHistoryForApi = (history: Message[]): ApiMessage[] => {
 
             const assistantMessage: ApiMessage = {
                 role: 'assistant',
-                content: message.content ?? '',
+                content: prependTimestampToContent(message.createdAt, message.content ?? ''),
                 ...(toolCalls.length > 0 ? { tool_calls: toolCalls } : {}),
             };
 
@@ -175,10 +248,15 @@ const serialiseMessageHistoryForApi = (history: Message[]): ApiMessage[] => {
             ];
         }
 
+        const baseContent = message.content ?? '';
+        const decoratedContent =
+            message.role === 'user'
+                ? prependTimestampToContent(message.createdAt, baseContent)
+                : baseContent;
         return [
             {
                 role: message.role,
-                content: message.content ?? '',
+                content: decoratedContent,
             },
         ];
     });
@@ -232,7 +310,7 @@ const ChatPane = () => {
     const { activeInstruction, activeInstructionId } = useSystemInstructions();
     const { tools: availableTools, callTool } = useMcp();
     const { selectedModel, recordModelUsage, getToolIntentCheck } = useModelSelection();
-    const { mode, summaryPrompt, applyContextToMessages, transforms } = useConversationContext();
+    const { mode, summaryPrompt, applyContextToMessages, transforms, forcedRecentMessages } = useConversationContext();
     const { registerLatestMessage, revertToMessage, applyPatchResult, activeMessageId, isViewingHistorical, syncToThread } = useGraphHistory();
 
     useEffect(() => {
@@ -248,7 +326,7 @@ const ChatPane = () => {
         if (activeThreadId) {
             void syncToThread(messages);
         }
-    }, [activeThreadId, syncToThread]);
+    }, [activeThreadId, messages, syncToThread]);
 
     useEffect(() => {
         if (messages.length === 0) {
@@ -395,6 +473,12 @@ const ChatPane = () => {
             setInput('');
         }
 
+        if (userMessage.parentId) {
+            selectBranch(threadId, userMessage.parentId, userMessage.id);
+        } else {
+            selectBranch(threadId, null, userMessage.id);
+        }
+
         const assistantMessage = addMessage(threadId, {
             role: 'assistant',
             content: '',
@@ -402,6 +486,7 @@ const ChatPane = () => {
             toolCalls: [],
         });
         setStreamingMessageId(assistantMessage.id);
+        selectBranch(threadId, userMessage.id, assistantMessage.id);
 
         const registerSummarizeAction = ({
             summaryLevel,
@@ -461,6 +546,7 @@ const ChatPane = () => {
                     model: selectedModel.id,
                     registerAction: registerSummarizeAction,
                     updateAction: updateSummarizeAction,
+                    forcedRecentMessageCount: forcedRecentMessages,
                 });
                 const recentHistory = serialiseMessageHistoryForApi(intelligentContext.recentMessages);
                 historyMessagesForApi = [...intelligentContext.systemMessages, ...recentHistory];
@@ -475,10 +561,27 @@ const ChatPane = () => {
             historyMessagesForApi = serialiseMessageHistoryForApi(limitedHistory);
         }
 
+        let todaysContextMessage: ApiMessage | null = null;
+        try {
+            const todaysContextResult = await callTool('get_todays_context', {});
+            const todaysContextContent = normaliseToolContentToString(todaysContextResult);
+            if (todaysContextContent) {
+                todaysContextMessage = {
+                    role: 'system' as const,
+                    content: `Here is the user's current daily context:\n${todaysContextContent}`,
+                };
+            }
+        } catch (contextError) {
+            console.warn('[ChatPane] Failed to fetch today\'s context.', contextError);
+        }
+
+        const decoratedUserContent = prependTimestampToContent(userMessage.createdAt, content);
+
         const conversationMessages: ApiMessage[] = [
+            ...(todaysContextMessage ? [todaysContextMessage] : []),
             ...(systemPrompt ? [{ role: 'system' as const, content: systemPrompt }] : []),
             ...historyMessagesForApi,
-            { role: 'user' as const, content },
+            { role: 'user' as const, content: decoratedUserContent },
         ];
 
         const toolDefinitions: ApiToolDefinition[] = availableTools.map((tool) => ({
@@ -649,9 +752,13 @@ const ChatPane = () => {
 
                 if (!toolCallRequests.length) {
                     console.log('[ChatPane] No tool calls returned; finishing assistant response.');
+                    const decoratedAssistantContent = prependTimestampToContent(
+                        assistantMessage.createdAt,
+                        geminiResult.content ?? ''
+                    );
                     conversationMessages.push({
                         role: 'assistant',
-                        content: geminiResult.content ?? '',
+                        content: decoratedAssistantContent,
                     });
                     break;
                 }
@@ -683,9 +790,13 @@ const ChatPane = () => {
                     });
                 });
 
+                const decoratedAssistantContent = prependTimestampToContent(
+                    assistantMessage.createdAt,
+                    geminiResult.content ?? ''
+                );
                 conversationMessages.push({
                     role: 'assistant',
-                    content: geminiResult.content ?? '',
+                    content: decoratedAssistantContent,
                     tool_calls: normalisedToolCalls,
                 });
 

@@ -1,7 +1,8 @@
 import type { ApiMessage } from './openRouter';
 import { getGeminiResponse } from './openRouter';
-import type { Message, SummaryLevel } from '@/hooks/chatProviderContext';
+import type { ConversationSummaryRecord, Message, SummaryLevel } from '@/hooks/chatProviderContext';
 import type { ToolExecutionResult } from '@/lib/mcp/types';
+import { FORCED_RECENT_MESSAGES_MAX, FORCED_RECENT_MESSAGES_MIN } from '@/hooks/chatDefaults';
 
 const DATE_FORMAT = new Intl.DateTimeFormat(undefined, {
     timeZone: 'UTC',
@@ -16,16 +17,6 @@ const TIME_FORMAT = new Intl.DateTimeFormat(undefined, { timeZone: 'UTC', hour: 
 type SummaryMap = Record<SummaryLevel, Map<string, ConversationSummaryRecord>>;
 
 type ActionStatus = 'pending' | 'running' | 'success' | 'error';
-
-export interface ConversationSummaryRecord {
-    id: string;
-    thread_id: string;
-    summary_level: SummaryLevel;
-    summary_period_start: string;
-    content: string;
-    created_by_message_id: string;
-    created_at?: string;
-}
 
 interface ToolMessage {
     id: string;
@@ -57,6 +48,7 @@ export interface PrepareIntelligentContextOptions {
     model: string;
     registerAction: (descriptor: SummarizeActionDescriptor) => string;
     updateAction: (actionId: string, update: SummarizeActionUpdate) => void;
+    forcedRecentMessageCount: number;
     now?: Date;
 }
 
@@ -680,7 +672,7 @@ const buildSystemMessages = (
     return { systemMessages, yesterdaySummary };
 };
 
-const filterRecentMessages = (history: Message[], now: Date): Message[] => {
+const filterRecentMessages = (history: Message[], now: Date, forcedTailCount: number): Message[] => {
     if (!history || history.length === 0) {
         return [];
     }
@@ -691,8 +683,16 @@ const filterRecentMessages = (history: Message[], now: Date): Message[] => {
             recentIds.add(message.id);
         }
     });
-    const lastSix = history.slice(Math.max(0, history.length - 6));
-    lastSix.forEach((message) => recentIds.add(message.id));
+    const normalizedTail = Number.isFinite(forcedTailCount)
+        ? Math.min(
+              FORCED_RECENT_MESSAGES_MAX,
+              Math.max(FORCED_RECENT_MESSAGES_MIN, Math.round(forcedTailCount))
+          )
+        : FORCED_RECENT_MESSAGES_MIN;
+    if (normalizedTail > 0) {
+        const tailMessages = history.slice(Math.max(0, history.length - normalizedTail));
+        tailMessages.forEach((message) => recentIds.add(message.id));
+    }
     if (recentIds.size === history.length) {
         return [...history];
     }
@@ -704,11 +704,12 @@ export const prepareIntelligentContext = async (
 ): Promise<IntelligentContextResult> => {
     const now = options.now ?? new Date();
     const historyChain = options.historyChain ?? [];
+    const forcedRecentTail = options.forcedRecentMessageCount ?? FORCED_RECENT_MESSAGES_MIN;
 
     if (!options.branchHeadMessageId) {
         return {
             systemMessages: [],
-            recentMessages: filterRecentMessages(historyChain, now),
+            recentMessages: filterRecentMessages(historyChain, now, forcedRecentTail),
         };
     }
 
@@ -738,7 +739,7 @@ export const prepareIntelligentContext = async (
 
     return {
         systemMessages,
-        recentMessages: filterRecentMessages(historyChain, now),
+        recentMessages: filterRecentMessages(historyChain, now, forcedRecentTail),
     };
 };
 
