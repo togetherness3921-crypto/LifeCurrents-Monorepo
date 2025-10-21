@@ -9,10 +9,47 @@ import {
     AccordionContent,
     AccordionItem,
     AccordionTrigger,
-} from "@/components/ui/accordion";
+} from '@/components/ui/accordion';
 import { Badge } from '../ui/badge';
 import ToolCallDetails from './ToolCallDetails';
 import { cn } from '@/lib/utils';
+
+const MESSAGE_TIMESTAMP_FORMAT = new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+});
+
+const SUMMARY_DATE_FORMAT = new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+});
+
+const SUMMARY_MONTH_FORMAT = new Intl.DateTimeFormat(undefined, {
+    month: 'long',
+    year: 'numeric',
+});
+
+type PersistedSummary = NonNullable<Message['persistedSummaries']>[number];
+
+const formatSummaryHeading = (summary: PersistedSummary): string => {
+    const start = new Date(summary.summaryPeriodStart);
+    switch (summary.summaryLevel) {
+        case 'DAY':
+            return `Day Summary — ${SUMMARY_DATE_FORMAT.format(start)}`;
+        case 'WEEK': {
+            const end = new Date(start);
+            end.setDate(end.getDate() + 6);
+            return `Week Summary — ${SUMMARY_DATE_FORMAT.format(start)} – ${SUMMARY_DATE_FORMAT.format(end)}`;
+        }
+        case 'MONTH':
+        default:
+            return `Month Summary — ${SUMMARY_MONTH_FORMAT.format(start)}`;
+    }
+};
 
 interface ChatMessageProps {
     message: Message;
@@ -119,7 +156,8 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
         );
     }
 
-    const isUser = message.role === 'user';
+    const timestampLabel = message.createdAt ? MESSAGE_TIMESTAMP_FORMAT.format(message.createdAt) : 'Time unknown';
+    const persistedSummaries = Array.isArray(message.persistedSummaries) ? message.persistedSummaries : [];
 
     return (
         <div className={containerClasses}>
@@ -147,6 +185,34 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
                                 </AccordionContent>
                             </AccordionItem>
                         </Accordion>
+                    </div>
+                )}
+                {persistedSummaries.length > 0 && (
+                    <div className="mb-3 space-y-3" data-graph-interactive="true">
+                        {persistedSummaries.map((summary) => (
+                            <Accordion type="single" collapsible key={summary.id} className="w-full">
+                                <AccordionItem
+                                    value={`persisted-${summary.id}`}
+                                    className="rounded-md border border-muted-foreground/20 bg-background/80"
+                                >
+                                    <AccordionTrigger className="px-3 py-2 font-medium">
+                                        <div className="flex w-full flex-col gap-1 text-left sm:flex-row sm:items-center sm:justify-between sm:gap-2">
+                                            <div className="flex items-center gap-2">
+                                                <Badge variant="secondary" className="uppercase tracking-wide text-[0.75em]">
+                                                    Saved Summary
+                                                </Badge>
+                                                <span className="text-muted-foreground text-[0.875em]">
+                                                    {formatSummaryHeading(summary)}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </AccordionTrigger>
+                                    <AccordionContent className="px-3 pb-3 text-[0.875em] whitespace-pre-wrap">
+                                        {summary.content}
+                                    </AccordionContent>
+                                </AccordionItem>
+                            </Accordion>
+                        ))}
                     </div>
                 )}
                 {message.contextActions && message.contextActions.length > 0 && (
@@ -213,7 +279,8 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
                 )}
                 <p className="whitespace-pre-wrap">{message.content}</p>
 
-                <div className="absolute bottom-0 right-1 flex translate-y-1/2 items-center gap-0.5 rounded-md bg-muted p-0.5 text-xs text-foreground/70 shadow-sm">
+                <div className="absolute bottom-0 right-1 flex translate-y-1/2 items-center gap-1.5 rounded-md bg-muted px-2 py-1 text-[0.65rem] text-foreground/70 shadow-sm">
+                    <span className="font-mono text-muted-foreground/80">{timestampLabel}</span>
                     {branchInfo && (
                         <>
                             <Button

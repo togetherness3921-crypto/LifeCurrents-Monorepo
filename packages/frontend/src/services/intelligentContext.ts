@@ -1,6 +1,6 @@
 import type { ApiMessage } from './openRouter';
 import { getGeminiResponse } from './openRouter';
-import type { Message, SummaryLevel } from '@/hooks/chatProviderContext';
+import type { ConversationSummaryRecord, Message, SummaryLevel } from '@/hooks/chatProviderContext';
 import type { ToolExecutionResult } from '@/lib/mcp/types';
 
 const DATE_FORMAT = new Intl.DateTimeFormat(undefined, {
@@ -16,16 +16,6 @@ const TIME_FORMAT = new Intl.DateTimeFormat(undefined, { timeZone: 'UTC', hour: 
 type SummaryMap = Record<SummaryLevel, Map<string, ConversationSummaryRecord>>;
 
 type ActionStatus = 'pending' | 'running' | 'success' | 'error';
-
-export interface ConversationSummaryRecord {
-    id: string;
-    thread_id: string;
-    summary_level: SummaryLevel;
-    summary_period_start: string;
-    content: string;
-    created_by_message_id: string;
-    created_at?: string;
-}
 
 interface ToolMessage {
     id: string;
@@ -57,6 +47,8 @@ export interface PrepareIntelligentContextOptions {
     model: string;
     registerAction: (descriptor: SummarizeActionDescriptor) => string;
     updateAction: (actionId: string, update: SummarizeActionUpdate) => void;
+    forcedRecentCount: number;
+    onPersistedSummary?: (record: ConversationSummaryRecord) => void;
     now?: Date;
 }
 
@@ -153,31 +145,58 @@ const normaliseSummaryRecord = (input: unknown): ConversationSummaryRecord | nul
     if (!input || typeof input !== 'object') {
         return null;
     }
-    const record = input as Partial<ConversationSummaryRecord> & Record<string, unknown>;
-    if (
-        typeof record.summary_level !== 'string' ||
-        typeof record.summary_period_start !== 'string' ||
-        typeof record.content !== 'string'
-    ) {
+    const record = input as Record<string, unknown>;
+    const summaryLevelValue =
+        typeof record.summary_level === 'string'
+            ? (record.summary_level as SummaryLevel)
+            : typeof record.summaryLevel === 'string'
+              ? (record.summaryLevel as SummaryLevel)
+              : null;
+    const summaryPeriodStartValue =
+        typeof record.summary_period_start === 'string'
+            ? (record.summary_period_start as string)
+            : typeof record.summaryPeriodStart === 'string'
+              ? (record.summaryPeriodStart as string)
+              : null;
+    const contentValue = typeof record.content === 'string' ? record.content : null;
+
+    if (!summaryLevelValue || !summaryPeriodStartValue || contentValue === null) {
         return null;
     }
-    const id = typeof record.id === 'string' ? record.id : `summary-${record.summary_level}-${record.summary_period_start}`;
-    const thread_id =
+
+    const idValue =
+        typeof record.id === 'string'
+            ? record.id
+            : `summary-${summaryLevelValue}-${summaryPeriodStartValue}`;
+    const threadIdValue =
         typeof record.thread_id === 'string'
-            ? record.thread_id
-            : typeof (record as { conversation_id?: unknown }).conversation_id === 'string'
-              ? (record as { conversation_id: string }).conversation_id
+            ? (record.thread_id as string)
+            : typeof record.threadId === 'string'
+              ? (record.threadId as string)
+              : typeof (record as { conversation_id?: unknown }).conversation_id === 'string'
+                ? (record as { conversation_id: string }).conversation_id
+                : '';
+    const createdByMessageIdValue =
+        typeof record.created_by_message_id === 'string'
+            ? (record.created_by_message_id as string)
+            : typeof record.createdByMessageId === 'string'
+              ? (record.createdByMessageId as string)
               : '';
-    const created_by_message_id =
-        typeof record.created_by_message_id === 'string' ? record.created_by_message_id : '';
+    const createdAtValue =
+        typeof record.created_at === 'string'
+            ? (record.created_at as string)
+            : typeof record.createdAt === 'string'
+              ? (record.createdAt as string)
+              : undefined;
+
     return {
-        id,
-        thread_id,
-        summary_level: record.summary_level as SummaryLevel,
-        summary_period_start: record.summary_period_start,
-        content: record.content,
-        created_by_message_id,
-        created_at: typeof record.created_at === 'string' ? record.created_at : undefined,
+        id: idValue,
+        threadId: threadIdValue,
+        summaryLevel: summaryLevelValue,
+        summaryPeriodStart: summaryPeriodStartValue,
+        content: contentValue,
+        createdByMessageId: createdByMessageIdValue,
+        createdAt: createdAtValue,
     };
 };
 
@@ -189,11 +208,11 @@ const buildEmptySummaryMap = (): SummaryMap => ({
 
 const ingestSummaries = (map: SummaryMap, summaries: ConversationSummaryRecord[]) => {
     summaries.forEach((summary) => {
-        const key = toIsoKey(new Date(summary.summary_period_start));
-        const bucket = map[summary.summary_level];
+        const key = toIsoKey(new Date(summary.summaryPeriodStart));
+        const bucket = map[summary.summaryLevel];
         if (!bucket) return;
         const existing = bucket.get(key);
-        if (!existing || !existing.created_at || (summary.created_at && summary.created_at > existing.created_at)) {
+        if (!existing || !existing.createdAt || (summary.createdAt && summary.createdAt > existing.createdAt)) {
             bucket.set(key, summary);
         }
     });
@@ -314,7 +333,7 @@ const createSummaryRecord = async (
     periodStart: Date,
     content: string
 ): Promise<ConversationSummaryRecord | null> => {
-    const { conversationId, createdByMessageId, callTool } = options;
+    const { conversationId, createdByMessageId, callTool, onPersistedSummary } = options;
     try {
         const payload = await callTool('create_conversation_summary', {
             conversation_id: conversationId,
@@ -328,17 +347,21 @@ const createSummaryRecord = async (
             parsed && typeof parsed === 'object' && !Array.isArray(parsed) && 'summary' in parsed
                 ? (parsed as { summary: unknown }).summary
                 : parsed;
-        const record = normaliseSummaryRecord(summaryInput) ?? {
-            id: `local-${level}-${periodStart.toISOString()}`,
-            thread_id: conversationId,
-            summary_level: level,
-            summary_period_start: periodStart.toISOString(),
-            content,
-            created_by_message_id: createdByMessageId,
-            created_at: new Date().toISOString(),
-        };
-        const key = toIsoKey(new Date(record.summary_period_start));
+        const record =
+            normaliseSummaryRecord(summaryInput) ?? ({
+                id: `local-${level}-${periodStart.toISOString()}`,
+                threadId: conversationId,
+                summaryLevel: level,
+                summaryPeriodStart: periodStart.toISOString(),
+                content,
+                createdByMessageId,
+                createdAt: new Date().toISOString(),
+            } satisfies ConversationSummaryRecord);
+        const key = toIsoKey(new Date(record.summaryPeriodStart));
         summaryMap[level].set(key, record);
+        if (onPersistedSummary) {
+            onPersistedSummary(record);
+        }
         return record;
     } catch (error) {
         console.warn('[IntelligentContext] Failed to create summary:', error);
@@ -482,7 +505,7 @@ const ensureWeekSummaries = async (
     const currentWeekStart = startOfUtcWeek(now);
     const groupedByWeek = new Map<string, ConversationSummaryRecord[]>();
     summaryMap.DAY.forEach((summary) => {
-        const start = startOfUtcWeek(new Date(summary.summary_period_start));
+        const start = startOfUtcWeek(new Date(summary.summaryPeriodStart));
         const key = toIsoKey(start);
         if (!groupedByWeek.has(key)) {
             groupedByWeek.set(key, []);
@@ -498,7 +521,7 @@ const ensureWeekSummaries = async (
             continue;
         }
         const sortedDays = daySummaries.sort(
-            (a, b) => new Date(a.summary_period_start).getTime() - new Date(b.summary_period_start).getTime()
+            (a, b) => new Date(a.summaryPeriodStart).getTime() - new Date(b.summaryPeriodStart).getTime()
         );
         const periodEnd = addUtcDays(weekStart, 7);
         const label = getRelativeLabel('WEEK', weekStart, periodEnd, now);
@@ -512,7 +535,7 @@ const ensureWeekSummaries = async (
         try {
             const sourceText = sortedDays
                 .map((daySummary) => {
-                    const dayLabel = DATE_FORMAT.format(new Date(daySummary.summary_period_start));
+                    const dayLabel = DATE_FORMAT.format(new Date(daySummary.summaryPeriodStart));
                     return `${dayLabel}:\n${daySummary.content}`;
                 })
                 .join('\n\n');
@@ -550,7 +573,7 @@ const ensureMonthSummaries = async (
     const currentMonthStart = startOfUtcMonth(now);
     const groupedByMonth = new Map<string, ConversationSummaryRecord[]>();
     summaryMap.WEEK.forEach((summary) => {
-        const monthStart = startOfUtcMonth(new Date(summary.summary_period_start));
+        const monthStart = startOfUtcMonth(new Date(summary.summaryPeriodStart));
         const key = toIsoKey(monthStart);
         if (!groupedByMonth.has(key)) {
             groupedByMonth.set(key, []);
@@ -566,7 +589,7 @@ const ensureMonthSummaries = async (
             continue;
         }
         const sortedWeeks = weekSummaries.sort(
-            (a, b) => new Date(a.summary_period_start).getTime() - new Date(b.summary_period_start).getTime()
+            (a, b) => new Date(a.summaryPeriodStart).getTime() - new Date(b.summaryPeriodStart).getTime()
         );
         const periodEnd = addUtcMonths(monthStart, 1);
         const label = getRelativeLabel('MONTH', monthStart, periodEnd, now);
@@ -580,7 +603,7 @@ const ensureMonthSummaries = async (
         try {
             const sourceText = sortedWeeks
                 .map((weekSummary) => {
-                    const weekStart = new Date(weekSummary.summary_period_start);
+                    const weekStart = new Date(weekSummary.summaryPeriodStart);
                     const weekLabel = formatDateRange(weekStart, addUtcDays(weekStart, 7));
                     return `${weekLabel}:\n${weekSummary.content}`;
                 })
@@ -622,7 +645,7 @@ const buildSystemMessages = (
     const currentMonthStart = startOfUtcMonth(now);
 
     const monthSummaries = Array.from(summaryMap.MONTH.values())
-        .map((summary) => ({ summary, start: new Date(summary.summary_period_start) }))
+        .map((summary) => ({ summary, start: new Date(summary.summaryPeriodStart) }))
         .filter(({ start }) => start.getTime() < currentMonthStart.getTime())
         .sort((a, b) => a.start.getTime() - b.start.getTime());
     monthSummaries.forEach(({ summary, start }) => {
@@ -635,7 +658,7 @@ const buildSystemMessages = (
     });
 
     const weekSummaries = Array.from(summaryMap.WEEK.values())
-        .map((summary) => ({ summary, start: new Date(summary.summary_period_start) }))
+        .map((summary) => ({ summary, start: new Date(summary.summaryPeriodStart) }))
         .filter(({ start }) => start.getTime() >= currentMonthStart.getTime() && start.getTime() < currentWeekStart.getTime())
         .sort((a, b) => a.start.getTime() - b.start.getTime());
     weekSummaries.forEach(({ summary, start }) => {
@@ -651,7 +674,7 @@ const buildSystemMessages = (
     const yesterdaySummary = summaryMap.DAY.get(yesterdayKey) ?? null;
 
     const daySummaries = Array.from(summaryMap.DAY.values())
-        .map((summary) => ({ summary, start: new Date(summary.summary_period_start) }))
+        .map((summary) => ({ summary, start: new Date(summary.summaryPeriodStart) }))
         .filter(({ start }) => {
             const time = start.getTime();
             // Get summaries from the current week, but exclude today and yesterday
@@ -669,7 +692,7 @@ const buildSystemMessages = (
     });
 
     if (yesterdaySummary) {
-        const start = new Date(yesterdaySummary.summary_period_start);
+        const start = new Date(yesterdaySummary.summaryPeriodStart);
         const label = getRelativeLabel('DAY', start, addUtcDays(start, 1), now);
         systemMessages.push({
             role: 'system',
@@ -680,7 +703,7 @@ const buildSystemMessages = (
     return { systemMessages, yesterdaySummary };
 };
 
-const filterRecentMessages = (history: Message[], now: Date): Message[] => {
+const filterRecentMessages = (history: Message[], now: Date, forcedCount: number): Message[] => {
     if (!history || history.length === 0) {
         return [];
     }
@@ -691,8 +714,11 @@ const filterRecentMessages = (history: Message[], now: Date): Message[] => {
             recentIds.add(message.id);
         }
     });
-    const lastSix = history.slice(Math.max(0, history.length - 6));
-    lastSix.forEach((message) => recentIds.add(message.id));
+    const clampedTail = Math.max(0, Math.min(6, Math.floor(forcedCount)));
+    if (clampedTail > 0) {
+        const forcedTail = history.slice(Math.max(0, history.length - clampedTail));
+        forcedTail.forEach((message) => recentIds.add(message.id));
+    }
     if (recentIds.size === history.length) {
         return [...history];
     }
@@ -704,11 +730,12 @@ export const prepareIntelligentContext = async (
 ): Promise<IntelligentContextResult> => {
     const now = options.now ?? new Date();
     const historyChain = options.historyChain ?? [];
+    const forcedRecentCount = Math.max(0, Math.min(6, Math.floor(options.forcedRecentCount ?? 0)));
 
     if (!options.branchHeadMessageId) {
         return {
             systemMessages: [],
-            recentMessages: filterRecentMessages(historyChain, now),
+            recentMessages: filterRecentMessages(historyChain, now, forcedRecentCount),
         };
     }
 
@@ -738,7 +765,7 @@ export const prepareIntelligentContext = async (
 
     return {
         systemMessages,
-        recentMessages: filterRecentMessages(historyChain, now),
+        recentMessages: filterRecentMessages(historyChain, now, forcedRecentCount),
     };
 };
 

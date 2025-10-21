@@ -26,7 +26,7 @@ import { useAudioTranscriptionRecorder } from '@/hooks/useAudioTranscriptionReco
 import RecordingStatusBar from './RecordingStatusBar';
 import ConnectivityStatusBar from './ConnectivityStatusBar';
 import { usePreviewBuilds } from '@/hooks/usePreviewBuilds';
-import { Message, ContextActionState } from '@/hooks/chatProviderContext';
+import { Message, ContextActionState, ConversationSummaryRecord, SummaryLevel } from '@/hooks/chatProviderContext';
 import { prepareIntelligentContext, type SummarizeActionDescriptor, type SummarizeActionUpdate } from '@/services/intelligentContext';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -90,6 +90,57 @@ const createToolCallId = (messageId: string, toolCall: SerializableToolCall, ind
     return `${messageId}-tool-${index + 1}`;
 };
 
+const formatTimestampPrefix = (date?: Date): string => {
+    if (!date) {
+        return '[--:-- | --- --] ';
+    }
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    const month = date.toLocaleString(undefined, { month: 'short' });
+    const day = date.getDate().toString().padStart(2, '0');
+    return `[${hours}:${minutes} | ${month} ${day}] `;
+};
+
+const prependTimestamp = (date: Date | undefined, content: string): string => `${formatTimestampPrefix(date)}${content}`;
+
+const summaryLevelOrder: Record<SummaryLevel, number> = {
+    DAY: 0,
+    WEEK: 1,
+    MONTH: 2,
+};
+
+const sortPersistedSummaries = (records: ConversationSummaryRecord[]): ConversationSummaryRecord[] =>
+    [...records].sort((a, b) => {
+        const levelDelta = summaryLevelOrder[a.summaryLevel] - summaryLevelOrder[b.summaryLevel];
+        if (levelDelta !== 0) {
+            return levelDelta;
+        }
+        const aTime = new Date(a.summaryPeriodStart).getTime();
+        const bTime = new Date(b.summaryPeriodStart).getTime();
+        return bTime - aTime;
+    });
+
+const extractToolTextContent = (result: any): string | null => {
+    if (!result || result.isError) {
+        return null;
+    }
+    const { content } = result;
+    if (typeof content === 'string') {
+        return content;
+    }
+    if (Array.isArray(content)) {
+        for (const entry of content) {
+            if (entry && typeof entry === 'object' && 'text' in entry && typeof (entry as { text?: unknown }).text === 'string') {
+                return (entry as { text: string }).text;
+            }
+        }
+    }
+    if (content && typeof content === 'object' && 'text' in (content as { text?: unknown }) && typeof (content as { text?: unknown }).text === 'string') {
+        return (content as { text: string }).text;
+    }
+    return null;
+};
+
 const serialiseMessageHistoryForApi = (history: Message[]): ApiMessage[] => {
     if (!history || history.length === 0) {
         return [];
@@ -126,14 +177,14 @@ const serialiseMessageHistoryForApi = (history: Message[]): ApiMessage[] => {
                     toolMessages.push({
                         role: 'tool',
                         tool_call_id: toolCallId,
-                        content,
+                        content: prependTimestamp(message.createdAt, content),
                     });
                 }
             });
 
             const assistantMessage: ApiMessage = {
                 role: 'assistant',
-                content: message.content ?? '',
+                content: prependTimestamp(message.createdAt, message.content ?? ''),
                 ...(toolCalls.length > 0 ? { tool_calls: toolCalls } : {}),
             };
 
@@ -170,7 +221,7 @@ const serialiseMessageHistoryForApi = (history: Message[]): ApiMessage[] => {
                 {
                     role: 'tool',
                     tool_call_id: fallbackId,
-                    content: message.content ?? '',
+                    content: prependTimestamp(message.createdAt, message.content ?? ''),
                 },
             ];
         }
@@ -178,7 +229,7 @@ const serialiseMessageHistoryForApi = (history: Message[]): ApiMessage[] => {
         return [
             {
                 role: message.role,
-                content: message.content ?? '',
+                content: prependTimestamp(message.createdAt, message.content ?? ''),
             },
         ];
     });
@@ -232,7 +283,7 @@ const ChatPane = () => {
     const { activeInstruction, activeInstructionId } = useSystemInstructions();
     const { tools: availableTools, callTool } = useMcp();
     const { selectedModel, recordModelUsage, getToolIntentCheck } = useModelSelection();
-    const { mode, summaryPrompt, applyContextToMessages, transforms } = useConversationContext();
+    const { mode, summaryPrompt, applyContextToMessages, transforms, forcedRecentMessages } = useConversationContext();
     const { registerLatestMessage, revertToMessage, applyPatchResult, activeMessageId, isViewingHistorical, syncToThread } = useGraphHistory();
 
     useEffect(() => {
@@ -248,7 +299,7 @@ const ChatPane = () => {
         if (activeThreadId) {
             void syncToThread(messages);
         }
-    }, [activeThreadId, syncToThread]);
+    }, [activeThreadId, messages, syncToThread]);
 
     useEffect(() => {
         if (messages.length === 0) {
@@ -261,6 +312,37 @@ const ChatPane = () => {
             .find((message) => message.role === 'assistant');
         registerLatestMessage(latestAssistant?.id ?? null, latestAssistant?.graphDocumentVersionId ?? null);
     }, [messages, registerLatestMessage]);
+
+    useEffect(() => {
+        if (!activeThreadId || !activeThread?.leafMessageId) {
+            return;
+        }
+        const leafId = activeThread.leafMessageId;
+        const leafInChain = messages.length > 0 && messages[messages.length - 1]?.id === leafId;
+        if (leafInChain) {
+            return;
+        }
+        const target = allMessages[leafId];
+        if (!target) {
+            return;
+        }
+        selectBranch(activeThreadId, target.parentId ?? null, leafId);
+    }, [activeThread, activeThreadId, allMessages, messages, selectBranch]);
+
+    useEffect(() => {
+        if (!activeThreadId || !streamingMessageId) {
+            return;
+        }
+        const streamingInChain = messages.some((message) => message.id === streamingMessageId);
+        if (streamingInChain) {
+            return;
+        }
+        const target = allMessages[streamingMessageId];
+        if (!target) {
+            return;
+        }
+        selectBranch(activeThreadId, target.parentId ?? null, streamingMessageId);
+    }, [activeThreadId, allMessages, messages, selectBranch, streamingMessageId]);
 
     const handleTranscriptAppend = useCallback(
         (transcript: string) => {
@@ -276,6 +358,21 @@ const ChatPane = () => {
             setIsInputExpanded(true);
         },
         [activeThreadId, updateDraft]
+    );
+
+    const handlePersistedSummary = useCallback(
+        (summary: ConversationSummaryRecord) => {
+            const existingMessage = allMessages[summary.createdByMessageId];
+            if (existingMessage?.persistedSummaries?.some((item) => item.id === summary.id)) {
+                return;
+            }
+            updateMessage(summary.createdByMessageId, (current) => {
+                const existing = Array.isArray(current.persistedSummaries) ? current.persistedSummaries : [];
+                const next = sortPersistedSummaries([...existing, summary]);
+                return { persistedSummaries: next };
+            });
+        },
+        [allMessages, updateMessage]
     );
 
     const {
@@ -389,6 +486,25 @@ const ChatPane = () => {
         const rawHistoryChain = parentId ? getMessageChain(parentId) : [];
         const systemPrompt = activeInstruction?.content;
 
+        const todaysContextPromise = (async () => {
+            try {
+                const result = await callTool('get_todays_context', {});
+                const raw = extractToolTextContent(result);
+                if (!raw) {
+                    return null;
+                }
+                try {
+                    const parsed = JSON.parse(raw);
+                    return JSON.stringify(parsed, null, 2);
+                } catch {
+                    return raw;
+                }
+            } catch (error) {
+                console.warn('[ChatPane] Failed to fetch today\'s context', error);
+                return null;
+            }
+        })();
+
         const userMessage = existingUserMessage ?? addMessage(threadId, { role: 'user', content, parentId });
         if (!existingUserMessage) {
             clearDraft(threadId);
@@ -461,6 +577,8 @@ const ChatPane = () => {
                     model: selectedModel.id,
                     registerAction: registerSummarizeAction,
                     updateAction: updateSummarizeAction,
+                    forcedRecentCount: forcedRecentMessages,
+                    onPersistedSummary: handlePersistedSummary,
                 });
                 const recentHistory = serialiseMessageHistoryForApi(intelligentContext.recentMessages);
                 historyMessagesForApi = [...intelligentContext.systemMessages, ...recentHistory];
@@ -475,10 +593,15 @@ const ChatPane = () => {
             historyMessagesForApi = serialiseMessageHistoryForApi(limitedHistory);
         }
 
+        const todaysContext = await todaysContextPromise;
+
         const conversationMessages: ApiMessage[] = [
+            ...(todaysContext
+                ? [{ role: 'system' as const, content: `Here is the user's current daily context:\n${todaysContext}` }]
+                : []),
             ...(systemPrompt ? [{ role: 'system' as const, content: systemPrompt }] : []),
             ...historyMessagesForApi,
-            { role: 'user' as const, content },
+            { role: 'user' as const, content: prependTimestamp(userMessage.createdAt, content) },
         ];
 
         const toolDefinitions: ApiToolDefinition[] = availableTools.map((tool) => ({
@@ -651,7 +774,7 @@ const ChatPane = () => {
                     console.log('[ChatPane] No tool calls returned; finishing assistant response.');
                     conversationMessages.push({
                         role: 'assistant',
-                        content: geminiResult.content ?? '',
+                        content: prependTimestamp(assistantMessage.createdAt, geminiResult.content ?? ''),
                     });
                     break;
                 }
@@ -685,7 +808,7 @@ const ChatPane = () => {
 
                 conversationMessages.push({
                     role: 'assistant',
-                    content: geminiResult.content ?? '',
+                    content: prependTimestamp(assistantMessage.createdAt, geminiResult.content ?? ''),
                     tool_calls: normalisedToolCalls,
                 });
 
@@ -707,7 +830,7 @@ const ChatPane = () => {
                         conversationMessages.push({
                             role: 'tool',
                             tool_call_id: toolId,
-                            content: 'Error: Invalid JSON arguments',
+                            content: prependTimestamp(new Date(), 'Error: Invalid JSON arguments'),
                         });
                         continue;
                     }
@@ -756,7 +879,7 @@ const ChatPane = () => {
                         conversationMessages.push({
                             role: 'tool',
                             tool_call_id: toolId,
-                            content: toolContent,
+                            content: prependTimestamp(new Date(), toolContent),
                         });
                     } catch (toolError) {
                         console.error('[ChatPane][MCP] Tool execution failed', toolError);
@@ -770,7 +893,7 @@ const ChatPane = () => {
                         conversationMessages.push({
                             role: 'tool',
                             tool_call_id: toolId,
-                            content: `Error: ${errorMessage}`,
+                            content: prependTimestamp(new Date(), `Error: ${errorMessage}`),
                         });
                     }
                 }
@@ -784,10 +907,22 @@ const ChatPane = () => {
                 void (async () => {
                     try {
                         const actingMessages = [
+                            ...(todaysContext
+                                ? [{
+                                      role: 'system' as const,
+                                      content: `Here is the user's current daily context:\n${todaysContext}`,
+                                  }]
+                                : []),
                             ...(systemPrompt ? [{ role: 'system' as const, content: systemPrompt }] : []),
                             ...historyMessagesForApi,
-                            { role: 'user' as const, content },
-                            { role: 'assistant' as const, content: (allMessages[assistantMessage.id]?.content ?? '') },
+                            { role: 'user' as const, content: prependTimestamp(userMessage.createdAt, content) },
+                            {
+                                role: 'assistant' as const,
+                                content: prependTimestamp(
+                                    assistantMessage.createdAt,
+                                    allMessages[assistantMessage.id]?.content ?? ''
+                                ),
+                            },
                         ];
                         const title = await getTitleSuggestion(actingMessages);
                         if (title) {
