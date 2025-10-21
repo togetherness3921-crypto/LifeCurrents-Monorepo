@@ -58,6 +58,8 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onOpenChange, pre
         setCustomMessageCount,
         summaryPrompt,
         setSummaryPrompt,
+        forcedRecentMessageCount,
+        setForcedRecentMessageCount,
     } = useConversationContext();
     const {
         selectedModel,
@@ -566,20 +568,6 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onOpenChange, pre
                                 <div
                                     className={cn(
                                         'rounded-md border p-4 transition-colors',
-                                        mode === 'last-8' ? 'border-primary bg-primary/5' : 'border-muted'
-                                    )}
-                                >
-                                    <div className="flex items-start gap-3">
-                                        <RadioGroupItem value="last-8" id="context-last-8" />
-                                        <Label htmlFor="context-last-8" className="flex-1 cursor-pointer space-y-1">
-                                            <p className="text-sm font-medium">Last 8</p>
-                                            <p className="text-xs text-muted-foreground">Send only the eight most recent messages with your next request.</p>
-                                        </Label>
-                                    </div>
-                                </div>
-                                <div
-                                    className={cn(
-                                        'rounded-md border p-4 transition-colors',
                                         mode === 'all-middle-out' ? 'border-primary bg-primary/5' : 'border-muted'
                                     )}
                                 >
@@ -609,20 +597,50 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onOpenChange, pre
                                         </Label>
                                     </div>
                                     {mode === 'intelligent' && (
-                                        <div className="mt-4 space-y-2 rounded-md border bg-background/80 p-4">
-                                            <Label htmlFor="summary-prompt" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                                                Summarization prompt
-                                            </Label>
-                                            <Textarea
-                                                id="summary-prompt"
-                                                value={summaryPrompt}
-                                                onChange={(event) => setSummaryPrompt(event.target.value)}
-                                                rows={3}
-                                                className="resize-none min-h-[6.25rem] max-h-[6.25rem]"
-                                            />
-                                            <p className="text-xs text-muted-foreground">
-                                                Customize how the assistant distills past messages. The box is limited to three lines to encourage concise guidance.
-                                            </p>
+                                        <div className="mt-4 space-y-4 rounded-md border bg-background/80 p-4">
+                                            <div className="space-y-2">
+                                                <Label
+                                                    htmlFor="forced-recent-messages"
+                                                    className="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                                                >
+                                                    Forced Recent Messages
+                                                </Label>
+                                                <p className="text-xs text-muted-foreground">
+                                                    Always include this many of the most recent messages in addition to today&apos;s conversation context.
+                                                </p>
+                                                <div className="flex items-center gap-3" id="forced-recent-messages">
+                                                    <Slider
+                                                        value={[forcedRecentMessageCount]}
+                                                        onValueChange={(value) => setForcedRecentMessageCount(value[0] ?? 0)}
+                                                        min={0}
+                                                        max={6}
+                                                        step={1}
+                                                        className="flex-1"
+                                                        aria-label="Forced recent messages"
+                                                    />
+                                                    <span className="w-6 text-right text-xs font-semibold text-muted-foreground">
+                                                        {forcedRecentMessageCount}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label
+                                                    htmlFor="summary-prompt"
+                                                    className="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                                                >
+                                                    Summarization prompt
+                                                </Label>
+                                                <Textarea
+                                                    id="summary-prompt"
+                                                    value={summaryPrompt}
+                                                    onChange={(event) => setSummaryPrompt(event.target.value)}
+                                                    rows={3}
+                                                    className="resize-none min-h-[6.25rem] max-h-[6.25rem]"
+                                                />
+                                                <p className="text-xs text-muted-foreground">
+                                                    Customize how the assistant distills past messages. The box is limited to three lines to encourage concise guidance.
+                                                </p>
+                                            </div>
                                         </div>
                                     )}
                                 </div>

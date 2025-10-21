@@ -90,6 +90,63 @@ const createToolCallId = (messageId: string, toolCall: SerializableToolCall, ind
     return `${messageId}-tool-${index + 1}`;
 };
 
+const TIMESTAMP_TIME_FORMAT = new Intl.DateTimeFormat(undefined, {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+});
+
+const TIMESTAMP_DATE_FORMAT = new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    day: '2-digit',
+});
+
+const decorateMessageContent = (message: Message, content: string): string => {
+    if (!message.createdAt) {
+        return content;
+    }
+    const timePart = TIMESTAMP_TIME_FORMAT.format(message.createdAt);
+    const datePart = TIMESTAMP_DATE_FORMAT.format(message.createdAt);
+    const prefix = `[${timePart} | ${datePart}]`;
+    if (!content || content.length === 0) {
+        return prefix;
+    }
+    return `${prefix} ${content}`;
+};
+
+const formatDailyContextContent = (content: unknown): string | null => {
+    if (content === undefined || content === null) {
+        return null;
+    }
+    if (typeof content === 'string') {
+        const trimmed = content.trim();
+        if (!trimmed) {
+            return null;
+        }
+        try {
+            const parsed = JSON.parse(trimmed);
+            return JSON.stringify(parsed, null, 2);
+        } catch {
+            return trimmed;
+        }
+    }
+    try {
+        return JSON.stringify(content, null, 2);
+    } catch {
+        try {
+            return String(content);
+        } catch {
+            return null;
+        }
+    }
+};
+
+const SUMMARY_LEVEL_ORDER: Record<'DAY' | 'WEEK' | 'MONTH', number> = {
+    DAY: 0,
+    WEEK: 1,
+    MONTH: 2,
+};
+
 const serialiseMessageHistoryForApi = (history: Message[]): ApiMessage[] => {
     if (!history || history.length === 0) {
         return [];
@@ -133,7 +190,7 @@ const serialiseMessageHistoryForApi = (history: Message[]): ApiMessage[] => {
 
             const assistantMessage: ApiMessage = {
                 role: 'assistant',
-                content: message.content ?? '',
+                content: decorateMessageContent(message, message.content ?? ''),
                 ...(toolCalls.length > 0 ? { tool_calls: toolCalls } : {}),
             };
 
@@ -175,10 +232,15 @@ const serialiseMessageHistoryForApi = (history: Message[]): ApiMessage[] => {
             ];
         }
 
+        const baseContent = message.content ?? '';
+        const content =
+            message.role === 'user' || message.role === 'assistant'
+                ? decorateMessageContent(message, baseContent)
+                : baseContent;
         return [
             {
                 role: message.role,
-                content: message.content ?? '',
+                content,
             },
         ];
     });
@@ -232,7 +294,7 @@ const ChatPane = () => {
     const { activeInstruction, activeInstructionId } = useSystemInstructions();
     const { tools: availableTools, callTool } = useMcp();
     const { selectedModel, recordModelUsage, getToolIntentCheck } = useModelSelection();
-    const { mode, summaryPrompt, applyContextToMessages, transforms } = useConversationContext();
+    const { mode, summaryPrompt, applyContextToMessages, transforms, forcedRecentMessageCount } = useConversationContext();
     const { registerLatestMessage, revertToMessage, applyPatchResult, activeMessageId, isViewingHistorical, syncToThread } = useGraphHistory();
 
     useEffect(() => {
@@ -438,11 +500,32 @@ const ChatPane = () => {
                     return { contextActions: existingActions };
                 }
                 const nextActions = [...existingActions];
+                const { persistedSummary, ...actionUpdate } = update;
                 nextActions[index] = {
                     ...nextActions[index],
-                    ...update,
+                    ...actionUpdate,
                 };
-                return { contextActions: nextActions };
+                const patch: Partial<Message> = { contextActions: nextActions };
+                if (persistedSummary) {
+                    const existingSummaries = Array.isArray(current.persistedSummaries)
+                        ? current.persistedSummaries
+                        : [];
+                    const alreadyPresent = existingSummaries.some((summary) => summary.id === persistedSummary.id);
+                    if (!alreadyPresent) {
+                        const nextSummaries = [...existingSummaries, persistedSummary];
+                        nextSummaries.sort((a, b) => {
+                            const levelDelta = SUMMARY_LEVEL_ORDER[a.summary_level] - SUMMARY_LEVEL_ORDER[b.summary_level];
+                            if (levelDelta !== 0) {
+                                return levelDelta;
+                            }
+                            const aTime = new Date(a.summary_period_start).getTime();
+                            const bTime = new Date(b.summary_period_start).getTime();
+                            return aTime - bTime;
+                        });
+                        patch.persistedSummaries = nextSummaries;
+                    }
+                }
+                return patch;
             });
         };
 
@@ -461,6 +544,7 @@ const ChatPane = () => {
                     model: selectedModel.id,
                     registerAction: registerSummarizeAction,
                     updateAction: updateSummarizeAction,
+                    forcedRecentMessageCount,
                 });
                 const recentHistory = serialiseMessageHistoryForApi(intelligentContext.recentMessages);
                 historyMessagesForApi = [...intelligentContext.systemMessages, ...recentHistory];
@@ -475,10 +559,31 @@ const ChatPane = () => {
             historyMessagesForApi = serialiseMessageHistoryForApi(limitedHistory);
         }
 
+        let todaysContextMessage: ApiMessage | null = null;
+        try {
+            const todaysContextResult = await callTool('get_todays_context', {});
+            if (todaysContextResult && !todaysContextResult.isError) {
+                const formattedContext = formatDailyContextContent(todaysContextResult.content);
+                if (formattedContext) {
+                    todaysContextMessage = {
+                        role: 'system',
+                        content: `Here is the user's current daily context:\n${formattedContext}`,
+                    };
+                }
+            } else if (todaysContextResult?.isError) {
+                console.warn('[ChatPane] get_todays_context returned an error response.', todaysContextResult);
+            }
+        } catch (contextError) {
+            console.warn('[ChatPane] Failed to fetch today\'s context.', contextError);
+        }
+
+        const decoratedUserContent = decorateMessageContent(userMessage, userMessage.content);
+
         const conversationMessages: ApiMessage[] = [
             ...(systemPrompt ? [{ role: 'system' as const, content: systemPrompt }] : []),
+            ...(todaysContextMessage ? [todaysContextMessage] : []),
             ...historyMessagesForApi,
-            { role: 'user' as const, content },
+            { role: 'user' as const, content: decoratedUserContent },
         ];
 
         const toolDefinitions: ApiToolDefinition[] = availableTools.map((tool) => ({
@@ -786,7 +891,7 @@ const ChatPane = () => {
                         const actingMessages = [
                             ...(systemPrompt ? [{ role: 'system' as const, content: systemPrompt }] : []),
                             ...historyMessagesForApi,
-                            { role: 'user' as const, content },
+                            { role: 'user' as const, content: decoratedUserContent },
                             { role: 'assistant' as const, content: (allMessages[assistantMessage.id]?.content ?? '') },
                         ];
                         const title = await getTitleSuggestion(actingMessages);

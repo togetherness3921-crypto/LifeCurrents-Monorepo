@@ -1,6 +1,7 @@
 // This component will render a single chat message bubble
 import React, { useState, useEffect, useCallback } from 'react';
 import { Message } from '@/hooks/chatProviderContext';
+import type { ConversationSummaryRecord } from '@/types/conversationSummary';
 import { Button } from '../ui/button';
 import { Pencil, Save, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Textarea } from '../ui/textarea';
@@ -13,6 +14,37 @@ import {
 import { Badge } from '../ui/badge';
 import ToolCallDetails from './ToolCallDetails';
 import { cn } from '@/lib/utils';
+
+const MESSAGE_TIMESTAMP_FORMAT = new Intl.DateTimeFormat(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+});
+
+const SUMMARY_LABELS: Record<ConversationSummaryRecord['summary_level'], string> = {
+    DAY: 'Day Summary',
+    WEEK: 'Week Summary',
+    MONTH: 'Month Summary',
+};
+
+const SUMMARY_DAY_FORMAT = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' });
+const SUMMARY_MONTH_FORMAT = new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' });
+
+const formatSummaryPeriod = (summary: ConversationSummaryRecord): string => {
+    const start = new Date(summary.summary_period_start);
+    if (Number.isNaN(start.getTime())) {
+        return summary.summary_period_start;
+    }
+    switch (summary.summary_level) {
+        case 'DAY':
+            return SUMMARY_DAY_FORMAT.format(start);
+        case 'WEEK':
+            return `Week of ${SUMMARY_DAY_FORMAT.format(start)}`;
+        case 'MONTH':
+            return SUMMARY_MONTH_FORMAT.format(start);
+        default:
+            return SUMMARY_DAY_FORMAT.format(start);
+    }
+};
 
 interface ChatMessageProps {
     message: Message;
@@ -119,7 +151,10 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
         );
     }
 
-    const isUser = message.role === 'user';
+    const persistedSummaries: ConversationSummaryRecord[] = Array.isArray(message.persistedSummaries)
+        ? message.persistedSummaries
+        : [];
+    const timestampLabel = message.createdAt ? MESSAGE_TIMESTAMP_FORMAT.format(message.createdAt) : null;
 
     return (
         <div className={containerClasses}>
@@ -192,6 +227,42 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
                         ))}
                     </div>
                 )}
+                {persistedSummaries.length > 0 && (
+                    <div className="space-y-3 mb-3" data-graph-interactive="true">
+                        {persistedSummaries.map((summary) => {
+                            const summaryLabel = SUMMARY_LABELS[summary.summary_level] ?? 'Summary';
+                            const periodLabel = formatSummaryPeriod(summary);
+                            const createdLabel = summary.created_at
+                                ? MESSAGE_TIMESTAMP_FORMAT.format(new Date(summary.created_at))
+                                : null;
+                            return (
+                                <Accordion type="single" collapsible key={summary.id} className="w-full">
+                                    <AccordionItem
+                                        value={`persisted-summary-${summary.id}`}
+                                        className="rounded-md border border-muted-foreground/20 bg-background/80"
+                                    >
+                                        <AccordionTrigger className="px-3 py-2 font-medium">
+                                            <div className="flex w-full flex-col gap-1 text-left sm:flex-row sm:items-center sm:justify-between sm:gap-2">
+                                                <div className="flex items-center gap-2">
+                                                    <Badge variant="secondary" className="uppercase tracking-wide text-[0.75em]">
+                                                        {summaryLabel}
+                                                    </Badge>
+                                                    <span className="text-muted-foreground text-[0.875em]">{periodLabel}</span>
+                                                </div>
+                                                {createdLabel && (
+                                                    <span className="text-[0.75em] text-muted-foreground">Saved {createdLabel}</span>
+                                                )}
+                                            </div>
+                                        </AccordionTrigger>
+                                        <AccordionContent className="px-3 pb-3 text-[0.875em] whitespace-pre-wrap">
+                                            {summary.content}
+                                        </AccordionContent>
+                                    </AccordionItem>
+                                </Accordion>
+                            );
+                        })}
+                    </div>
+                )}
                 {message.toolCalls && message.toolCalls.length > 0 && (
                     <div className="space-y-3 mb-3" data-graph-interactive="true">
                         {message.toolCalls.map((call, index) => (
@@ -213,7 +284,10 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
                 )}
                 <p className="whitespace-pre-wrap">{message.content}</p>
 
-                <div className="absolute bottom-0 right-1 flex translate-y-1/2 items-center gap-0.5 rounded-md bg-muted p-0.5 text-xs text-foreground/70 shadow-sm">
+                <div className="absolute bottom-0 right-1 flex translate-y-1/2 items-center gap-1 rounded-md bg-muted/90 px-1 py-0.5 text-xs text-foreground/70 shadow-sm">
+                    {timestampLabel && (
+                        <span className="px-1 text-[0.65rem] font-medium text-muted-foreground">{timestampLabel}</span>
+                    )}
                     {branchInfo && (
                         <>
                             <Button
