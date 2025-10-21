@@ -9,10 +9,17 @@ import { DEFAULT_CONTEXT_CONFIG } from './chatDefaults';
 
 const CUSTOM_MIN = 1;
 const CUSTOM_MAX = 200;
+const FORCED_MIN = 0;
+const FORCED_MAX = 6;
 
 const clampCustomCount = (value: number) => {
     if (Number.isNaN(value)) return DEFAULT_CONTEXT_CONFIG.customMessageCount;
     return Math.min(CUSTOM_MAX, Math.max(CUSTOM_MIN, Math.round(value)));
+};
+
+const clampForcedCount = (value: number) => {
+    if (Number.isNaN(value)) return DEFAULT_CONTEXT_CONFIG.forcedRecentMessages;
+    return Math.min(FORCED_MAX, Math.max(FORCED_MIN, Math.round(value)));
 };
 
 export const ConversationContextProvider = ({ children }: { children: ReactNode }) => {
@@ -43,6 +50,19 @@ export const ConversationContextProvider = ({ children }: { children: ReactNode 
         });
     }, [activeThreadId, contextConfig, updateThreadSettings]);
 
+    const setForcedRecentMessages = useCallback(
+        (value: number) => {
+            if (!activeThreadId) return;
+            updateThreadSettings(activeThreadId, {
+                contextConfig: {
+                    ...contextConfig,
+                    forcedRecentMessages: clampForcedCount(value),
+                },
+            });
+        },
+        [activeThreadId, contextConfig, updateThreadSettings]
+    );
+
     const setSummaryPrompt = useCallback(
         (prompt: string) => {
             if (!activeThreadId) return;
@@ -66,7 +86,7 @@ export const ConversationContextProvider = ({ children }: { children: ReactNode 
                 return [...messages];
             }
 
-            const limit = contextConfig.mode === 'last-8' ? 8 : clampCustomCount(contextConfig.customMessageCount);
+            const limit = clampCustomCount(contextConfig.customMessageCount);
             if (limit >= messages.length) {
                 return [...messages];
             }
@@ -86,6 +106,8 @@ export const ConversationContextProvider = ({ children }: { children: ReactNode 
             setMode,
             customMessageCount: contextConfig.customMessageCount,
             setCustomMessageCount,
+            forcedRecentMessages: contextConfig.forcedRecentMessages,
+            setForcedRecentMessages,
             applyContextToMessages,
             transforms,
             summaryPrompt: contextConfig.summaryPrompt,
@@ -95,9 +117,11 @@ export const ConversationContextProvider = ({ children }: { children: ReactNode 
             applyContextToMessages,
             contextConfig.customMessageCount,
             contextConfig.mode,
+            contextConfig.forcedRecentMessages,
             contextConfig.summaryPrompt,
             setMode,
             setCustomMessageCount,
+            setForcedRecentMessages,
             setSummaryPrompt,
             transforms,
         ]
