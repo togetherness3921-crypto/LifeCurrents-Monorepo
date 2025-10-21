@@ -82,6 +82,8 @@ const nowIso = () => new Date().toISOString();
 const CONTEXT_MIN = 1;
 const CONTEXT_MAX = 200;
 const VALID_CONTEXT_MODES = new Set(['all-middle-out', 'custom', 'intelligent']);
+const COMPRESSION_SUMMARY_STATUSES = ['pending', 'running', 'success', 'error'] as const;
+type CompressionSummaryStatus = (typeof COMPRESSION_SUMMARY_STATUSES)[number];
 
 const clampCustomMessageCount = (value: unknown): number => {
   const numeric = typeof value === 'number' ? value : Number(value);
@@ -127,9 +129,15 @@ const sanitizeContextConfig = (input: unknown): ChatThread['contextConfig'] => {
       (candidate as { customMessageCount?: unknown }).customMessageCount
     );
   }
-  if (typeof (candidate as { summaryPrompt?: unknown }).summaryPrompt === 'string') {
-    const promptValue = String((candidate as { summaryPrompt: unknown }).summaryPrompt).trim();
-    base.summaryPrompt = promptValue.length > 0 ? promptValue : DEFAULT_CONTEXT_CONFIG.summaryPrompt;
+  if (Object.prototype.hasOwnProperty.call(candidate, 'summaryPrompt')) {
+    const rawPrompt = (candidate as { summaryPrompt?: unknown }).summaryPrompt;
+    if (typeof rawPrompt === 'string') {
+      base.summaryPrompt = rawPrompt;
+    } else if (rawPrompt == null) {
+      base.summaryPrompt = '';
+    } else {
+      base.summaryPrompt = String(rawPrompt);
+    }
   }
   return base;
 };
@@ -162,6 +170,50 @@ const buildThreadUpsertPayload = (thread: ChatThread) => ({
   updated_at: nowIso(),
 });
 
+const normaliseCompressionSummary = (
+  input: unknown
+): Message['toolCalls'][number]['compressionSummary'] => {
+  if (!input) {
+    return undefined;
+  }
+
+  if (typeof input === 'string') {
+    try {
+      return normaliseCompressionSummary(JSON.parse(input));
+    } catch {
+      return {
+        status: 'success',
+        outcome: input,
+      };
+    }
+  }
+
+  if (typeof input !== 'object') {
+    return undefined;
+  }
+
+  const value = input as { status?: unknown; outcome?: unknown; details?: unknown };
+
+  const statusCandidate = typeof value.status === 'string' ? value.status : undefined;
+  const outcomeCandidate = typeof value.outcome === 'string' ? value.outcome : undefined;
+
+  if (!statusCandidate || !outcomeCandidate) {
+    return undefined;
+  }
+
+  const status = COMPRESSION_SUMMARY_STATUSES.includes(statusCandidate as CompressionSummaryStatus)
+    ? (statusCandidate as CompressionSummaryStatus)
+    : 'success';
+
+  const details = value.details && typeof value.details === 'object' ? (value.details as Record<string, unknown>) : undefined;
+
+  return {
+    status,
+    outcome: outcomeCandidate,
+    ...(details ? { details } : {}),
+  };
+};
+
 const convertToolCalls = (input: any): Message['toolCalls'] => {
   if (!Array.isArray(input)) return undefined;
   return input
@@ -174,6 +226,10 @@ const convertToolCalls = (input: any): Message['toolCalls'] => {
         status: (item.status ?? 'success') as Message['toolCalls'][number]['status'],
         response: item.response,
         error: item.error,
+        compressionSummary: normaliseCompressionSummary(
+          (item as { compressionSummary?: unknown; compression_summary?: unknown }).compressionSummary ??
+            (item as { compression_summary?: unknown }).compression_summary
+        ),
       };
     })
     .filter(Boolean) as Message['toolCalls'];
@@ -266,15 +322,18 @@ const parseMessageRows = (rows: SupabaseMessageRow[], summaries?: SupabaseSummar
     const updatedAt = row.updated_at ? new Date(row.updated_at) : createdAt;
 
     // BUG FIX 2: Attach persisted summaries to the message that created them
-    const persistedSummaries = summariesByMessageId.get(row.id)?.map(summary => ({
-      id: summary.id,
-      thread_id: summary.thread_id,
-      summary_level: summary.summary_level,
-      summary_period_start: summary.summary_period_start,
-      content: summary.content,
-      created_by_message_id: summary.created_by_message_id,
-      created_at: summary.created_at ?? undefined,
-    }));
+    const persistedSummaries =
+      (row.role ?? 'assistant') === 'assistant'
+        ? summariesByMessageId.get(row.id)?.map((summary) => ({
+            id: summary.id,
+            thread_id: summary.thread_id,
+            summary_level: summary.summary_level,
+            summary_period_start: summary.summary_period_start,
+            content: summary.content,
+            created_by_message_id: summary.created_by_message_id,
+            created_at: summary.created_at ?? undefined,
+          }))
+        : undefined;
 
     const baseMessage: Message = {
       id: row.id,
