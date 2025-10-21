@@ -47,10 +47,10 @@ async function applyAndVerifySchema() {
     console.log('\n--- Checking chat_messages table schema ---');
     const schemaQuery2 = `
       SELECT column_name, data_type, is_nullable
-      FROM information_schema.columns
+          FROM information_schema.columns
       WHERE table_schema = 'public'
         AND table_name = 'chat_messages'
-      ORDER BY ordinal_position;
+          ORDER BY ordinal_position;
     `;
     const schemaResult2 = await client.query(schemaQuery2);
     console.log('\nchat_messages columns:');
