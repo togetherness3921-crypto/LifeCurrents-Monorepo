@@ -9,6 +9,7 @@ import {
   MessageStore,
   NewMessageInput,
   ThreadSettings,
+  SummaryLevel,
 } from './chatProviderContext';
 import { submitSupabaseOperation, flushSupabaseQueue } from '@/services/supabaseQueue';
 import { DEFAULT_CONTEXT_CONFIG, DEFAULT_MODEL_ID } from './chatDefaults';
@@ -71,7 +72,7 @@ const nowIso = () => new Date().toISOString();
 
 const CONTEXT_MIN = 1;
 const CONTEXT_MAX = 200;
-const VALID_CONTEXT_MODES = new Set(['last-8', 'all-middle-out', 'custom', 'intelligent']);
+const VALID_CONTEXT_MODES = new Set(['all-middle-out', 'custom', 'intelligent']);
 
 const clampCustomMessageCount = (value: unknown): number => {
   const numeric = typeof value === 'number' ? value : Number(value);
@@ -93,6 +94,14 @@ const sanitizeInstructionId = (value: unknown): string | null => {
     return value;
   }
   return null;
+};
+
+const clampForcedRecentCount = (value: unknown): number => {
+  const numeric = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(numeric)) {
+    return DEFAULT_CONTEXT_CONFIG.forcedRecentCount;
+  }
+  return Math.min(6, Math.max(0, Math.round(numeric)));
 };
 
 const sanitizeContextConfig = (input: unknown): ChatThread['contextConfig'] => {
@@ -120,6 +129,11 @@ const sanitizeContextConfig = (input: unknown): ChatThread['contextConfig'] => {
   if (typeof (candidate as { summaryPrompt?: unknown }).summaryPrompt === 'string') {
     const promptValue = String((candidate as { summaryPrompt: unknown }).summaryPrompt).trim();
     base.summaryPrompt = promptValue.length > 0 ? promptValue : DEFAULT_CONTEXT_CONFIG.summaryPrompt;
+  }
+  if ('forcedRecentCount' in (candidate as Record<string, unknown>)) {
+    base.forcedRecentCount = clampForcedRecentCount(
+      (candidate as { forcedRecentCount?: unknown }).forcedRecentCount
+    );
   }
   return base;
 };
@@ -237,6 +251,56 @@ const mapRowToThreadSettings = (row: SupabaseThreadRow): ThreadSettings =>
     contextConfig: row.context_config,
   });
 
+type SupabaseSummaryRow = {
+  id: string;
+  thread_id: string;
+  summary_level: string;
+  summary_period_start: string;
+  content: string;
+  created_by_message_id: string;
+  created_at: string | null;
+};
+
+const attachSummariesToMessages = (
+  messageStore: MessageStore,
+  summaryRows: SupabaseSummaryRow[]
+): MessageStore => {
+  if (!summaryRows || summaryRows.length === 0) {
+    return messageStore;
+  }
+
+  // Group summaries by created_by_message_id
+  const summariesByMessageId = new Map<string, SupabaseSummaryRow[]>();
+  summaryRows.forEach((row) => {
+    const messageId = row.created_by_message_id;
+    if (!summariesByMessageId.has(messageId)) {
+      summariesByMessageId.set(messageId, []);
+    }
+    summariesByMessageId.get(messageId)!.push(row);
+  });
+
+  // Attach summaries to messages
+  const updated = { ...messageStore };
+  summariesByMessageId.forEach((summaries, messageId) => {
+    if (updated[messageId]) {
+      updated[messageId] = {
+        ...updated[messageId],
+        persistedSummaries: summaries.map((row) => ({
+          id: row.id,
+          thread_id: row.thread_id,
+          summary_level: row.summary_level as SummaryLevel,
+          summary_period_start: row.summary_period_start,
+          content: row.content,
+          created_by_message_id: row.created_by_message_id,
+          created_at: row.created_at ?? undefined,
+        })),
+      };
+    }
+  });
+
+  return updated;
+};
+
 const parseMessageRows = (rows: SupabaseMessageRow[]): MessageStore => {
   const store: MessageStore = {};
   rows.forEach((row) => {
@@ -255,6 +319,7 @@ const parseMessageRows = (rows: SupabaseMessageRow[]): MessageStore => {
       updatedAt,
       threadId: row.thread_id,
       contextActions: [],
+      persistedSummaries: [],
     };
     store[row.id] = baseMessage;
   });
@@ -498,6 +563,13 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
           .select('*');
         if (messageError) throw messageError;
 
+        const { data: summaryRows, error: summaryError } = await supabase
+          .from('conversation_summaries')
+          .select('*');
+        if (summaryError && summaryError.code !== 'PGRST116') {
+          console.warn('[ChatProvider] Failed to load summaries', summaryError);
+        }
+
         const { data: draftRows, error: draftError } = await supabase
           .from('chat_drafts')
           .select('*');
@@ -512,7 +584,12 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
           console.warn('[ChatProvider] Failed to load last active thread', lastActiveThreadError);
         }
 
-        const messageStore = parseMessageRows((messageRows ?? []) as SupabaseMessageRow[]);
+        let messageStore = parseMessageRows((messageRows ?? []) as SupabaseMessageRow[]);
+
+        // Attach summaries to messages
+        if (summaryRows && summaryRows.length > 0) {
+          messageStore = attachSummariesToMessages(messageStore, summaryRows as SupabaseSummaryRow[]);
+        }
 
         const parsedThreads = (refreshedThreads ?? []).map((row) =>
           toChatThread(row as SupabaseThreadRow, messageStore)
@@ -669,8 +746,14 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         updatedAt: createdAt,
         threadId,
         contextActions: [],
+        persistedSummaries: [],
       };
 
+      // Track the updated thread for persistence after state updates
+      let threadToPerist: ChatThread | null = null;
+
+      // Update both messages and threads state atomically
+      // React 18 will batch these updates automatically
       setMessages((previous) => {
         const updated: MessageStore = { ...previous, [id]: newMessage };
         if (messageData.parentId && updated[messageData.parentId]) {
@@ -705,10 +788,15 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
             rootChildren,
             selectedRootChild,
           };
-          persistThreadState(updatedThread);
+          threadToPerist = updatedThread;
           return updatedThread;
         })
       );
+
+      // Persist thread state after both state updates are batched
+      if (threadToPerist) {
+        persistThreadState(threadToPerist);
+      }
 
       const newRow: SupabaseMessageRow = {
         id,

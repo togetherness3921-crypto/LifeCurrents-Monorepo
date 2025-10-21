@@ -57,6 +57,7 @@ export interface PrepareIntelligentContextOptions {
     model: string;
     registerAction: (descriptor: SummarizeActionDescriptor) => string;
     updateAction: (actionId: string, update: SummarizeActionUpdate) => void;
+    forcedRecentCount: number;
     now?: Date;
 }
 
@@ -680,19 +681,26 @@ const buildSystemMessages = (
     return { systemMessages, yesterdaySummary };
 };
 
-const filterRecentMessages = (history: Message[], now: Date): Message[] => {
+const filterRecentMessages = (history: Message[], now: Date, forcedRecentCount: number): Message[] => {
     if (!history || history.length === 0) {
         return [];
     }
     const todayStart = startOfUtcDay(now);
     const recentIds = new Set<string>();
+
+    // Add all messages from today
     history.forEach((message) => {
         if (message.createdAt && message.createdAt >= todayStart) {
             recentIds.add(message.id);
         }
     });
-    const lastSix = history.slice(Math.max(0, history.length - 6));
-    lastSix.forEach((message) => recentIds.add(message.id));
+
+    // Add the forced recent messages (if count > 0)
+    if (forcedRecentCount > 0) {
+        const lastN = history.slice(Math.max(0, history.length - forcedRecentCount));
+        lastN.forEach((message) => recentIds.add(message.id));
+    }
+
     if (recentIds.size === history.length) {
         return [...history];
     }
@@ -708,7 +716,7 @@ export const prepareIntelligentContext = async (
     if (!options.branchHeadMessageId) {
         return {
             systemMessages: [],
-            recentMessages: filterRecentMessages(historyChain, now),
+            recentMessages: filterRecentMessages(historyChain, now, options.forcedRecentCount),
         };
     }
 
@@ -738,7 +746,7 @@ export const prepareIntelligentContext = async (
 
     return {
         systemMessages,
-        recentMessages: filterRecentMessages(historyChain, now),
+        recentMessages: filterRecentMessages(historyChain, now, options.forcedRecentCount),
     };
 };
 

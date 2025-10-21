@@ -90,6 +90,23 @@ const createToolCallId = (messageId: string, toolCall: SerializableToolCall, ind
     return `${messageId}-tool-${index + 1}`;
 };
 
+const prependTimestamp = (message: Message): string => {
+    if (!message.createdAt) {
+        return message.content ?? '';
+    }
+    const time = message.createdAt.toLocaleTimeString(undefined, {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+    });
+    const date = message.createdAt.toLocaleDateString(undefined, {
+        month: 'short',
+        day: 'numeric',
+    });
+    const timestamp = `[${time} | ${date}]`;
+    return `${timestamp} ${message.content ?? ''}`;
+};
+
 const serialiseMessageHistoryForApi = (history: Message[]): ApiMessage[] => {
     if (!history || history.length === 0) {
         return [];
@@ -133,7 +150,7 @@ const serialiseMessageHistoryForApi = (history: Message[]): ApiMessage[] => {
 
             const assistantMessage: ApiMessage = {
                 role: 'assistant',
-                content: message.content ?? '',
+                content: prependTimestamp(message),
                 ...(toolCalls.length > 0 ? { tool_calls: toolCalls } : {}),
             };
 
@@ -178,7 +195,7 @@ const serialiseMessageHistoryForApi = (history: Message[]): ApiMessage[] => {
         return [
             {
                 role: message.role,
-                content: message.content ?? '',
+                content: message.role === 'user' ? prependTimestamp(message) : message.content ?? '',
             },
         ];
     });
@@ -461,6 +478,7 @@ const ChatPane = () => {
                     model: selectedModel.id,
                     registerAction: registerSummarizeAction,
                     updateAction: updateSummarizeAction,
+                    forcedRecentCount: activeThread?.contextConfig?.forcedRecentCount ?? 0,
                 });
                 const recentHistory = serialiseMessageHistoryForApi(intelligentContext.recentMessages);
                 historyMessagesForApi = [...intelligentContext.systemMessages, ...recentHistory];
@@ -475,8 +493,26 @@ const ChatPane = () => {
             historyMessagesForApi = serialiseMessageHistoryForApi(limitedHistory);
         }
 
+        // Fetch today's graph context for situational awareness
+        let todaysContextMessage: ApiMessage | null = null;
+        try {
+            const todaysContextResult = await callTool('get_todays_context', {});
+            if (todaysContextResult && !todaysContextResult.isError) {
+                const contextContent = typeof todaysContextResult.content === 'string'
+                    ? todaysContextResult.content
+                    : JSON.stringify(todaysContextResult.content, null, 2);
+                todaysContextMessage = {
+                    role: 'system' as const,
+                    content: `Here is the user's current daily context and active tasks:\n\n${contextContent}`,
+                };
+            }
+        } catch (contextError) {
+            console.warn('[ChatPane] Failed to fetch today\'s context:', contextError);
+        }
+
         const conversationMessages: ApiMessage[] = [
             ...(systemPrompt ? [{ role: 'system' as const, content: systemPrompt }] : []),
+            ...(todaysContextMessage ? [todaysContextMessage] : []),
             ...historyMessagesForApi,
             { role: 'user' as const, content },
         ];

@@ -5,6 +5,7 @@ export interface ConversationContextConfig {
     mode: ConversationContextMode;
     customMessageCount: number;
     summaryPrompt: string;
+    forcedRecentCount: number;
 }
 
 export type SummaryLevel = 'DAY' | 'WEEK' | 'MONTH';
@@ -30,6 +31,16 @@ export interface ToolCallState {
     error?: string;
 }
 
+export interface ConversationSummaryRecord {
+    id: string;
+    thread_id: string;
+    summary_level: SummaryLevel;
+    summary_period_start: string;
+    content: string;
+    created_by_message_id: string;
+    created_at?: string;
+}
+
 export interface Message {
     id: string;
     parentId: string | null;
@@ -43,6 +54,7 @@ export interface Message {
     updatedAt?: Date;
     threadId?: string;
     contextActions?: ContextActionState[];
+    persistedSummaries?: ConversationSummaryRecord[];
 }
 
 export interface NewMessageInput {
