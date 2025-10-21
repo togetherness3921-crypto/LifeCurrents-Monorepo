@@ -58,6 +58,7 @@ export interface PrepareIntelligentContextOptions {
     registerAction: (descriptor: SummarizeActionDescriptor) => string;
     updateAction: (actionId: string, update: SummarizeActionUpdate) => void;
     now?: Date;
+    forcedRecentCount?: number;
 }
 
 export interface IntelligentContextResult {
@@ -680,7 +681,7 @@ const buildSystemMessages = (
     return { systemMessages, yesterdaySummary };
 };
 
-const filterRecentMessages = (history: Message[], now: Date): Message[] => {
+const filterRecentMessages = (history: Message[], now: Date, forcedRecentCount: number = 0): Message[] => {
     if (!history || history.length === 0) {
         return [];
     }
@@ -691,8 +692,10 @@ const filterRecentMessages = (history: Message[], now: Date): Message[] => {
             recentIds.add(message.id);
         }
     });
-    const lastSix = history.slice(Math.max(0, history.length - 6));
-    lastSix.forEach((message) => recentIds.add(message.id));
+    if (forcedRecentCount > 0) {
+        const forced = history.slice(Math.max(0, history.length - forcedRecentCount));
+        forced.forEach((message) => recentIds.add(message.id));
+    }
     if (recentIds.size === history.length) {
         return [...history];
     }
@@ -704,11 +707,12 @@ export const prepareIntelligentContext = async (
 ): Promise<IntelligentContextResult> => {
     const now = options.now ?? new Date();
     const historyChain = options.historyChain ?? [];
+    const forcedRecentCount = options.forcedRecentCount ?? 0;
 
     if (!options.branchHeadMessageId) {
         return {
             systemMessages: [],
-            recentMessages: filterRecentMessages(historyChain, now),
+            recentMessages: filterRecentMessages(historyChain, now, forcedRecentCount),
         };
     }
 
@@ -738,7 +742,7 @@ export const prepareIntelligentContext = async (
 
     return {
         systemMessages,
-        recentMessages: filterRecentMessages(historyChain, now),
+        recentMessages: filterRecentMessages(historyChain, now, forcedRecentCount),
     };
 };
 
