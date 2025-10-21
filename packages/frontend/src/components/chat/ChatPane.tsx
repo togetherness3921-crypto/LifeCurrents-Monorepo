@@ -90,12 +90,85 @@ const createToolCallId = (messageId: string, toolCall: SerializableToolCall, ind
     return `${messageId}-tool-${index + 1}`;
 };
 
+// FEATURE: Generate programmatic summary for compressed tool calls
+const generateToolCallSummary = (toolName: string, toolArgs: string): string => {
+    try {
+        const args = JSON.parse(toolArgs);
+
+        switch (toolName) {
+            case 'patch_graph_document': {
+                const patches = Array.isArray(args.patches)
+                    ? args.patches
+                    : (typeof args.patches === 'string' ? JSON.parse(args.patches) : []);
+
+                const addCount = patches.filter((p: any) => p.op === 'add').length;
+                const removeCount = patches.filter((p: any) => p.op === 'remove').length;
+                const replaceCount = patches.filter((p: any) => p.op === 'replace').length;
+
+                const parts = [];
+                if (addCount > 0) parts.push(`${addCount} node${addCount > 1 ? 's' : ''} added`);
+                if (removeCount > 0) parts.push(`${removeCount} removed`);
+                if (replaceCount > 0) parts.push(`${replaceCount} updated`);
+
+                return JSON.stringify({
+                    status: 'success',
+                    outcome: parts.length > 0 ? `Graph patched successfully. ${parts.join(', ')}.` : 'Graph patch completed.'
+                });
+            }
+
+            case 'create_conversation_summary':
+                return JSON.stringify({
+                    status: 'success',
+                    outcome: `Created ${args.summary_level || 'summary'} summary for period starting ${args.summary_period_start || 'unknown'}`
+                });
+
+            case 'get_messages_for_period':
+                return JSON.stringify({
+                    status: 'success',
+                    outcome: `Retrieved messages for period ${args.period_start || ''} to ${args.period_end || ''}`
+                });
+
+            case 'get_todays_context':
+                return JSON.stringify({
+                    status: 'success',
+                    outcome: 'Retrieved today\'s context successfully.'
+                });
+
+            case 'get_graph_structure':
+                return JSON.stringify({
+                    status: 'success',
+                    outcome: `Retrieved graph structure${args.start_node_id ? ` for node ${args.start_node_id}` : ''}.`
+                });
+
+            default:
+                return JSON.stringify({
+                    status: 'success',
+                    outcome: `Tool ${toolName} executed successfully.`
+                });
+        }
+    } catch (error) {
+        return JSON.stringify({
+            status: 'success',
+            outcome: `Tool ${toolName} executed successfully.`
+        });
+    }
+};
+
 const serialiseMessageHistoryForApi = (history: Message[]): ApiMessage[] => {
     if (!history || history.length === 0) {
         return [];
     }
 
     const historyMap = new Map(history.map((message) => [message.id, message]));
+
+    // FEATURE: Find the index of the most recent user message for stale tool call detection
+    let lastUserMessageIndex = -1;
+    for (let i = history.length - 1; i >= 0; i--) {
+        if (history[i].role === 'user') {
+            lastUserMessageIndex = i;
+            break;
+        }
+    }
 
     // FEATURE 6: Helper function to prepend timestamp to content
     const prependTimestamp = (content: string, createdAt?: Date): string => {
@@ -112,7 +185,7 @@ const serialiseMessageHistoryForApi = (history: Message[]): ApiMessage[] => {
         return `[${timeStr} | ${dateStr}] ${content}`;
     };
 
-    return history.flatMap((message) => {
+    return history.flatMap((message, messageIndex) => {
         if (message.role === 'assistant') {
             const toolStates = Array.isArray(message.toolCalls) ? message.toolCalls : [];
             const toolCalls: ApiToolCall[] = [];
@@ -120,6 +193,9 @@ const serialiseMessageHistoryForApi = (history: Message[]): ApiMessage[] => {
             const hasSeparateToolMessages = history.some(
                 (candidate) => candidate.parentId === message.id && candidate.role === 'tool'
             );
+
+            // FEATURE: Check if this assistant message is "stale" (before the last user message)
+            const isStale = lastUserMessageIndex >= 0 && messageIndex < lastUserMessageIndex;
 
             toolStates.forEach((toolCall, index) => {
                 if (!toolCall) return;
@@ -137,7 +213,10 @@ const serialiseMessageHistoryForApi = (history: Message[]): ApiMessage[] => {
                 });
 
                 if (!hasSeparateToolMessages) {
-                    const content = normaliseToolResultContent(toolCall);
+                    // FEATURE: Use compressed summary for stale tool calls, full content for active ones
+                    const content = isStale
+                        ? generateToolCallSummary(toolName, argumentsString)
+                        : normaliseToolResultContent(toolCall);
                     toolMessages.push({
                         role: 'tool',
                         tool_call_id: toolCallId,
@@ -159,12 +238,14 @@ const serialiseMessageHistoryForApi = (history: Message[]): ApiMessage[] => {
         if (message.role === 'tool') {
             const parent = message.parentId ? historyMap.get(message.parentId) : undefined;
             let parentToolCallId: string | undefined;
+            let matchingToolCall: SerializableToolCall | undefined;
 
             if (parent?.toolCalls) {
-                parentToolCallId = parent.toolCalls.find((toolCall) => toolCall.response === message.content)?.id;
+                matchingToolCall = parent.toolCalls.find((toolCall) => toolCall.response === message.content);
+                parentToolCallId = matchingToolCall?.id;
 
                 if (!parentToolCallId && typeof message.content === 'string') {
-                    parentToolCallId = parent.toolCalls.find((toolCall) => {
+                    matchingToolCall = parent.toolCalls.find((toolCall) => {
                         if (toolCall.error && message.content) {
                             const normalisedError = toolCall.error.startsWith('Error:')
                                 ? toolCall.error
@@ -172,22 +253,36 @@ const serialiseMessageHistoryForApi = (history: Message[]): ApiMessage[] => {
                             return message.content.includes(normalisedError);
                         }
                         return false;
-                    })?.id;
+                    });
+                    parentToolCallId = matchingToolCall?.id;
                 }
 
                 if (!parentToolCallId) {
-                    parentToolCallId = parent.toolCalls[0]?.id;
+                    matchingToolCall = parent.toolCalls[0];
+                    parentToolCallId = matchingToolCall?.id;
                 }
             }
 
             const fallbackId = parentToolCallId || (message.parentId ? `${message.parentId}-tool` : `${message.id}-tool`);
+
+            // FEATURE: Check if parent assistant message is stale
+            const parentIndex = parent ? history.findIndex(m => m.id === parent.id) : -1;
+            const isParentStale = lastUserMessageIndex >= 0 && parentIndex >= 0 && parentIndex < lastUserMessageIndex;
+
+            // FEATURE: Use compressed summary for stale tool messages
+            let content = message.content ?? '';
+            if (isParentStale && matchingToolCall) {
+                const toolName = matchingToolCall.name || 'tool';
+                const argumentsString = ensureJsonArguments(matchingToolCall.arguments);
+                content = generateToolCallSummary(toolName, argumentsString);
+            }
 
             // FEATURE 6: Tool messages don't need timestamps (they're already contextualized by the assistant message)
             return [
                 {
                     role: 'tool',
                     tool_call_id: fallbackId,
-                    content: message.content ?? '',
+                    content,
                 },
             ];
         }
