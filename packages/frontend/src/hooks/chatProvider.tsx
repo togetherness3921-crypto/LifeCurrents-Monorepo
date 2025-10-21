@@ -47,6 +47,16 @@ type SupabaseDraftRow = {
   updated_at: string | null;
 };
 
+type SupabaseSummaryRow = {
+  id: string;
+  thread_id: string;
+  summary_level: 'DAY' | 'WEEK' | 'MONTH';
+  summary_period_start: string;
+  content: string;
+  created_by_message_id: string;
+  created_at: string | null;
+};
+
 type LegacyThread = {
   id: string;
   title: string;
@@ -71,7 +81,7 @@ const nowIso = () => new Date().toISOString();
 
 const CONTEXT_MIN = 1;
 const CONTEXT_MAX = 200;
-const VALID_CONTEXT_MODES = new Set(['last-8', 'all-middle-out', 'custom', 'intelligent']);
+const VALID_CONTEXT_MODES = new Set(['all-middle-out', 'custom', 'intelligent']);
 
 const clampCustomMessageCount = (value: unknown): number => {
   const numeric = typeof value === 'number' ? value : Number(value);
@@ -237,11 +247,35 @@ const mapRowToThreadSettings = (row: SupabaseThreadRow): ThreadSettings =>
     contextConfig: row.context_config,
   });
 
-const parseMessageRows = (rows: SupabaseMessageRow[]): MessageStore => {
+const parseMessageRows = (rows: SupabaseMessageRow[], summaries?: SupabaseSummaryRow[]): MessageStore => {
   const store: MessageStore = {};
+
+  // BUG FIX 2: Build a map of summaries by created_by_message_id for efficient lookup
+  const summariesByMessageId = new Map<string, SupabaseSummaryRow[]>();
+  if (summaries) {
+    summaries.forEach((summary) => {
+      if (!summariesByMessageId.has(summary.created_by_message_id)) {
+        summariesByMessageId.set(summary.created_by_message_id, []);
+      }
+      summariesByMessageId.get(summary.created_by_message_id)!.push(summary);
+    });
+  }
+
   rows.forEach((row) => {
     const createdAt = row.created_at ? new Date(row.created_at) : undefined;
     const updatedAt = row.updated_at ? new Date(row.updated_at) : createdAt;
+
+    // BUG FIX 2: Attach persisted summaries to the message that created them
+    const persistedSummaries = summariesByMessageId.get(row.id)?.map(summary => ({
+      id: summary.id,
+      thread_id: summary.thread_id,
+      summary_level: summary.summary_level,
+      summary_period_start: summary.summary_period_start,
+      content: summary.content,
+      created_by_message_id: summary.created_by_message_id,
+      created_at: summary.created_at ?? undefined,
+    }));
+
     const baseMessage: Message = {
       id: row.id,
       parentId: row.parent_id,
@@ -255,6 +289,7 @@ const parseMessageRows = (rows: SupabaseMessageRow[]): MessageStore => {
       updatedAt,
       threadId: row.thread_id,
       contextActions: [],
+      persistedSummaries,
     };
     store[row.id] = baseMessage;
   });
@@ -498,6 +533,14 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
           .select('*');
         if (messageError) throw messageError;
 
+        // BUG FIX 2: Load conversation summaries from the database
+        const { data: summaryRows, error: summaryError } = await supabase
+          .from('conversation_summaries')
+          .select('*');
+        if (summaryError) {
+          console.warn('[ChatProvider] Failed to load conversation summaries', summaryError);
+        }
+
         const { data: draftRows, error: draftError } = await supabase
           .from('chat_drafts')
           .select('*');
@@ -512,7 +555,11 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
           console.warn('[ChatProvider] Failed to load last active thread', lastActiveThreadError);
         }
 
-        const messageStore = parseMessageRows((messageRows ?? []) as SupabaseMessageRow[]);
+        // BUG FIX 2: Pass summaries to parseMessageRows to attach them to messages
+        const messageStore = parseMessageRows(
+          (messageRows ?? []) as SupabaseMessageRow[],
+          (summaryRows ?? []) as SupabaseSummaryRow[]
+        );
 
         const parsedThreads = (refreshedThreads ?? []).map((row) =>
           toChatThread(row as SupabaseThreadRow, messageStore)
