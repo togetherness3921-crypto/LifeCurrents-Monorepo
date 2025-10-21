@@ -90,12 +90,68 @@ const createToolCallId = (messageId: string, toolCall: SerializableToolCall, ind
     return `${messageId}-tool-${index + 1}`;
 };
 
+// FEATURE 3: Generate programmatic summary for tool calls to reduce token usage
+const generateToolCallSummary = (toolCall: SerializableToolCall): string => {
+    const toolName = toolCall.name || 'unknown';
+
+    try {
+        // Parse the arguments to generate a meaningful summary
+        const args = typeof toolCall.arguments === 'string'
+            ? JSON.parse(toolCall.arguments)
+            : toolCall.arguments;
+
+        // Special handling for patch_graph_document
+        if (toolName === 'patch_graph_document' && args?.patches) {
+            const patches = typeof args.patches === 'string' ? JSON.parse(args.patches) : args.patches;
+            if (Array.isArray(patches)) {
+                const addOps = patches.filter((p: any) => p.op === 'add').length;
+                const removeOps = patches.filter((p: any) => p.op === 'remove').length;
+                const replaceOps = patches.filter((p: any) => p.op === 'replace').length;
+
+                const parts: string[] = [];
+                if (addOps > 0) parts.push(`${addOps} node${addOps === 1 ? '' : 's'} added`);
+                if (removeOps > 0) parts.push(`${removeOps} node${removeOps === 1 ? '' : 's'} removed`);
+                if (replaceOps > 0) parts.push(`${replaceOps} node${replaceOps === 1 ? '' : 's'} updated`);
+
+                const outcome = parts.length > 0 ? parts.join(', ') : 'Graph modified';
+                return JSON.stringify({
+                    status: toolCall.status === 'error' ? 'error' : 'success',
+                    outcome: `Graph patched successfully. ${outcome}.`
+                });
+            }
+        }
+
+        // Generic summary for other tools
+        const status = toolCall.status === 'error' ? 'error' : 'success';
+        const outcome = toolCall.error
+            ? `Tool execution failed: ${toolCall.error.substring(0, 100)}`
+            : `Tool ${toolName} executed successfully.`;
+
+        return JSON.stringify({ status, outcome });
+    } catch {
+        // Fallback summary if parsing fails
+        return JSON.stringify({
+            status: toolCall.status === 'error' ? 'error' : 'success',
+            outcome: `Tool ${toolName} ${toolCall.status === 'error' ? 'failed' : 'completed'}.`
+        });
+    }
+};
+
 const serialiseMessageHistoryForApi = (history: Message[]): ApiMessage[] => {
     if (!history || history.length === 0) {
         return [];
     }
 
     const historyMap = new Map(history.map((message) => [message.id, message]));
+
+    // FEATURE 3: Find the index of the most recent user message to determine stale tool calls
+    let mostRecentUserIndex = -1;
+    for (let i = history.length - 1; i >= 0; i--) {
+        if (history[i].role === 'user') {
+            mostRecentUserIndex = i;
+            break;
+        }
+    }
 
     // FEATURE 6: Helper function to prepend timestamp to content
     const prependTimestamp = (content: string, createdAt?: Date): string => {
@@ -112,7 +168,7 @@ const serialiseMessageHistoryForApi = (history: Message[]): ApiMessage[] => {
         return `[${timeStr} | ${dateStr}] ${content}`;
     };
 
-    return history.flatMap((message) => {
+    return history.flatMap((message, messageIndex) => {
         if (message.role === 'assistant') {
             const toolStates = Array.isArray(message.toolCalls) ? message.toolCalls : [];
             const toolCalls: ApiToolCall[] = [];
@@ -120,6 +176,10 @@ const serialiseMessageHistoryForApi = (history: Message[]): ApiMessage[] => {
             const hasSeparateToolMessages = history.some(
                 (candidate) => candidate.parentId === message.id && candidate.role === 'tool'
             );
+
+            // FEATURE 3: Determine if this assistant message's tool calls are "stale"
+            // (occurred before the most recent user message)
+            const isStale = mostRecentUserIndex !== -1 && messageIndex < mostRecentUserIndex;
 
             toolStates.forEach((toolCall, index) => {
                 if (!toolCall) return;
@@ -137,7 +197,11 @@ const serialiseMessageHistoryForApi = (history: Message[]): ApiMessage[] => {
                 });
 
                 if (!hasSeparateToolMessages) {
-                    const content = normaliseToolResultContent(toolCall);
+                    // FEATURE 3: Use compressed summary for stale tool calls, full content for active ones
+                    const content = isStale
+                        ? generateToolCallSummary(toolCall)
+                        : normaliseToolResultContent(toolCall);
+
                     toolMessages.push({
                         role: 'tool',
                         tool_call_id: toolCallId,
