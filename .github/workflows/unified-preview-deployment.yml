@@ -33,7 +33,7 @@ jobs:
           WORKER_NAME="pr-${{ github.event.pull_request.number }}-lifecurrents-worker"
           # Deploy the worker. The project and compatibility date are determined by wrangler.toml
           OUTPUT=$(wrangler deploy packages/worker/src/index.ts --name $WORKER_NAME)
-          URL=$(echo "$OUTPUT" | grep -o 'https://[^ ]*')
+          URL=$(echo "$OUTPUT" | grep -o 'https://[^ ]*lifecurrents-worker[^ ]*')
           echo "url=$URL" >> $GITHUB_OUTPUT
           echo "Deployed Worker to $URL"
         env:
