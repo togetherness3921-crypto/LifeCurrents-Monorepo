@@ -22,15 +22,17 @@ jobs:
           cache: 'npm'
       
       - name: Install Dependencies
-        run: npm ci
+        run: |
+          rm -f package-lock.json
+          npm install
 
       - name: Deploy Preview Worker
         id: deploy_worker
         run: |
           npm install -g wrangler
           WORKER_NAME="pr-${{ github.event.pull_request.number }}-lifecurrents-worker"
-          # Using --project-name here to point to the correct worker project in Cloudflare
-          OUTPUT=$(wrangler deploy packages/worker/src/index.ts --name $WORKER_NAME --project-name="monorepo-remote-mcp-server-authless" --compatibility-date=2023-10-30)
+          # Deploy the worker. The project is determined by wrangler.toml
+          OUTPUT=$(wrangler deploy packages/worker/src/index.ts --name $WORKER_NAME --compatibility-date=2023-10-30)
           URL=$(echo "$OUTPUT" | grep -o 'https://[^ ]*')
           echo "url=$URL" >> $GITHUB_OUTPUT
           echo "Deployed Worker to $URL"
@@ -39,7 +41,9 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
 
       - name: Build Frontend
-        run: VITE_WORKER_BASE_URL=${{ steps.deploy_worker.outputs.url }} npm run build --workspace=frontend
+        run: cd packages/frontend && npm run build
+        env:
+          VITE_WORKER_BASE_URL: ${{ steps.deploy_worker.outputs.url }}
         
       - name: Deploy Frontend Preview
         id: deploy_frontend
