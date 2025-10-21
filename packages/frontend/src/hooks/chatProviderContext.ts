@@ -22,13 +22,22 @@ export interface ContextActionState {
     error?: string;
 }
 
+export type ToolCallStatus = 'pending' | 'running' | 'success' | 'error';
+
+export interface ToolCallSummary {
+    status: ToolCallStatus;
+    outcome: string;
+    details?: Record<string, unknown>;
+}
+
 export interface ToolCallState {
     id: string;
     name: string;
     arguments: string;
-    status: 'pending' | 'running' | 'success' | 'error';
+    status: ToolCallStatus;
     response?: string;
     error?: string;
+    summary?: ToolCallSummary;
 }
 
 export interface ConversationSummaryRecord {

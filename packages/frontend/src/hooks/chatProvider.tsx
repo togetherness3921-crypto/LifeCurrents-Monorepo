@@ -127,9 +127,13 @@ const sanitizeContextConfig = (input: unknown): ChatThread['contextConfig'] => {
       (candidate as { customMessageCount?: unknown }).customMessageCount
     );
   }
-  if (typeof (candidate as { summaryPrompt?: unknown }).summaryPrompt === 'string') {
-    const promptValue = String((candidate as { summaryPrompt: unknown }).summaryPrompt).trim();
-    base.summaryPrompt = promptValue.length > 0 ? promptValue : DEFAULT_CONTEXT_CONFIG.summaryPrompt;
+  if (Object.prototype.hasOwnProperty.call(candidate, 'summaryPrompt')) {
+    const rawPrompt = (candidate as { summaryPrompt?: unknown }).summaryPrompt;
+    if (typeof rawPrompt === 'string') {
+      base.summaryPrompt = rawPrompt;
+    } else if (rawPrompt === null) {
+      base.summaryPrompt = '';
+    }
   }
   return base;
 };
@@ -177,6 +181,15 @@ const convertToolCalls = (input: any): Message['toolCalls'] => {
       };
     })
     .filter(Boolean) as Message['toolCalls'];
+};
+
+const serialiseToolCallsForPersistence = (
+  toolCalls?: Message['toolCalls']
+): NonNullable<Message['toolCalls']> | null => {
+  if (!toolCalls || toolCalls.length === 0) {
+    return null;
+  }
+  return toolCalls.map(({ summary: _summary, ...rest }) => rest);
 };
 
 const sanitiseThreadState = (
@@ -433,7 +446,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
       const updateFields: Record<string, unknown> = {
         content: payload.content,
         thinking: payload.thinking ?? null,
-        tool_calls: payload.toolCalls && payload.toolCalls.length > 0 ? payload.toolCalls : null,
+        tool_calls: serialiseToolCallsForPersistence(payload.toolCalls),
         graph_document_version_id: payload.graphDocumentVersionId ?? null,
         updated_at: nowIso(),
       };
@@ -764,7 +777,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         role: messageData.role,
         content: messageData.content,
         thinking: messageData.thinking ?? null,
-        tool_calls: newMessage.toolCalls && newMessage.toolCalls.length > 0 ? newMessage.toolCalls : null,
+        tool_calls: serialiseToolCallsForPersistence(newMessage.toolCalls),
         graph_document_version_id: messageData.graphDocumentVersionId ?? null,
         created_at: createdAt.toISOString(),
         updated_at: createdAt.toISOString(),
