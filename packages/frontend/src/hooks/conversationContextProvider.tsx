@@ -56,6 +56,20 @@ export const ConversationContextProvider = ({ children }: { children: ReactNode 
         [activeThreadId, contextConfig, updateThreadSettings]
     );
 
+    const setForcedRecentMessages = useCallback(
+        (count: number) => {
+            if (!activeThreadId) return;
+            const clamped = Math.min(6, Math.max(0, Math.round(count)));
+            updateThreadSettings(activeThreadId, {
+                contextConfig: {
+                    ...contextConfig,
+                    forcedRecentMessages: clamped,
+                },
+            });
+        },
+        [activeThreadId, contextConfig, updateThreadSettings]
+    );
+
     const applyContextToMessages = useCallback<ConversationContextSettingsValue['applyContextToMessages']>(
         (messages) => {
             if (!messages || messages.length === 0) {
@@ -66,7 +80,7 @@ export const ConversationContextProvider = ({ children }: { children: ReactNode 
                 return [...messages];
             }
 
-            const limit = contextConfig.mode === 'last-8' ? 8 : clampCustomCount(contextConfig.customMessageCount);
+            const limit = clampCustomCount(contextConfig.customMessageCount);
             if (limit >= messages.length) {
                 return [...messages];
             }
@@ -90,15 +104,19 @@ export const ConversationContextProvider = ({ children }: { children: ReactNode 
             transforms,
             summaryPrompt: contextConfig.summaryPrompt,
             setSummaryPrompt,
+            forcedRecentMessages: contextConfig.forcedRecentMessages ?? 0,
+            setForcedRecentMessages,
         }),
         [
             applyContextToMessages,
             contextConfig.customMessageCount,
             contextConfig.mode,
             contextConfig.summaryPrompt,
+            contextConfig.forcedRecentMessages,
             setMode,
             setCustomMessageCount,
             setSummaryPrompt,
+            setForcedRecentMessages,
             transforms,
         ]
     );

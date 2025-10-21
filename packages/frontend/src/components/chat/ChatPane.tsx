@@ -97,6 +97,21 @@ const serialiseMessageHistoryForApi = (history: Message[]): ApiMessage[] => {
 
     const historyMap = new Map(history.map((message) => [message.id, message]));
 
+    // FEATURE 6: Helper function to prepend timestamp to content
+    const prependTimestamp = (content: string, createdAt?: Date): string => {
+        if (!createdAt) return content;
+        const timeStr = createdAt.toLocaleTimeString(undefined, {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false,
+        });
+        const dateStr = createdAt.toLocaleDateString(undefined, {
+            month: 'short',
+            day: 'numeric',
+        });
+        return `[${timeStr} | ${dateStr}] ${content}`;
+    };
+
     return history.flatMap((message) => {
         if (message.role === 'assistant') {
             const toolStates = Array.isArray(message.toolCalls) ? message.toolCalls : [];
@@ -131,9 +146,10 @@ const serialiseMessageHistoryForApi = (history: Message[]): ApiMessage[] => {
                 }
             });
 
+            // FEATURE 6: Prepend timestamp to assistant message content
             const assistantMessage: ApiMessage = {
                 role: 'assistant',
-                content: message.content ?? '',
+                content: prependTimestamp(message.content ?? '', message.createdAt),
                 ...(toolCalls.length > 0 ? { tool_calls: toolCalls } : {}),
             };
 
@@ -166,6 +182,7 @@ const serialiseMessageHistoryForApi = (history: Message[]): ApiMessage[] => {
 
             const fallbackId = parentToolCallId || (message.parentId ? `${message.parentId}-tool` : `${message.id}-tool`);
 
+            // FEATURE 6: Tool messages don't need timestamps (they're already contextualized by the assistant message)
             return [
                 {
                     role: 'tool',
@@ -175,10 +192,11 @@ const serialiseMessageHistoryForApi = (history: Message[]): ApiMessage[] => {
             ];
         }
 
+        // FEATURE 6: Prepend timestamp to user and system messages
         return [
             {
                 role: message.role,
-                content: message.content ?? '',
+                content: prependTimestamp(message.content ?? '', message.createdAt),
             },
         ];
     });
@@ -201,6 +219,7 @@ function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
 const ChatPane = () => {
     const {
         activeThreadId,
+        threads,
         getThread,
         addMessage,
         createThread,
@@ -232,7 +251,7 @@ const ChatPane = () => {
     const { activeInstruction, activeInstructionId } = useSystemInstructions();
     const { tools: availableTools, callTool } = useMcp();
     const { selectedModel, recordModelUsage, getToolIntentCheck } = useModelSelection();
-    const { mode, summaryPrompt, applyContextToMessages, transforms } = useConversationContext();
+    const { mode, summaryPrompt, applyContextToMessages, transforms, forcedRecentMessages } = useConversationContext();
     const { registerLatestMessage, revertToMessage, applyPatchResult, activeMessageId, isViewingHistorical, syncToThread } = useGraphHistory();
 
     useEffect(() => {
@@ -240,9 +259,33 @@ const ChatPane = () => {
         window.localStorage.setItem('life-currents.chat.font-scale', fontScale.toString());
     }, [fontScale]);
 
-    const activeThread = activeThreadId ? getThread(activeThreadId) : null;
-    const selectedLeafId = activeThread?.leafMessageId || activeThread?.selectedRootChild || null;
-    const messages = getMessageChain(selectedLeafId);
+    // BUG FIX 1: Explicitly memoize activeThread, selectedLeafId, and messages to prevent invisible message bug
+    // This ensures that the message chain is always recomputed when the underlying state changes,
+    // preventing race conditions in long conversations with multiple forks
+    const activeThread = useMemo(() =>
+        activeThreadId ? threads.find((thread) => thread.id === activeThreadId) : null,
+        [activeThreadId, threads]
+    );
+
+    const selectedLeafId = useMemo(() =>
+        activeThread?.leafMessageId || activeThread?.selectedRootChild || null,
+        [activeThread]
+    );
+
+    const messages = useMemo(() => {
+        if (!selectedLeafId) return [];
+        const chain: Message[] = [];
+        let currentId: string | null = selectedLeafId;
+        const visited = new Set<string>();
+        while (currentId && !visited.has(currentId)) {
+            visited.add(currentId);
+            const message = allMessages[currentId];
+            if (!message) break;
+            chain.unshift(message);
+            currentId = message.parentId;
+        }
+        return chain;
+    }, [selectedLeafId, allMessages]);
 
     useEffect(() => {
         if (activeThreadId) {
@@ -461,6 +504,7 @@ const ChatPane = () => {
                     model: selectedModel.id,
                     registerAction: registerSummarizeAction,
                     updateAction: updateSummarizeAction,
+                    forcedRecentMessages,
                 });
                 const recentHistory = serialiseMessageHistoryForApi(intelligentContext.recentMessages);
                 historyMessagesForApi = [...intelligentContext.systemMessages, ...recentHistory];
@@ -475,8 +519,26 @@ const ChatPane = () => {
             historyMessagesForApi = serialiseMessageHistoryForApi(limitedHistory);
         }
 
+        // FEATURE 7: Inject daily graph context for situational awareness
+        let dailyContextMessage: ApiMessage | null = null;
+        try {
+            const todaysContextResult = await callTool('get_todays_context', {});
+            if (todaysContextResult && !todaysContextResult.isError) {
+                const contextContent = typeof todaysContextResult.content === 'string'
+                    ? todaysContextResult.content
+                    : JSON.stringify(todaysContextResult.content, null, 2);
+                dailyContextMessage = {
+                    role: 'system' as const,
+                    content: `Here is the user's current daily context (tasks, goals, and schedule for today):\n\n${contextContent}`,
+                };
+            }
+        } catch (contextError) {
+            console.warn('[ChatPane] Failed to fetch daily context, continuing without it.', contextError);
+        }
+
         const conversationMessages: ApiMessage[] = [
             ...(systemPrompt ? [{ role: 'system' as const, content: systemPrompt }] : []),
+            ...(dailyContextMessage ? [dailyContextMessage] : []),
             ...historyMessagesForApi,
             { role: 'user' as const, content },
         ];
