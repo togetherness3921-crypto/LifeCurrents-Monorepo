@@ -259,6 +259,17 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
                 )}
                 <p className="whitespace-pre-wrap">{message.content}</p>
 
+                {message.createdAt && (
+                    <div className="mt-2 text-[0.7rem] text-muted-foreground/60">
+                        {message.createdAt.toLocaleString(undefined, {
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                        })}
+                    </div>
+                )}
+
                 <div className="absolute bottom-0 right-1 flex translate-y-1/2 items-center gap-0.5 rounded-md bg-muted p-0.5 text-xs text-foreground/70 shadow-sm">
                     {branchInfo && (
                         <>
