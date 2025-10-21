@@ -127,9 +127,15 @@ const sanitizeContextConfig = (input: unknown): ChatThread['contextConfig'] => {
       (candidate as { customMessageCount?: unknown }).customMessageCount
     );
   }
-  if (typeof (candidate as { summaryPrompt?: unknown }).summaryPrompt === 'string') {
-    const promptValue = String((candidate as { summaryPrompt: unknown }).summaryPrompt).trim();
-    base.summaryPrompt = promptValue.length > 0 ? promptValue : DEFAULT_CONTEXT_CONFIG.summaryPrompt;
+  if (Object.prototype.hasOwnProperty.call(candidate, 'summaryPrompt')) {
+    const rawPrompt = (candidate as { summaryPrompt?: unknown }).summaryPrompt;
+    if (typeof rawPrompt === 'string') {
+      base.summaryPrompt = rawPrompt;
+    } else if (rawPrompt === null || rawPrompt === undefined) {
+      base.summaryPrompt = '';
+    } else {
+      base.summaryPrompt = DEFAULT_CONTEXT_CONFIG.summaryPrompt;
+    }
   }
   return base;
 };
@@ -167,6 +173,10 @@ const convertToolCalls = (input: any): Message['toolCalls'] => {
   return input
     .map((item) => {
       if (!item) return null;
+      const compressionSummary =
+        item.compressionSummary && typeof item.compressionSummary === 'object'
+          ? (item.compressionSummary as Message['toolCalls'][number]['compressionSummary'])
+          : undefined;
       return {
         id: String(item.id ?? uuidv4()),
         name: String(item.name ?? item.function?.name ?? 'tool'),
@@ -174,6 +184,7 @@ const convertToolCalls = (input: any): Message['toolCalls'] => {
         status: (item.status ?? 'success') as Message['toolCalls'][number]['status'],
         response: item.response,
         error: item.error,
+        compressionSummary,
       };
     })
     .filter(Boolean) as Message['toolCalls'];
@@ -250,7 +261,6 @@ const mapRowToThreadSettings = (row: SupabaseThreadRow): ThreadSettings =>
 const parseMessageRows = (rows: SupabaseMessageRow[], summaries?: SupabaseSummaryRow[]): MessageStore => {
   const store: MessageStore = {};
 
-  // BUG FIX 2: Build a map of summaries by created_by_message_id for efficient lookup
   const summariesByMessageId = new Map<string, SupabaseSummaryRow[]>();
   if (summaries) {
     summaries.forEach((summary) => {
@@ -265,16 +275,24 @@ const parseMessageRows = (rows: SupabaseMessageRow[], summaries?: SupabaseSummar
     const createdAt = row.created_at ? new Date(row.created_at) : undefined;
     const updatedAt = row.updated_at ? new Date(row.updated_at) : createdAt;
 
-    // BUG FIX 2: Attach persisted summaries to the message that created them
-    const persistedSummaries = summariesByMessageId.get(row.id)?.map(summary => ({
-      id: summary.id,
-      thread_id: summary.thread_id,
-      summary_level: summary.summary_level,
-      summary_period_start: summary.summary_period_start,
-      content: summary.content,
-      created_by_message_id: summary.created_by_message_id,
-      created_at: summary.created_at ?? undefined,
-    }));
+    const persistedSummaries =
+      row.role === 'assistant'
+        ? summariesByMessageId.get(row.id)?.map((summary) => ({
+            id: summary.id,
+            thread_id: summary.thread_id,
+            summary_level: summary.summary_level,
+            summary_period_start: summary.summary_period_start,
+            content: summary.content,
+            created_by_message_id: summary.created_by_message_id,
+            created_at: summary.created_at ?? undefined,
+          }))
+        : undefined;
+
+    if (persistedSummaries && persistedSummaries.length > 1) {
+      persistedSummaries.sort(
+        (a, b) => new Date(a.summary_period_start).getTime() - new Date(b.summary_period_start).getTime()
+      );
+    }
 
     const baseMessage: Message = {
       id: row.id,

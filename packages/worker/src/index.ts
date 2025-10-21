@@ -504,6 +504,35 @@ export class MyMCP extends McpAgent {
         return ancestorIds;
     }
 
+    private computePeriodBounds(level: SummaryLevel, periodStartIso: string): { startIso: string; endIso: string } {
+        const parsedStart = new Date(periodStartIso);
+        if (Number.isNaN(parsedStart.getTime())) {
+            throw new Error('period_start must be a valid ISO 8601 timestamp.');
+        }
+
+        const start = new Date(parsedStart);
+        start.setUTCHours(0, 0, 0, 0);
+        let end = new Date(start);
+
+        if (level === 'MONTH') {
+            start.setUTCDate(1);
+            end = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 1));
+        } else if (level === 'WEEK') {
+            const dayOfWeek = start.getUTCDay();
+            start.setUTCDate(start.getUTCDate() - dayOfWeek);
+            end = new Date(start);
+            end.setUTCDate(end.getUTCDate() + 7);
+        } else {
+            end = new Date(start);
+            end.setUTCDate(end.getUTCDate() + 1);
+        }
+
+        return {
+            startIso: start.toISOString(),
+            endIso: end.toISOString(),
+        };
+    }
+
     private toConversationSummaryResponse(row: ConversationSummaryRecord): ConversationSummaryResponse {
         const { id, thread_id, summary_level, summary_period_start, content, created_by_message_id, created_at } = row;
         const summary: ConversationSummaryResponse = {
@@ -596,6 +625,15 @@ export class MyMCP extends McpAgent {
         });
 
         type GetMessagesForPeriodArgs = z.infer<typeof getMessagesForPeriodParams>;
+
+        const getHistoricalContextParams = z.object({
+            conversation_id: z.string().describe('Conversation identifier for the thread.'),
+            message_id: z.string().describe('Head message identifier for the branch.'),
+            level: z.enum(['MONTH', 'WEEK', 'DAY']).describe('Summary level to expand.'),
+            period_start: z.string().describe('ISO8601 start timestamp for the requested period.'),
+        });
+
+        type GetHistoricalContextArgs = z.infer<typeof getHistoricalContextParams>;
 
         // 0. Tool to get instructions
         this.server.tool<GetSystemInstructionsArgs>(
@@ -1468,6 +1506,131 @@ export class MyMCP extends McpAgent {
                     return createToolResponse('get_messages_for_period', true, { messages });
                 } catch (error: any) {
                     return createToolResponse('get_messages_for_period', false, undefined, { message: error?.message ?? 'Unknown error' });
+                }
+            }
+        );
+
+        this.server.tool<GetHistoricalContextArgs>(
+            'get_historical_context',
+            getHistoricalContextParams.shape,
+            async ({ conversation_id, message_id, level, period_start }) => {
+                try {
+                    const normalizedConversationId = this.normalizeId(conversation_id, 'conversation_id');
+                    const normalizedMessageId = this.normalizeId(message_id, 'message_id');
+                    const normalizedPeriodStart = this.normalizeIsoTimestamp(period_start, 'period_start');
+                    const { startIso, endIso } = this.computePeriodBounds(level, normalizedPeriodStart);
+
+                    const ancestorIds = await this.getAncestralMessageIds(normalizedConversationId, normalizedMessageId);
+                    const uniqueAncestorIds = Array.from(new Set(ancestorIds));
+
+                    if (uniqueAncestorIds.length === 0) {
+                        return createToolResponse('get_historical_context', true, {
+                            conversation_id: normalizedConversationId,
+                            message_id: normalizedMessageId,
+                            level,
+                            period_start: startIso,
+                            period_end: endIso,
+                            week_summaries: [],
+                            day_summaries: [],
+                            messages: [],
+                        });
+                    }
+
+                    if (level === 'MONTH') {
+                        const { data, error } = await supabase
+                            .from('conversation_summaries')
+                            .select('id, summary_level, summary_period_start, content, created_by_message_id, created_at, thread_id')
+                            .eq('thread_id', normalizedConversationId)
+                            .eq('summary_level', 'WEEK')
+                            .gte('summary_period_start', startIso)
+                            .lt('summary_period_start', endIso)
+                            .in('created_by_message_id', uniqueAncestorIds)
+                            .order('summary_period_start', { ascending: true });
+
+                        if (error) {
+                            throw new Error(`Failed to fetch weekly summaries: ${error.message}`);
+                        }
+
+                        const summaries = (data ?? []).map((row) =>
+                            this.toConversationSummaryResponse(row as ConversationSummaryRecord)
+                        );
+
+                        return createToolResponse('get_historical_context', true, {
+                            conversation_id: normalizedConversationId,
+                            message_id: normalizedMessageId,
+                            level,
+                            period_start: startIso,
+                            period_end: endIso,
+                            week_summaries: summaries,
+                        });
+                    }
+
+                    if (level === 'WEEK') {
+                        const { data, error } = await supabase
+                            .from('conversation_summaries')
+                            .select('id, summary_level, summary_period_start, content, created_by_message_id, created_at, thread_id')
+                            .eq('thread_id', normalizedConversationId)
+                            .eq('summary_level', 'DAY')
+                            .gte('summary_period_start', startIso)
+                            .lt('summary_period_start', endIso)
+                            .in('created_by_message_id', uniqueAncestorIds)
+                            .order('summary_period_start', { ascending: true });
+
+                        if (error) {
+                            throw new Error(`Failed to fetch daily summaries: ${error.message}`);
+                        }
+
+                        const summaries = (data ?? []).map((row) =>
+                            this.toConversationSummaryResponse(row as ConversationSummaryRecord)
+                        );
+
+                        return createToolResponse('get_historical_context', true, {
+                            conversation_id: normalizedConversationId,
+                            message_id: normalizedMessageId,
+                            level,
+                            period_start: startIso,
+                            period_end: endIso,
+                            day_summaries: summaries,
+                        });
+                    }
+
+                    const { data, error } = await supabase
+                        .from('chat_messages')
+                        .select('id, thread_id, parent_id, role, content, thinking, tool_calls, created_at, updated_at')
+                        .eq('thread_id', normalizedConversationId)
+                        .in('id', uniqueAncestorIds)
+                        .gte('created_at', startIso)
+                        .lt('created_at', endIso)
+                        .order('created_at', { ascending: true });
+
+                    if (error) {
+                        throw new Error(`Failed to fetch messages for day: ${error.message}`);
+                    }
+
+                    const messages = (data ?? []).map((row) => ({
+                        id: row.id,
+                        thread_id: row.thread_id,
+                        parent_id: row.parent_id,
+                        role: row.role,
+                        content: row.content,
+                        thinking: row.thinking,
+                        tool_calls: row.tool_calls,
+                        created_at: row.created_at,
+                        updated_at: row.updated_at,
+                    }));
+
+                    return createToolResponse('get_historical_context', true, {
+                        conversation_id: normalizedConversationId,
+                        message_id: normalizedMessageId,
+                        level,
+                        period_start: startIso,
+                        period_end: endIso,
+                        messages,
+                    });
+                } catch (error: any) {
+                    return createToolResponse('get_historical_context', false, undefined, {
+                        message: error?.message ?? 'Unknown error',
+                    });
                 }
             }
         );

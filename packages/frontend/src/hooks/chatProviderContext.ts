@@ -22,6 +22,14 @@ export interface ContextActionState {
     error?: string;
 }
 
+export interface ToolCallCompressionSummary {
+    status: 'pending' | 'success' | 'error';
+    outcome: string;
+    tool: string;
+    request?: string;
+    generatedAt?: string;
+}
+
 export interface ToolCallState {
     id: string;
     name: string;
@@ -29,6 +37,8 @@ export interface ToolCallState {
     status: 'pending' | 'running' | 'success' | 'error';
     response?: string;
     error?: string;
+    compressionSummary?: ToolCallCompressionSummary;
+    modelResponseOverride?: string;
 }
 
 export interface ConversationSummaryRecord {
