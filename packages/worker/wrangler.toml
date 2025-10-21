@@ -1,0 +1,15 @@
+name = "monorepo-remote-mcp-server-authless"
+main = "src/index.ts"
+compatibility_date = "2023-10-30"
+account_id = "YOUR_ACCOUNT_ID" # <-- You will need to replace this
+
+[vars]
+# Add any environment variables your worker needs here
+# Ex: DB_URL = "your-database-url"
+
+[env.production]
+name = "monorepo-remote-mcp-server-authless"
+# Production-specific vars can go here
+
+[env.preview]
+# Preview-specific vars can go here
