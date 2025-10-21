@@ -250,6 +250,7 @@ interface ConversationSummaryRecord {
 
 type ConversationSummaryResponse = {
     id: string;
+    thread_id: string;
     summary_level: SummaryLevel;
     summary_period_start: string;
     content: string;
@@ -504,9 +505,10 @@ export class MyMCP extends McpAgent {
     }
 
     private toConversationSummaryResponse(row: ConversationSummaryRecord): ConversationSummaryResponse {
-        const { id, summary_level, summary_period_start, content, created_by_message_id, created_at } = row;
+        const { id, thread_id, summary_level, summary_period_start, content, created_by_message_id, created_at } = row;
         const summary: ConversationSummaryResponse = {
             id,
+            thread_id,
             summary_level,
             summary_period_start,
             content,
