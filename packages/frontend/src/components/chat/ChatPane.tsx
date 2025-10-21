@@ -29,6 +29,7 @@ import { usePreviewBuilds } from '@/hooks/usePreviewBuilds';
 import { Message, ContextActionState } from '@/hooks/chatProviderContext';
 import { prepareIntelligentContext, type SummarizeActionDescriptor, type SummarizeActionUpdate } from '@/services/intelligentContext';
 import { v4 as uuidv4 } from 'uuid';
+import { generateToolCallCompressionSummary } from '@/lib/toolCallSummary';
 
 const SETTINGS_BADGE_MAX = 99;
 const EXPANDED_INPUT_MAX_HEIGHT = 'min(420px, 70vh)';
@@ -97,7 +98,6 @@ const serialiseMessageHistoryForApi = (history: Message[]): ApiMessage[] => {
 
     const historyMap = new Map(history.map((message) => [message.id, message]));
 
-    // FEATURE 6: Helper function to prepend timestamp to content
     const prependTimestamp = (content: string, createdAt?: Date): string => {
         if (!createdAt) return content;
         const timeStr = createdAt.toLocaleTimeString(undefined, {
@@ -112,6 +112,41 @@ const serialiseMessageHistoryForApi = (history: Message[]): ApiMessage[] => {
         return `[${timeStr} | ${dateStr}] ${content}`;
     };
 
+    const lastUserIndex = history.reduce((latest, message, index) => {
+        return message.role === 'user' ? index : latest;
+    }, -1);
+
+    const staleAssistantIds = new Set<string>();
+    if (lastUserIndex >= 0) {
+        history.forEach((message, index) => {
+            if (message.role === 'assistant' && index < lastUserIndex) {
+                staleAssistantIds.add(message.id);
+            }
+        });
+    }
+
+    const toolSummaryContentById = new Map<string, string>();
+    const registerToolSummary = (toolCallId: string, toolCall: SerializableToolCall) => {
+        if (!toolCallId) {
+            return;
+        }
+        if (toolSummaryContentById.has(toolCallId)) {
+            return;
+        }
+        const summary = toolCall.compressionSummary ?? generateToolCallCompressionSummary(toolCall);
+        if (summary) {
+            toolSummaryContentById.set(toolCallId, JSON.stringify(summary));
+        }
+    };
+
+    const getCompressedContent = (toolCallId: string | undefined): string | null => {
+        if (!toolCallId) {
+            return null;
+        }
+        const value = toolSummaryContentById.get(toolCallId);
+        return value ?? null;
+    };
+
     return history.flatMap((message) => {
         if (message.role === 'assistant') {
             const toolStates = Array.isArray(message.toolCalls) ? message.toolCalls : [];
@@ -120,10 +155,13 @@ const serialiseMessageHistoryForApi = (history: Message[]): ApiMessage[] => {
             const hasSeparateToolMessages = history.some(
                 (candidate) => candidate.parentId === message.id && candidate.role === 'tool'
             );
+            const isStaleAssistant = staleAssistantIds.has(message.id);
 
             toolStates.forEach((toolCall, index) => {
                 if (!toolCall) return;
                 const toolCallId = createToolCallId(message.id, toolCall, index);
+                registerToolSummary(toolCallId, toolCall);
+
                 const toolName = toolCall.name && toolCall.name.trim().length > 0 ? toolCall.name : 'tool';
                 const argumentsString = ensureJsonArguments(toolCall.arguments);
 
@@ -137,7 +175,8 @@ const serialiseMessageHistoryForApi = (history: Message[]): ApiMessage[] => {
                 });
 
                 if (!hasSeparateToolMessages) {
-                    const content = normaliseToolResultContent(toolCall);
+                    const summaryContent = isStaleAssistant ? getCompressedContent(toolCallId) : null;
+                    const content = summaryContent ?? normaliseToolResultContent(toolCall);
                     toolMessages.push({
                         role: 'tool',
                         tool_call_id: toolCallId,
@@ -146,7 +185,6 @@ const serialiseMessageHistoryForApi = (history: Message[]): ApiMessage[] => {
                 }
             });
 
-            // FEATURE 6: Prepend timestamp to assistant message content
             const assistantMessage: ApiMessage = {
                 role: 'assistant',
                 content: prependTimestamp(message.content ?? '', message.createdAt),
@@ -158,41 +196,55 @@ const serialiseMessageHistoryForApi = (history: Message[]): ApiMessage[] => {
 
         if (message.role === 'tool') {
             const parent = message.parentId ? historyMap.get(message.parentId) : undefined;
-            let parentToolCallId: string | undefined;
+            let matchingCall: SerializableToolCall | undefined;
+            let matchingIndex = -1;
 
             if (parent?.toolCalls) {
-                parentToolCallId = parent.toolCalls.find((toolCall) => toolCall.response === message.content)?.id;
+                const toolStates = parent.toolCalls.filter(Boolean);
+                matchingIndex = toolStates.findIndex((toolCall) => toolCall?.response === message.content);
 
-                if (!parentToolCallId && typeof message.content === 'string') {
-                    parentToolCallId = parent.toolCalls.find((toolCall) => {
-                        if (toolCall.error && message.content) {
-                            const normalisedError = toolCall.error.startsWith('Error:')
-                                ? toolCall.error
-                                : `Error: ${toolCall.error}`;
-                            return message.content.includes(normalisedError);
+                if (matchingIndex === -1 && typeof message.content === 'string') {
+                    matchingIndex = toolStates.findIndex((toolCall) => {
+                        if (!toolCall?.error) {
+                            return false;
                         }
-                        return false;
-                    })?.id;
+                        const normalisedError = toolCall.error.startsWith('Error:')
+                            ? toolCall.error
+                            : `Error: ${toolCall.error}`;
+                        return message.content?.includes(normalisedError);
+                    });
                 }
 
-                if (!parentToolCallId) {
-                    parentToolCallId = parent.toolCalls[0]?.id;
+                if (matchingIndex === -1 && toolStates.length > 0) {
+                    matchingIndex = 0;
                 }
+
+                matchingCall = matchingIndex >= 0 ? toolStates[matchingIndex] : undefined;
+            }
+
+            let parentToolCallId = matchingCall?.id;
+            if (!parentToolCallId && matchingCall && parent) {
+                const indexForId = matchingIndex >= 0 ? matchingIndex : 0;
+                parentToolCallId = createToolCallId(parent.id, matchingCall, indexForId);
+            }
+
+            if (matchingCall && parentToolCallId) {
+                registerToolSummary(parentToolCallId, matchingCall);
             }
 
             const fallbackId = parentToolCallId || (message.parentId ? `${message.parentId}-tool` : `${message.id}-tool`);
+            const isParentStale = parent ? staleAssistantIds.has(parent.id) : false;
+            const summaryContent = isParentStale ? getCompressedContent(parentToolCallId ?? fallbackId) : null;
 
-            // FEATURE 6: Tool messages don't need timestamps (they're already contextualized by the assistant message)
             return [
                 {
                     role: 'tool',
-                    tool_call_id: fallbackId,
-                    content: message.content ?? '',
+                    tool_call_id: parentToolCallId ?? fallbackId,
+                    content: summaryContent ?? (message.content ?? ''),
                 },
             ];
         }
 
-        // FEATURE 6: Prepend timestamp to user and system messages
         return [
             {
                 role: message.role,
@@ -291,7 +343,7 @@ const ChatPane = () => {
         if (activeThreadId) {
             void syncToThread(messages);
         }
-    }, [activeThreadId, syncToThread]);
+    }, [activeThreadId, messages, syncToThread]);
 
     useEffect(() => {
         if (messages.length === 0) {
@@ -597,7 +649,7 @@ const ChatPane = () => {
 
                 if (existingIndex >= 0) {
                     const existing = toolCalls[existingIndex];
-                    toolCalls[existingIndex] = {
+                    const merged: SerializableToolCall = {
                         ...existing,
                         ...update,
                         id: toolId,
@@ -605,15 +657,27 @@ const ChatPane = () => {
                         arguments: update.arguments ?? existing.arguments,
                         status: update.status ?? existing.status,
                     };
+                    const summary = generateToolCallCompressionSummary(merged);
+                    if (summary) {
+                        merged.compressionSummary = summary;
+                    } else {
+                        delete merged.compressionSummary;
+                    }
+                    toolCalls[existingIndex] = merged;
                 } else {
-                    toolCalls.push({
+                    const created: SerializableToolCall = {
                         id: toolId,
                         name: update.name ?? toolId,
                         arguments: update.arguments ?? '{}',
                         status: update.status ?? 'running',
                         response: update.response,
                         error: update.error,
-                    });
+                    };
+                    const summary = generateToolCallCompressionSummary(created);
+                    if (summary) {
+                        created.compressionSummary = summary;
+                    }
+                    toolCalls.push(created);
                 }
 
                 return { toolCalls };

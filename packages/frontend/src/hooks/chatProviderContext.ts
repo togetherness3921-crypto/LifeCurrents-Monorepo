@@ -29,6 +29,13 @@ export interface ToolCallState {
     status: 'pending' | 'running' | 'success' | 'error';
     response?: string;
     error?: string;
+    compressionSummary?: ToolCallCompressionSummary;
+}
+
+export interface ToolCallCompressionSummary {
+    status: 'pending' | 'running' | 'success' | 'error';
+    outcome: string;
+    tool: string;
 }
 
 export interface ConversationSummaryRecord {

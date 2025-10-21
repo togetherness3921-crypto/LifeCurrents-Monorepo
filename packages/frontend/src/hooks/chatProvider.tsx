@@ -13,6 +13,7 @@ import {
 import { submitSupabaseOperation, flushSupabaseQueue } from '@/services/supabaseQueue';
 import { DEFAULT_CONTEXT_CONFIG, DEFAULT_MODEL_ID } from './chatDefaults';
 import { useMcp } from './useMcp';
+import { generateToolCallCompressionSummary } from '@/lib/toolCallSummary';
 
 const LEGACY_THREADS_KEY = 'chat_threads';
 const LEGACY_MESSAGES_KEY = 'chat_messages';
@@ -127,9 +128,13 @@ const sanitizeContextConfig = (input: unknown): ChatThread['contextConfig'] => {
       (candidate as { customMessageCount?: unknown }).customMessageCount
     );
   }
-  if (typeof (candidate as { summaryPrompt?: unknown }).summaryPrompt === 'string') {
-    const promptValue = String((candidate as { summaryPrompt: unknown }).summaryPrompt).trim();
-    base.summaryPrompt = promptValue.length > 0 ? promptValue : DEFAULT_CONTEXT_CONFIG.summaryPrompt;
+  if (Object.prototype.hasOwnProperty.call(candidate, 'summaryPrompt')) {
+    const rawPrompt = (candidate as { summaryPrompt?: unknown }).summaryPrompt;
+    if (typeof rawPrompt === 'string') {
+      base.summaryPrompt = rawPrompt;
+    } else if (rawPrompt === null) {
+      base.summaryPrompt = '';
+    }
   }
   return base;
 };
@@ -167,7 +172,7 @@ const convertToolCalls = (input: any): Message['toolCalls'] => {
   return input
     .map((item) => {
       if (!item) return null;
-      return {
+      const toolCall: Message['toolCalls'][number] = {
         id: String(item.id ?? uuidv4()),
         name: String(item.name ?? item.function?.name ?? 'tool'),
         arguments: typeof item.arguments === 'string' ? item.arguments : JSON.stringify(item.arguments ?? {}),
@@ -175,8 +180,25 @@ const convertToolCalls = (input: any): Message['toolCalls'] => {
         response: item.response,
         error: item.error,
       };
+
+      const summary = generateToolCallCompressionSummary(toolCall);
+      if (summary) {
+        toolCall.compressionSummary = summary;
+      }
+
+      return toolCall;
     })
     .filter(Boolean) as Message['toolCalls'];
+};
+
+const serialiseToolCallsForStorage = (toolCalls?: Message['toolCalls']) => {
+  if (!toolCalls || toolCalls.length === 0) {
+    return null;
+  }
+  const sanitised = toolCalls
+    .filter((call): call is NonNullable<Message['toolCalls']>[number] => Boolean(call))
+    .map(({ compressionSummary, ...rest }) => ({ ...rest }));
+  return sanitised.length > 0 ? sanitised : null;
 };
 
 const sanitiseThreadState = (
@@ -265,16 +287,29 @@ const parseMessageRows = (rows: SupabaseMessageRow[], summaries?: SupabaseSummar
     const createdAt = row.created_at ? new Date(row.created_at) : undefined;
     const updatedAt = row.updated_at ? new Date(row.updated_at) : createdAt;
 
-    // BUG FIX 2: Attach persisted summaries to the message that created them
-    const persistedSummaries = summariesByMessageId.get(row.id)?.map(summary => ({
-      id: summary.id,
-      thread_id: summary.thread_id,
-      summary_level: summary.summary_level,
-      summary_period_start: summary.summary_period_start,
-      content: summary.content,
-      created_by_message_id: summary.created_by_message_id,
-      created_at: summary.created_at ?? undefined,
-    }));
+    // BUG FIX 2: Attach persisted summaries to the assistant message that created them
+    const summaryOrder: Record<SupabaseSummaryRow['summary_level'], number> = { DAY: 0, WEEK: 1, MONTH: 2 };
+    const candidateSummaries = summariesByMessageId.get(row.id) ?? [];
+    const persistedSummaries =
+      row.role === 'assistant' && candidateSummaries.length > 0
+        ? candidateSummaries
+            .map((summary) => ({
+              id: summary.id,
+              thread_id: summary.thread_id,
+              summary_level: summary.summary_level,
+              summary_period_start: summary.summary_period_start,
+              content: summary.content,
+              created_by_message_id: summary.created_by_message_id,
+              created_at: summary.created_at ?? undefined,
+            }))
+            .sort((a, b) => {
+              const levelDelta = (summaryOrder[a.summary_level] ?? 99) - (summaryOrder[b.summary_level] ?? 99);
+              if (levelDelta !== 0) return levelDelta;
+              const aTime = new Date(a.summary_period_start).getTime();
+              const bTime = new Date(b.summary_period_start).getTime();
+              return aTime - bTime;
+            })
+        : undefined;
 
     const baseMessage: Message = {
       id: row.id,
@@ -327,7 +362,7 @@ const legacyMessagesToSupabase = (
       role: message.role,
       content: message.content,
       thinking: message.thinking ?? null,
-      tool_calls: message.toolCalls ?? null,
+      tool_calls: serialiseToolCallsForStorage(message.toolCalls as Message['toolCalls']),
       created_at: nowIso(),
       updated_at: nowIso(),
       graph_document_version_id: null,
@@ -433,7 +468,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
       const updateFields: Record<string, unknown> = {
         content: payload.content,
         thinking: payload.thinking ?? null,
-        tool_calls: payload.toolCalls && payload.toolCalls.length > 0 ? payload.toolCalls : null,
+        tool_calls: serialiseToolCallsForStorage(payload.toolCalls),
         graph_document_version_id: payload.graphDocumentVersionId ?? null,
         updated_at: nowIso(),
       };
@@ -764,7 +799,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         role: messageData.role,
         content: messageData.content,
         thinking: messageData.thinking ?? null,
-        tool_calls: newMessage.toolCalls && newMessage.toolCalls.length > 0 ? newMessage.toolCalls : null,
+        tool_calls: serialiseToolCallsForStorage(newMessage.toolCalls),
         graph_document_version_id: messageData.graphDocumentVersionId ?? null,
         created_at: createdAt.toISOString(),
         updated_at: createdAt.toISOString(),
