@@ -90,6 +90,18 @@ const createToolCallId = (messageId: string, toolCall: SerializableToolCall, ind
     return `${messageId}-tool-${index + 1}`;
 };
 
+const formatMessageTimestamp = (date: Date | undefined): string => {
+    if (!date) return '';
+    const timeStr = date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+    const dateStr = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    return `[${timeStr} | ${dateStr}] `;
+};
+
+const prependTimestamp = (content: string, timestamp: string): string => {
+    if (!timestamp) return content;
+    return `${timestamp}${content}`;
+};
+
 const serialiseMessageHistoryForApi = (history: Message[]): ApiMessage[] => {
     if (!history || history.length === 0) {
         return [];
@@ -131,9 +143,10 @@ const serialiseMessageHistoryForApi = (history: Message[]): ApiMessage[] => {
                 }
             });
 
+            const timestamp = formatMessageTimestamp(message.createdAt);
             const assistantMessage: ApiMessage = {
                 role: 'assistant',
-                content: message.content ?? '',
+                content: prependTimestamp(message.content ?? '', timestamp),
                 ...(toolCalls.length > 0 ? { tool_calls: toolCalls } : {}),
             };
 
@@ -175,10 +188,11 @@ const serialiseMessageHistoryForApi = (history: Message[]): ApiMessage[] => {
             ];
         }
 
+        const timestamp = formatMessageTimestamp(message.createdAt);
         return [
             {
                 role: message.role,
-                content: message.content ?? '',
+                content: prependTimestamp(message.content ?? '', timestamp),
             },
         ];
     });
@@ -232,7 +246,7 @@ const ChatPane = () => {
     const { activeInstruction, activeInstructionId } = useSystemInstructions();
     const { tools: availableTools, callTool } = useMcp();
     const { selectedModel, recordModelUsage, getToolIntentCheck } = useModelSelection();
-    const { mode, summaryPrompt, applyContextToMessages, transforms } = useConversationContext();
+    const { mode, summaryPrompt, applyContextToMessages, transforms, forcedRecentMessageCount } = useConversationContext();
     const { registerLatestMessage, revertToMessage, applyPatchResult, activeMessageId, isViewingHistorical, syncToThread } = useGraphHistory();
 
     useEffect(() => {
@@ -449,6 +463,21 @@ const ChatPane = () => {
         let historyMessagesForApi: ApiMessage[] = [];
         let transformsForRequest = transforms;
 
+        // Fetch daily graph context to provide situational awareness
+        let dailyContextMessage: ApiMessage | null = null;
+        try {
+            const todaysContextResult = await callTool('get_todays_context', {});
+            const todaysContextContent = typeof todaysContextResult?.content === 'string'
+                ? todaysContextResult.content
+                : JSON.stringify(todaysContextResult?.content ?? {}, null, 2);
+            dailyContextMessage = {
+                role: 'system' as const,
+                content: `Here is the user's current daily context (active tasks, schedule, and priorities):\n\n${todaysContextContent}`,
+            };
+        } catch (dailyContextError) {
+            console.warn('[ChatPane] Failed to fetch daily context, continuing without it.', dailyContextError);
+        }
+
         if (mode === 'intelligent') {
             try {
                 const intelligentContext = await prepareIntelligentContext({
@@ -461,6 +490,7 @@ const ChatPane = () => {
                     model: selectedModel.id,
                     registerAction: registerSummarizeAction,
                     updateAction: updateSummarizeAction,
+                    forcedRecentMessageCount,
                 });
                 const recentHistory = serialiseMessageHistoryForApi(intelligentContext.recentMessages);
                 historyMessagesForApi = [...intelligentContext.systemMessages, ...recentHistory];
@@ -477,6 +507,7 @@ const ChatPane = () => {
 
         const conversationMessages: ApiMessage[] = [
             ...(systemPrompt ? [{ role: 'system' as const, content: systemPrompt }] : []),
+            ...(dailyContextMessage ? [dailyContextMessage] : []),
             ...historyMessagesForApi,
             { role: 'user' as const, content },
         ];
