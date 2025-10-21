@@ -29,6 +29,7 @@ export interface ToolCallState {
     status: 'pending' | 'running' | 'success' | 'error';
     response?: string;
     error?: string;
+    summary?: string; // FEATURE 3: Programmatic summary for stale tool call compression
 }
 
 export interface ConversationSummaryRecord {
