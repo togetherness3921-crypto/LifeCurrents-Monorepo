@@ -5,6 +5,7 @@ export interface ConversationContextConfig {
     mode: ConversationContextMode;
     customMessageCount: number;
     summaryPrompt: string;
+    forcedRecentCount: number;
 }
 
 export type SummaryLevel = 'DAY' | 'WEEK' | 'MONTH';

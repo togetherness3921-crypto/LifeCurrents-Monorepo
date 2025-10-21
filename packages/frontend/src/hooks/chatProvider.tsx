@@ -9,6 +9,7 @@ import {
   MessageStore,
   NewMessageInput,
   ThreadSettings,
+  SummaryLevel,
 } from './chatProviderContext';
 import { submitSupabaseOperation, flushSupabaseQueue } from '@/services/supabaseQueue';
 import { DEFAULT_CONTEXT_CONFIG, DEFAULT_MODEL_ID } from './chatDefaults';
@@ -71,7 +72,7 @@ const nowIso = () => new Date().toISOString();
 
 const CONTEXT_MIN = 1;
 const CONTEXT_MAX = 200;
-const VALID_CONTEXT_MODES = new Set(['last-8', 'all-middle-out', 'custom', 'intelligent']);
+const VALID_CONTEXT_MODES = new Set(['all-middle-out', 'custom', 'intelligent']);
 
 const clampCustomMessageCount = (value: unknown): number => {
   const numeric = typeof value === 'number' ? value : Number(value);
@@ -93,6 +94,14 @@ const sanitizeInstructionId = (value: unknown): string | null => {
     return value;
   }
   return null;
+};
+
+const clampForcedRecentCount = (value: unknown): number => {
+  const numeric = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(numeric)) {
+    return DEFAULT_CONTEXT_CONFIG.forcedRecentCount;
+  }
+  return Math.min(6, Math.max(0, Math.round(numeric)));
 };
 
 const sanitizeContextConfig = (input: unknown): ChatThread['contextConfig'] => {
@@ -120,6 +129,11 @@ const sanitizeContextConfig = (input: unknown): ChatThread['contextConfig'] => {
   if (typeof (candidate as { summaryPrompt?: unknown }).summaryPrompt === 'string') {
     const promptValue = String((candidate as { summaryPrompt: unknown }).summaryPrompt).trim();
     base.summaryPrompt = promptValue.length > 0 ? promptValue : DEFAULT_CONTEXT_CONFIG.summaryPrompt;
+  }
+  if ('forcedRecentCount' in (candidate as Record<string, unknown>)) {
+    base.forcedRecentCount = clampForcedRecentCount(
+      (candidate as { forcedRecentCount?: unknown }).forcedRecentCount
+    );
   }
   return base;
 };
@@ -570,7 +584,12 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
           console.warn('[ChatProvider] Failed to load last active thread', lastActiveThreadError);
         }
 
-        const messageStore = parseMessageRows((messageRows ?? []) as SupabaseMessageRow[]);
+        let messageStore = parseMessageRows((messageRows ?? []) as SupabaseMessageRow[]);
+
+        // Attach summaries to messages
+        if (summaryRows && summaryRows.length > 0) {
+          messageStore = attachSummariesToMessages(messageStore, summaryRows as SupabaseSummaryRow[]);
+        }
 
         const parsedThreads = (refreshedThreads ?? []).map((row) =>
           toChatThread(row as SupabaseThreadRow, messageStore)
