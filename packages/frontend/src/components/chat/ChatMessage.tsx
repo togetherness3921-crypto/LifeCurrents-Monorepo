@@ -1,6 +1,6 @@
 // This component will render a single chat message bubble
 import React, { useState, useEffect, useCallback } from 'react';
-import { Message } from '@/hooks/chatProviderContext';
+import { ConversationSummaryRecord, Message } from '@/hooks/chatProviderContext';
 import { Button } from '../ui/button';
 import { Pencil, Save, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Textarea } from '../ui/textarea';
@@ -13,6 +13,68 @@ import {
 import { Badge } from '../ui/badge';
 import ToolCallDetails from './ToolCallDetails';
 import { cn } from '@/lib/utils';
+
+const MESSAGE_TIMESTAMP_FORMAT = new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+});
+
+const SUMMARY_LEVEL_LABELS: Record<ConversationSummaryRecord['summary_level'], string> = {
+    DAY: 'Day',
+    WEEK: 'Week',
+    MONTH: 'Month',
+};
+
+const SUMMARY_LEVEL_ORDER: Record<ConversationSummaryRecord['summary_level'], number> = {
+    DAY: 0,
+    WEEK: 1,
+    MONTH: 2,
+};
+
+const SUMMARY_DAY_FORMAT = new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+});
+
+const SUMMARY_WEEK_DAY_FORMAT = new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    day: 'numeric',
+});
+
+const SUMMARY_MONTH_FORMAT = new Intl.DateTimeFormat(undefined, {
+    month: 'long',
+    year: 'numeric',
+});
+
+const coerceDate = (value?: Date | string | null): Date | null => {
+    if (!value) {
+        return null;
+    }
+    const date = value instanceof Date ? value : new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const formatSummaryPeriod = (summary: ConversationSummaryRecord): string => {
+    const start = coerceDate(summary.summary_period_start);
+    if (!start) {
+        return summary.summary_period_start;
+    }
+    if (summary.summary_level === 'WEEK') {
+        const end = new Date(start);
+        end.setUTCDate(end.getUTCDate() + 6);
+        return `${SUMMARY_WEEK_DAY_FORMAT.format(start)} – ${SUMMARY_WEEK_DAY_FORMAT.format(end)}`;
+    }
+    if (summary.summary_level === 'MONTH') {
+        return SUMMARY_MONTH_FORMAT.format(start);
+    }
+    return SUMMARY_DAY_FORMAT.format(start);
+};
+
+const formatMessageTimestamp = (date: Date): string => MESSAGE_TIMESTAMP_FORMAT.format(date);
 
 interface ChatMessageProps {
     message: Message;
@@ -120,6 +182,20 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
     }
 
     const isUser = message.role === 'user';
+    const sortedPersistedSummaries = (message.persistedSummaries ?? []).slice().sort((a, b) => {
+        const levelDelta =
+            (SUMMARY_LEVEL_ORDER[a.summary_level] ?? 0) - (SUMMARY_LEVEL_ORDER[b.summary_level] ?? 0);
+        if (levelDelta !== 0) {
+            return levelDelta;
+        }
+        const aTime = coerceDate(a.summary_period_start)?.getTime() ?? 0;
+        const bTime = coerceDate(b.summary_period_start)?.getTime() ?? 0;
+        return aTime - bTime;
+    });
+    const summaryTextClass = isUser ? 'text-primary-foreground/80' : 'text-muted-foreground';
+    const timestampClass = isUser ? 'text-primary-foreground/70' : 'text-muted-foreground';
+    const messageDate = coerceDate(message.createdAt ?? null);
+    const messageTimestamp = messageDate ? formatMessageTimestamp(messageDate) : null;
 
     return (
         <div className={containerClasses}>
@@ -192,6 +268,40 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
                         ))}
                     </div>
                 )}
+                {sortedPersistedSummaries.length > 0 && (
+                    <div className="space-y-3 mb-3" data-graph-interactive="true">
+                        {sortedPersistedSummaries.map((summary) => {
+                            const summaryCreatedAt = coerceDate(summary.created_at ?? null);
+                            return (
+                                <div
+                                    key={summary.id}
+                                    className="rounded-md border border-muted-foreground/20 bg-background/80 p-3"
+                                >
+                                    <div className="flex flex-col gap-2">
+                                        <div className="flex flex-wrap items-center justify-between gap-2">
+                                            <div className="flex items-center gap-2">
+                                                <Badge variant="secondary" className="uppercase tracking-wide text-[0.75em]">
+                                                    {SUMMARY_LEVEL_LABELS[summary.summary_level] ?? summary.summary_level}
+                                                </Badge>
+                                                <span className={cn('text-xs', summaryTextClass)}>
+                                                    {formatSummaryPeriod(summary)}
+                                                </span>
+                                            </div>
+                                            {summaryCreatedAt && (
+                                                <span className={cn('text-[0.65rem]', summaryTextClass)}>
+                                                    Generated {formatMessageTimestamp(summaryCreatedAt)}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className={cn('whitespace-pre-wrap text-sm', summaryTextClass)}>
+                                            {summary.content}
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
                 {message.toolCalls && message.toolCalls.length > 0 && (
                     <div className="space-y-3 mb-3" data-graph-interactive="true">
                         {message.toolCalls.map((call, index) => (
@@ -211,7 +321,10 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
                         ))}
                     </div>
                 )}
-                <p className="whitespace-pre-wrap">{message.content}</p>
+                <p className="whitespace-pre-wrap break-words">{message.content}</p>
+                {messageTimestamp && (
+                    <div className={cn('mt-3 text-xs', timestampClass)}>{messageTimestamp}</div>
+                )}
 
                 <div className="absolute bottom-0 right-1 flex translate-y-1/2 items-center gap-0.5 rounded-md bg-muted p-0.5 text-xs text-foreground/70 shadow-sm">
                     {branchInfo && (

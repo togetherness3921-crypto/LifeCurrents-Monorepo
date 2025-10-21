@@ -25,6 +25,7 @@ import { Check, Plus, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import PreviewBuildsPanel from '@/components/builds/PreviewBuildsPanel';
 import type { UsePreviewBuildsResult } from '@/hooks/usePreviewBuilds';
+import { FORCED_RECENT_MESSAGES_MAX, FORCED_RECENT_MESSAGES_MIN } from '@/hooks/chatDefaults';
 
 interface SettingsDialogProps {
     open: boolean;
@@ -56,6 +57,8 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onOpenChange, pre
         setMode,
         customMessageCount,
         setCustomMessageCount,
+        forcedRecentMessages,
+        setForcedRecentMessages,
         summaryPrompt,
         setSummaryPrompt,
     } = useConversationContext();
@@ -367,6 +370,14 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onOpenChange, pre
         setCustomMessageCount(clamped);
     };
 
+    const applyForcedRecentCount = (value: number) => {
+        const clamped = Math.min(
+            FORCED_RECENT_MESSAGES_MAX,
+            Math.max(FORCED_RECENT_MESSAGES_MIN, Math.round(value))
+        );
+        setForcedRecentMessages(clamped);
+    };
+
     const combinedModels = useMemo(() => {
         const map = new Map<string, ModelInfo>();
         for (const model of models) {
@@ -566,20 +577,6 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onOpenChange, pre
                                 <div
                                     className={cn(
                                         'rounded-md border p-4 transition-colors',
-                                        mode === 'last-8' ? 'border-primary bg-primary/5' : 'border-muted'
-                                    )}
-                                >
-                                    <div className="flex items-start gap-3">
-                                        <RadioGroupItem value="last-8" id="context-last-8" />
-                                        <Label htmlFor="context-last-8" className="flex-1 cursor-pointer space-y-1">
-                                            <p className="text-sm font-medium">Last 8</p>
-                                            <p className="text-xs text-muted-foreground">Send only the eight most recent messages with your next request.</p>
-                                        </Label>
-                                    </div>
-                                </div>
-                                <div
-                                    className={cn(
-                                        'rounded-md border p-4 transition-colors',
                                         mode === 'all-middle-out' ? 'border-primary bg-primary/5' : 'border-muted'
                                     )}
                                 >
@@ -609,20 +606,52 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onOpenChange, pre
                                         </Label>
                                     </div>
                                     {mode === 'intelligent' && (
-                                        <div className="mt-4 space-y-2 rounded-md border bg-background/80 p-4">
-                                            <Label htmlFor="summary-prompt" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                                                Summarization prompt
-                                            </Label>
-                                            <Textarea
-                                                id="summary-prompt"
-                                                value={summaryPrompt}
-                                                onChange={(event) => setSummaryPrompt(event.target.value)}
-                                                rows={3}
-                                                className="resize-none min-h-[6.25rem] max-h-[6.25rem]"
-                                            />
-                                            <p className="text-xs text-muted-foreground">
-                                                Customize how the assistant distills past messages. The box is limited to three lines to encourage concise guidance.
-                                            </p>
+                                        <div className="mt-4 space-y-4 rounded-md border bg-background/80 p-4">
+                                            <div className="space-y-2">
+                                                <Label
+                                                    htmlFor="summary-prompt"
+                                                    className="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                                                >
+                                                    Summarization prompt
+                                                </Label>
+                                                <Textarea
+                                                    id="summary-prompt"
+                                                    value={summaryPrompt}
+                                                    onChange={(event) => setSummaryPrompt(event.target.value)}
+                                                    rows={3}
+                                                    className="min-h-[6.25rem] max-h-[6.25rem] resize-none"
+                                                />
+                                                <p className="text-xs text-muted-foreground">
+                                                    Customize how the assistant distills past messages. The box is limited to three lines to encourage concise guidance.
+                                                </p>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                                    Forced Recent Messages
+                                                </Label>
+                                                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                                    <Slider
+                                                        value={[forcedRecentMessages]}
+                                                        min={FORCED_RECENT_MESSAGES_MIN}
+                                                        max={FORCED_RECENT_MESSAGES_MAX}
+                                                        step={1}
+                                                        onValueChange={(values) =>
+                                                            applyForcedRecentCount(values[0] ?? FORCED_RECENT_MESSAGES_MIN)
+                                                        }
+                                                    />
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="rounded-md border border-muted-foreground/40 px-2 py-0.5 text-xs font-medium">
+                                                            {forcedRecentMessages}
+                                                        </span>
+                                                        <span className="text-xs text-muted-foreground">
+                                                            message{forcedRecentMessages === 1 ? '' : 's'}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <p className="text-xs text-muted-foreground">
+                                                    Always include this many of the latest unsummarized messages in the prompt, even when a new day starts.
+                                                </p>
+                                            </div>
                                         </div>
                                     )}
                                 </div>

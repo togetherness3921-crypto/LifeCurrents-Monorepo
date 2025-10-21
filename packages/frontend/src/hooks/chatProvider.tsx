@@ -5,13 +5,20 @@ import {
   ChatContext,
   ChatThread,
   ChatContextValue,
+  ConversationSummaryRecord,
   Message,
   MessageStore,
   NewMessageInput,
+  SummaryLevel,
   ThreadSettings,
 } from './chatProviderContext';
 import { submitSupabaseOperation, flushSupabaseQueue } from '@/services/supabaseQueue';
-import { DEFAULT_CONTEXT_CONFIG, DEFAULT_MODEL_ID } from './chatDefaults';
+import {
+  DEFAULT_CONTEXT_CONFIG,
+  DEFAULT_MODEL_ID,
+  FORCED_RECENT_MESSAGES_MAX,
+  FORCED_RECENT_MESSAGES_MIN,
+} from './chatDefaults';
 import { useMcp } from './useMcp';
 
 const LEGACY_THREADS_KEY = 'chat_threads';
@@ -47,6 +54,22 @@ type SupabaseDraftRow = {
   updated_at: string | null;
 };
 
+type SupabaseSummaryRow = {
+  id: string;
+  thread_id: string;
+  summary_level: SummaryLevel;
+  summary_period_start: string;
+  content: string;
+  created_by_message_id: string | null;
+  created_at: string | null;
+};
+
+type PendingBranchSelection = {
+  threadId: string;
+  parentId: string | null;
+  childId: string;
+};
+
 type LegacyThread = {
   id: string;
   title: string;
@@ -71,7 +94,7 @@ const nowIso = () => new Date().toISOString();
 
 const CONTEXT_MIN = 1;
 const CONTEXT_MAX = 200;
-const VALID_CONTEXT_MODES = new Set(['last-8', 'all-middle-out', 'custom', 'intelligent']);
+const VALID_CONTEXT_MODES = new Set(['all-middle-out', 'custom', 'intelligent']);
 
 const clampCustomMessageCount = (value: unknown): number => {
   const numeric = typeof value === 'number' ? value : Number(value);
@@ -79,6 +102,17 @@ const clampCustomMessageCount = (value: unknown): number => {
     return DEFAULT_CONTEXT_CONFIG.customMessageCount;
   }
   return Math.min(CONTEXT_MAX, Math.max(CONTEXT_MIN, Math.round(numeric)));
+};
+
+const clampForcedRecentMessages = (value: unknown): number => {
+  const numeric = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(numeric)) {
+    return DEFAULT_CONTEXT_CONFIG.forcedRecentMessages;
+  }
+  return Math.min(
+    FORCED_RECENT_MESSAGES_MAX,
+    Math.max(FORCED_RECENT_MESSAGES_MIN, Math.round(numeric))
+  );
 };
 
 const sanitizeModelId = (value: unknown): string => {
@@ -115,6 +149,11 @@ const sanitizeContextConfig = (input: unknown): ChatThread['contextConfig'] => {
   if ('customMessageCount' in (candidate as Record<string, unknown>)) {
     base.customMessageCount = clampCustomMessageCount(
       (candidate as { customMessageCount?: unknown }).customMessageCount
+    );
+  }
+  if ('forcedRecentMessages' in (candidate as Record<string, unknown>)) {
+    base.forcedRecentMessages = clampForcedRecentMessages(
+      (candidate as { forcedRecentMessages?: unknown }).forcedRecentMessages
     );
   }
   if (typeof (candidate as { summaryPrompt?: unknown }).summaryPrompt === 'string') {
@@ -237,6 +276,60 @@ const mapRowToThreadSettings = (row: SupabaseThreadRow): ThreadSettings =>
     contextConfig: row.context_config,
   });
 
+const SUMMARY_LEVEL_ORDER: Record<SummaryLevel, number> = {
+  DAY: 0,
+  WEEK: 1,
+  MONTH: 2,
+};
+
+const mapSummaryRowToRecord = (row: SupabaseSummaryRow): ConversationSummaryRecord | null => {
+  if (!row.created_by_message_id) {
+    return null;
+  }
+  return {
+    id: row.id,
+    thread_id: row.thread_id,
+    summary_level: row.summary_level,
+    summary_period_start: row.summary_period_start,
+    content: row.content ?? '',
+    created_by_message_id: row.created_by_message_id,
+    created_at: row.created_at ?? undefined,
+  } satisfies ConversationSummaryRecord;
+};
+
+const applyPersistedSummariesToStore = (
+  store: MessageStore,
+  rows: SupabaseSummaryRow[] | null | undefined
+) => {
+  if (!rows || rows.length === 0) {
+    return;
+  }
+  const byMessageId = new Map<string, ConversationSummaryRecord[]>();
+  rows.forEach((raw) => {
+    const record = mapSummaryRowToRecord(raw);
+    if (!record) return;
+    const existing = byMessageId.get(record.created_by_message_id) ?? [];
+    existing.push(record);
+    byMessageId.set(record.created_by_message_id, existing);
+  });
+
+  byMessageId.forEach((summaries, messageId) => {
+    const message = store[messageId];
+    if (!message) return;
+    const sorted = [...summaries].sort((a, b) => {
+      const levelDelta =
+        (SUMMARY_LEVEL_ORDER[a.summary_level] ?? 0) - (SUMMARY_LEVEL_ORDER[b.summary_level] ?? 0);
+      if (levelDelta !== 0) {
+        return levelDelta;
+      }
+      const timeA = new Date(a.summary_period_start).getTime();
+      const timeB = new Date(b.summary_period_start).getTime();
+      return timeA - timeB;
+    });
+    message.persistedSummaries = sorted;
+  });
+};
+
 const parseMessageRows = (rows: SupabaseMessageRow[]): MessageStore => {
   const store: MessageStore = {};
   rows.forEach((row) => {
@@ -255,6 +348,7 @@ const parseMessageRows = (rows: SupabaseMessageRow[]): MessageStore => {
       updatedAt,
       threadId: row.thread_id,
       contextActions: [],
+      persistedSummaries: [],
     };
     store[row.id] = baseMessage;
   });
@@ -361,6 +455,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
   const pendingMessagePayloads = useRef<Record<string, Message>>({});
   const draftPersistTimers = useRef<Record<string, number>>({});
   const pendingDraftValues = useRef<Record<string, string>>({});
+  const pendingBranchSelectionsRef = useRef<Map<string, PendingBranchSelection>>(new Map());
 
   const scheduleThreadPersist = useCallback((thread: ChatThread) => {
     const payload = buildThreadUpsertPayload(thread);
@@ -498,6 +593,11 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
           .select('*');
         if (messageError) throw messageError;
 
+        const { data: summaryRows, error: summaryError } = await supabase
+          .from('conversation_summaries')
+          .select('*');
+        if (summaryError) throw summaryError;
+
         const { data: draftRows, error: draftError } = await supabase
           .from('chat_drafts')
           .select('*');
@@ -513,6 +613,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         }
 
         const messageStore = parseMessageRows((messageRows ?? []) as SupabaseMessageRow[]);
+        applyPersistedSummariesToStore(messageStore, summaryRows as SupabaseSummaryRow[] | null);
 
         const parsedThreads = (refreshedThreads ?? []).map((row) =>
           toChatThread(row as SupabaseThreadRow, messageStore)
@@ -663,13 +764,14 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         content: messageData.content,
         thinking: messageData.thinking,
         children: [],
-        toolCalls: messageData.toolCalls ? [...messageData.toolCalls] : [],
-        graphDocumentVersionId: messageData.graphDocumentVersionId ?? null,
-        createdAt,
-        updatedAt: createdAt,
-        threadId,
-        contextActions: [],
-      };
+      toolCalls: messageData.toolCalls ? [...messageData.toolCalls] : [],
+      graphDocumentVersionId: messageData.graphDocumentVersionId ?? null,
+      createdAt,
+      updatedAt: createdAt,
+      threadId,
+      contextActions: [],
+      persistedSummaries: [],
+    };
 
       setMessages((previous) => {
         const updated: MessageStore = { ...previous, [id]: newMessage };
@@ -748,9 +850,8 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
     [scheduleMessagePersist]
   );
 
-  const selectBranch = useCallback(
-    (threadId: string | null, parentId: string | null, childId: string) => {
-      if (!threadId) return;
+  const applyBranchSelection = useCallback(
+    (threadId: string, parentId: string | null, childId: string) => {
       const updatedThread = updateThreadState(threadId, (thread) => {
         const selectedChildByMessageId = { ...thread.selectedChildByMessageId };
         let selectedRootChild = thread.selectedRootChild;
@@ -788,6 +889,43 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
     },
     [messages, persistThreadState, updateThreadState]
   );
+
+  const selectBranch = useCallback(
+    (threadId: string | null, parentId: string | null, childId: string) => {
+      if (!threadId) return;
+
+      const key = `${threadId}:${childId}`;
+      const childExists = Boolean(messages[childId]);
+      const parentExists = !parentId || Boolean(messages[parentId]);
+
+      if (!childExists || !parentExists) {
+        pendingBranchSelectionsRef.current.set(key, { threadId, parentId, childId });
+      } else if (pendingBranchSelectionsRef.current.has(key)) {
+        pendingBranchSelectionsRef.current.delete(key);
+      }
+
+      applyBranchSelection(threadId, parentId, childId);
+    },
+    [applyBranchSelection, messages]
+  );
+
+  useEffect(() => {
+    if (pendingBranchSelectionsRef.current.size === 0) {
+      return;
+    }
+
+    const processedKeys: string[] = [];
+    pendingBranchSelectionsRef.current.forEach((selection, key) => {
+      const childReady = Boolean(messages[selection.childId]);
+      const parentReady = !selection.parentId || Boolean(messages[selection.parentId]);
+      if (childReady && parentReady) {
+        applyBranchSelection(selection.threadId, selection.parentId, selection.childId);
+        processedKeys.push(key);
+      }
+    });
+
+    processedKeys.forEach((key) => pendingBranchSelectionsRef.current.delete(key));
+  }, [applyBranchSelection, messages]);
 
   const updateThreadTitle = useCallback(
     (threadId: string, title: string) => {
