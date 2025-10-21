@@ -3,10 +3,27 @@ import { getGeminiResponse } from './openRouter';
 import type { Message, SummaryLevel } from '@/hooks/chatProviderContext';
 import type { ToolExecutionResult } from '@/lib/mcp/types';
 
-const DATE_FORMAT = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-const WEEK_RANGE_FORMAT = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' });
-const MONTH_YEAR_FORMAT = new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' });
-const TIME_FORMAT = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' });
+const DATE_FORMAT = new Intl.DateTimeFormat(undefined, {
+    timeZone: 'UTC',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+});
+const WEEK_RANGE_FORMAT = new Intl.DateTimeFormat(undefined, {
+    timeZone: 'UTC',
+    month: 'short',
+    day: 'numeric',
+});
+const MONTH_YEAR_FORMAT = new Intl.DateTimeFormat(undefined, {
+    timeZone: 'UTC',
+    month: 'long',
+    year: 'numeric',
+});
+const TIME_FORMAT = new Intl.DateTimeFormat(undefined, {
+    timeZone: 'UTC',
+    hour: '2-digit',
+    minute: '2-digit',
+});
 
 type SummaryMap = Record<SummaryLevel, Map<string, ConversationSummaryRecord>>;
 
@@ -14,12 +31,19 @@ type ActionStatus = 'pending' | 'running' | 'success' | 'error';
 
 export interface ConversationSummaryRecord {
     id: string;
-    conversation_id: string;
+    thread_id: string;
     summary_level: SummaryLevel;
     summary_period_start: string;
     content: string;
     created_by_message_id: string;
     created_at?: string;
+}
+
+interface ToolJsonEnvelope {
+    tool?: string;
+    success?: boolean;
+    data?: unknown;
+    error?: { message?: string; code?: string };
 }
 
 interface ToolMessage {
@@ -104,7 +128,7 @@ const ensureArray = <T>(value: unknown): T[] => {
     return [];
 };
 
-const parseToolJson = <T>(result: ToolExecutionResult, context: string): T => {
+const parseToolJson = (result: ToolExecutionResult, context: string): ToolJsonEnvelope => {
     if (!result) {
         throw new Error(`${context}: Tool returned no result`);
     }
@@ -115,17 +139,24 @@ const parseToolJson = <T>(result: ToolExecutionResult, context: string): T => {
     if (content === null || content === undefined) {
         throw new Error(`${context}: Tool response was empty`);
     }
+    let parsed: unknown = content;
     if (typeof content === 'string') {
         try {
-            return JSON.parse(content) as T;
+            parsed = JSON.parse(content);
         } catch (error) {
             throw new Error(`${context}: Failed to parse tool response`);
         }
     }
-    if (typeof content === 'object') {
-        return content as T;
+    if (!parsed || typeof parsed !== 'object') {
+        throw new Error(`${context}: Tool response payload was not an object`);
     }
-    throw new Error(`${context}: Unexpected tool response type`);
+    const envelope = parsed as ToolJsonEnvelope;
+    if (envelope.success === false) {
+        const message = envelope.error?.message ?? 'Tool reported failure';
+        const code = envelope.error?.code ? `[${envelope.error.code}] ` : '';
+        throw new Error(`${context}: ${code}${message}`);
+    }
+    return envelope;
 };
 
 const normaliseSummaryRecord = (input: unknown): ConversationSummaryRecord | null => {
@@ -141,12 +172,18 @@ const normaliseSummaryRecord = (input: unknown): ConversationSummaryRecord | nul
         return null;
     }
     const id = typeof record.id === 'string' ? record.id : `summary-${record.summary_level}-${record.summary_period_start}`;
-    const conversation_id = typeof record.conversation_id === 'string' ? record.conversation_id : '';
+    const legacyConversationId = (record as Record<string, unknown>).conversation_id;
+    const thread_id =
+        typeof record.thread_id === 'string'
+            ? record.thread_id
+            : typeof legacyConversationId === 'string'
+              ? legacyConversationId
+              : '';
     const created_by_message_id =
         typeof record.created_by_message_id === 'string' ? record.created_by_message_id : '';
     return {
         id,
-        conversation_id,
+        thread_id,
         summary_level: record.summary_level as SummaryLevel,
         summary_period_start: record.summary_period_start,
         content: record.content,
@@ -186,9 +223,11 @@ const fetchExistingSummaries = async (
             conversation_id: conversationId,
             message_id: branchHeadMessageId,
         });
-        const parsed = parseToolJson<unknown>(result, 'get_conversation_summaries');
+        const parsed = parseToolJson(result, 'get_conversation_summaries');
         const summaries = ensureArray<unknown>(
-            Array.isArray(parsed) ? parsed : (parsed as { summaries?: unknown[] }).summaries
+            Array.isArray(parsed.data)
+                ? parsed.data
+                : (parsed.data as { summaries?: unknown[] } | undefined)?.summaries
         ).map((item) => normaliseSummaryRecord(item))
             .filter((item): item is ConversationSummaryRecord => Boolean(item));
         ingestSummaries(map, summaries);
@@ -223,9 +262,11 @@ const fetchMessagesForPeriod = async (
             period_start: periodStartIso,
             period_end: periodEndIso,
         });
-        const parsed = parseToolJson<unknown>(result, 'get_messages_for_period');
+        const parsed = parseToolJson(result, 'get_messages_for_period');
         const messages = ensureArray<unknown>(
-            Array.isArray(parsed) ? parsed : (parsed as { messages?: unknown[] }).messages
+            Array.isArray(parsed.data)
+                ? parsed.data
+                : (parsed.data as { messages?: unknown[] } | undefined)?.messages
         );
         const toolMessages = messages
             .map((entry) => {
@@ -295,10 +336,12 @@ const createSummaryRecord = async (
             content,
             created_by_message_id: createdByMessageId,
         });
-        const parsed = parseToolJson<unknown>(payload, 'create_conversation_summary');
-        const record = normaliseSummaryRecord(parsed) ?? {
+        const parsed = parseToolJson(payload, 'create_conversation_summary');
+        const record = normaliseSummaryRecord(
+            (parsed.data as { summary?: unknown } | undefined)?.summary ?? parsed.data
+        ) ?? {
             id: `local-${level}-${periodStart.toISOString()}`,
-            conversation_id: conversationId,
+            thread_id: conversationId,
             summary_level: level,
             summary_period_start: periodStart.toISOString(),
             content,
