@@ -22,9 +22,7 @@ jobs:
           cache: 'npm'
       
       - name: Install Dependencies
-        run: |
-          rm -f package-lock.json
-          npm install
+        run: npm ci
 
       - name: Deploy Preview Worker
         id: deploy_worker
