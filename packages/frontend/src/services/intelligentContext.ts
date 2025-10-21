@@ -1,6 +1,6 @@
 import type { ApiMessage } from './openRouter';
 import { getGeminiResponse } from './openRouter';
-import type { Message, SummaryLevel } from '@/hooks/chatProviderContext';
+import type { ConversationSummaryRecord, Message, SummaryLevel } from '@/hooks/chatProviderContext';
 import type { ToolExecutionResult } from '@/lib/mcp/types';
 
 const DATE_FORMAT = new Intl.DateTimeFormat(undefined, {
@@ -16,16 +16,6 @@ const TIME_FORMAT = new Intl.DateTimeFormat(undefined, { timeZone: 'UTC', hour: 
 type SummaryMap = Record<SummaryLevel, Map<string, ConversationSummaryRecord>>;
 
 type ActionStatus = 'pending' | 'running' | 'success' | 'error';
-
-export interface ConversationSummaryRecord {
-    id: string;
-    thread_id: string;
-    summary_level: SummaryLevel;
-    summary_period_start: string;
-    content: string;
-    created_by_message_id: string;
-    created_at?: string;
-}
 
 interface ToolMessage {
     id: string;
@@ -58,6 +48,8 @@ export interface PrepareIntelligentContextOptions {
     registerAction: (descriptor: SummarizeActionDescriptor) => string;
     updateAction: (actionId: string, update: SummarizeActionUpdate) => void;
     now?: Date;
+    forcedRecentMessageCount: number;
+    onSummaryPersisted?: (record: ConversationSummaryRecord) => void;
 }
 
 export interface IntelligentContextResult {
@@ -339,6 +331,7 @@ const createSummaryRecord = async (
         };
         const key = toIsoKey(new Date(record.summary_period_start));
         summaryMap[level].set(key, record);
+        options.onSummaryPersisted?.(record);
         return record;
     } catch (error) {
         console.warn('[IntelligentContext] Failed to create summary:', error);
@@ -680,7 +673,7 @@ const buildSystemMessages = (
     return { systemMessages, yesterdaySummary };
 };
 
-const filterRecentMessages = (history: Message[], now: Date): Message[] => {
+const filterRecentMessages = (history: Message[], now: Date, forcedCount: number): Message[] => {
     if (!history || history.length === 0) {
         return [];
     }
@@ -691,8 +684,11 @@ const filterRecentMessages = (history: Message[], now: Date): Message[] => {
             recentIds.add(message.id);
         }
     });
-    const lastSix = history.slice(Math.max(0, history.length - 6));
-    lastSix.forEach((message) => recentIds.add(message.id));
+    const clampedCount = Math.min(6, Math.max(0, Math.round(forcedCount ?? 0)));
+    if (clampedCount > 0) {
+        const forcedTail = history.slice(Math.max(0, history.length - clampedCount));
+        forcedTail.forEach((message) => recentIds.add(message.id));
+    }
     if (recentIds.size === history.length) {
         return [...history];
     }
@@ -704,11 +700,12 @@ export const prepareIntelligentContext = async (
 ): Promise<IntelligentContextResult> => {
     const now = options.now ?? new Date();
     const historyChain = options.historyChain ?? [];
+    const forcedTailCount = Math.min(6, Math.max(0, Math.round(options.forcedRecentMessageCount ?? 0)));
 
     if (!options.branchHeadMessageId) {
         return {
             systemMessages: [],
-            recentMessages: filterRecentMessages(historyChain, now),
+            recentMessages: filterRecentMessages(historyChain, now, forcedTailCount),
         };
     }
 
@@ -738,7 +735,7 @@ export const prepareIntelligentContext = async (
 
     return {
         systemMessages,
-        recentMessages: filterRecentMessages(historyChain, now),
+        recentMessages: filterRecentMessages(historyChain, now, forcedTailCount),
     };
 };
 

@@ -26,9 +26,11 @@ import { useAudioTranscriptionRecorder } from '@/hooks/useAudioTranscriptionReco
 import RecordingStatusBar from './RecordingStatusBar';
 import ConnectivityStatusBar from './ConnectivityStatusBar';
 import { usePreviewBuilds } from '@/hooks/usePreviewBuilds';
-import { Message, ContextActionState } from '@/hooks/chatProviderContext';
+import { Message, ContextActionState, ConversationSummaryRecord } from '@/hooks/chatProviderContext';
 import { prepareIntelligentContext, type SummarizeActionDescriptor, type SummarizeActionUpdate } from '@/services/intelligentContext';
 import { v4 as uuidv4 } from 'uuid';
+import { mergeConversationSummaries } from '@/lib/conversationSummaries';
+import { prefixWithPromptTimestamp } from '@/lib/chatTimestamps';
 
 const SETTINGS_BADGE_MAX = 99;
 const EXPANDED_INPUT_MAX_HEIGHT = 'min(420px, 70vh)';
@@ -96,6 +98,12 @@ const serialiseMessageHistoryForApi = (history: Message[]): ApiMessage[] => {
     }
 
     const historyMap = new Map(history.map((message) => [message.id, message]));
+    const withTimestamp = (message: Message, content: string): string => {
+        if (message.role === 'user' || message.role === 'assistant') {
+            return prefixWithPromptTimestamp(content ?? '', message.createdAt);
+        }
+        return content ?? '';
+    };
 
     return history.flatMap((message) => {
         if (message.role === 'assistant') {
@@ -133,7 +141,7 @@ const serialiseMessageHistoryForApi = (history: Message[]): ApiMessage[] => {
 
             const assistantMessage: ApiMessage = {
                 role: 'assistant',
-                content: message.content ?? '',
+                content: withTimestamp(message, message.content ?? ''),
                 ...(toolCalls.length > 0 ? { tool_calls: toolCalls } : {}),
             };
 
@@ -178,7 +186,7 @@ const serialiseMessageHistoryForApi = (history: Message[]): ApiMessage[] => {
         return [
             {
                 role: message.role,
-                content: message.content ?? '',
+                content: withTimestamp(message, message.content ?? ''),
             },
         ];
     });
@@ -232,7 +240,7 @@ const ChatPane = () => {
     const { activeInstruction, activeInstructionId } = useSystemInstructions();
     const { tools: availableTools, callTool } = useMcp();
     const { selectedModel, recordModelUsage, getToolIntentCheck } = useModelSelection();
-    const { mode, summaryPrompt, applyContextToMessages, transforms } = useConversationContext();
+    const { mode, summaryPrompt, applyContextToMessages, transforms, forcedRecentMessages } = useConversationContext();
     const { registerLatestMessage, revertToMessage, applyPatchResult, activeMessageId, isViewingHistorical, syncToThread } = useGraphHistory();
 
     useEffect(() => {
@@ -245,10 +253,12 @@ const ChatPane = () => {
     const messages = getMessageChain(selectedLeafId);
 
     useEffect(() => {
-        if (activeThreadId) {
-            void syncToThread(messages);
+        if (!activeThreadId) {
+            return;
         }
-    }, [activeThreadId, syncToThread]);
+        const chain = getMessageChain(selectedLeafId);
+        void syncToThread(chain);
+    }, [activeThreadId, getMessageChain, selectedLeafId, syncToThread]);
 
     useEffect(() => {
         if (messages.length === 0) {
@@ -403,6 +413,46 @@ const ChatPane = () => {
         });
         setStreamingMessageId(assistantMessage.id);
 
+        const forcedRecentCount = forcedRecentMessages ?? 0;
+
+        const handlePersistedSummary = (summary: ConversationSummaryRecord) => {
+            updateMessage(summary.created_by_message_id, (current) => ({
+                persistedSummaries: mergeConversationSummaries(current.persistedSummaries, summary),
+            }));
+        };
+
+        const todaysContextPromise = (async () => {
+            try {
+                const result = await callTool('get_todays_context', {});
+                const rawContent =
+                    typeof result?.content === 'string'
+                        ? result.content
+                        : result?.content !== undefined
+                            ? JSON.stringify(result.content, null, 2)
+                            : null;
+                if (!rawContent || rawContent.toString().trim().length === 0) {
+                    return null;
+                }
+                let parsed: unknown = rawContent;
+                if (typeof rawContent === 'string') {
+                    try {
+                        parsed = JSON.parse(rawContent);
+                    } catch {
+                        parsed = rawContent;
+                    }
+                }
+                const formatted =
+                    typeof parsed === 'string' ? parsed : JSON.stringify(parsed, null, 2);
+                return {
+                    role: 'system' as const,
+                    content: `Here is the user's current daily context:\n${formatted}`,
+                };
+            } catch (error) {
+                console.warn('[ChatPane] Failed to fetch today\'s context', error);
+                return null;
+            }
+        })();
+
         const registerSummarizeAction = ({
             summaryLevel,
             periodStart,
@@ -461,6 +511,8 @@ const ChatPane = () => {
                     model: selectedModel.id,
                     registerAction: registerSummarizeAction,
                     updateAction: updateSummarizeAction,
+                    forcedRecentMessageCount: forcedRecentCount,
+                    onSummaryPersisted: handlePersistedSummary,
                 });
                 const recentHistory = serialiseMessageHistoryForApi(intelligentContext.recentMessages);
                 historyMessagesForApi = [...intelligentContext.systemMessages, ...recentHistory];
@@ -475,10 +527,14 @@ const ChatPane = () => {
             historyMessagesForApi = serialiseMessageHistoryForApi(limitedHistory);
         }
 
+        const todaysContextMessage = await todaysContextPromise;
+        const timestampedUserContent = prefixWithPromptTimestamp(content, userMessage.createdAt);
+
         const conversationMessages: ApiMessage[] = [
             ...(systemPrompt ? [{ role: 'system' as const, content: systemPrompt }] : []),
+            ...(todaysContextMessage ? [todaysContextMessage] : []),
             ...historyMessagesForApi,
-            { role: 'user' as const, content },
+            { role: 'user' as const, content: timestampedUserContent },
         ];
 
         const toolDefinitions: ApiToolDefinition[] = availableTools.map((tool) => ({
@@ -651,7 +707,7 @@ const ChatPane = () => {
                     console.log('[ChatPane] No tool calls returned; finishing assistant response.');
                     conversationMessages.push({
                         role: 'assistant',
-                        content: geminiResult.content ?? '',
+                        content: prefixWithPromptTimestamp(geminiResult.content ?? '', assistantMessage.createdAt),
                     });
                     break;
                 }
@@ -685,7 +741,7 @@ const ChatPane = () => {
 
                 conversationMessages.push({
                     role: 'assistant',
-                    content: geminiResult.content ?? '',
+                    content: prefixWithPromptTimestamp(geminiResult.content ?? '', assistantMessage.createdAt),
                     tool_calls: normalisedToolCalls,
                 });
 
