@@ -26,7 +26,7 @@ import { useAudioTranscriptionRecorder } from '@/hooks/useAudioTranscriptionReco
 import RecordingStatusBar from './RecordingStatusBar';
 import ConnectivityStatusBar from './ConnectivityStatusBar';
 import { usePreviewBuilds } from '@/hooks/usePreviewBuilds';
-import { Message, ContextActionState } from '@/hooks/chatProviderContext';
+import { Message, ContextActionState, ToolCallSummary, ToolCallStatus } from '@/hooks/chatProviderContext';
 import { prepareIntelligentContext, type SummarizeActionDescriptor, type SummarizeActionUpdate } from '@/services/intelligentContext';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -90,12 +90,207 @@ const createToolCallId = (messageId: string, toolCall: SerializableToolCall, ind
     return `${messageId}-tool-${index + 1}`;
 };
 
+type ToolCallDescriptor = {
+    narrative: string;
+    details?: Record<string, unknown>;
+};
+
+const toTitleCase = (value: string): string => {
+    return value
+        .split(/[_\s]+/)
+        .filter(Boolean)
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ');
+};
+
+const summarisePatchGraphDocument = (args: Record<string, unknown>): ToolCallDescriptor => {
+    const rawPatches = (args ?? {}).patches;
+    let patchItems: unknown[] = [];
+
+    if (typeof rawPatches === 'string') {
+        try {
+            const parsed = JSON.parse(rawPatches);
+            if (Array.isArray(parsed)) {
+                patchItems = parsed;
+            }
+        } catch {
+            // Ignore JSON parse errors and fall back to an empty patch list
+        }
+    } else if (Array.isArray(rawPatches)) {
+        patchItems = rawPatches;
+    }
+
+    const counts = {
+        addNodes: 0,
+        removeNodes: 0,
+        updateNodes: 0,
+        otherOperations: 0,
+    };
+
+    patchItems.forEach((item) => {
+        if (!item || typeof item !== 'object') {
+            counts.otherOperations += 1;
+            return;
+        }
+
+        const operation = item as { op?: unknown; path?: unknown };
+        const op = typeof operation.op === 'string' ? operation.op.toLowerCase() : '';
+        const path = typeof operation.path === 'string' ? operation.path : '';
+        const isNodePath = path.startsWith('/nodes/');
+
+        if (isNodePath && op === 'add') {
+            counts.addNodes += 1;
+            return;
+        }
+        if (isNodePath && op === 'remove') {
+            counts.removeNodes += 1;
+            return;
+        }
+        if (isNodePath && (op === 'replace' || op === 'copy' || op === 'move')) {
+            counts.updateNodes += 1;
+            return;
+        }
+        if (op) {
+            counts.otherOperations += 1;
+        }
+    });
+
+    const fragments: string[] = [];
+    if (counts.addNodes > 0) {
+        fragments.push(`${counts.addNodes} node${counts.addNodes === 1 ? '' : 's'} ${counts.addNodes === 1 ? 'was' : 'were'} added`);
+    }
+    if (counts.removeNodes > 0) {
+        fragments.push(`${counts.removeNodes} node${counts.removeNodes === 1 ? '' : 's'} ${counts.removeNodes === 1 ? 'was' : 'were'} removed`);
+    }
+    if (counts.updateNodes > 0) {
+        fragments.push(`${counts.updateNodes} node${counts.updateNodes === 1 ? '' : 's'} updated`);
+    }
+    if (counts.otherOperations > 0) {
+        fragments.push(`${counts.otherOperations} other operation${counts.otherOperations === 1 ? '' : 's'}`);
+    }
+
+    const narrative =
+        fragments.length > 0
+            ? `${fragments.join(', ')}.`
+            : 'No structural node changes were requested.';
+
+    return {
+        narrative,
+        details: {
+            added_nodes: counts.addNodes,
+            removed_nodes: counts.removeNodes,
+            updated_nodes: counts.updateNodes,
+            other_operations: counts.otherOperations,
+        },
+    };
+};
+
+const summariseGenericToolCall = (toolName: string, args: Record<string, unknown>): ToolCallDescriptor => {
+    const keys = Object.keys(args ?? {}).filter((key) => typeof key === 'string' && key.length > 0);
+    if (keys.length === 0) {
+        return { narrative: 'No input parameters were provided.' };
+    }
+    return {
+        narrative: `Input keys: ${keys.join(', ')}.`,
+        details: { input_keys: keys },
+    };
+};
+
+const buildToolCallSummary = (
+    toolName: string,
+    parsedArgs: Record<string, unknown>,
+    status: ToolCallStatus,
+    errorMessage?: string
+): ToolCallSummary => {
+    const descriptor =
+        toolName === 'patch_graph_document'
+            ? summarisePatchGraphDocument(parsedArgs)
+            : summariseGenericToolCall(toolName, parsedArgs);
+    const trimmedNarrative = descriptor.narrative.trim();
+    const sanitizedError = errorMessage?.toString().trim();
+    let outcome: string;
+
+    if (toolName === 'patch_graph_document') {
+        if (status === 'error') {
+            outcome = sanitizedError && sanitizedError.length > 0
+                ? `Graph patch failed: ${sanitizedError}. ${trimmedNarrative}`
+                : `Graph patch failed. ${trimmedNarrative}`;
+        } else if (status === 'success') {
+            outcome = `Graph patched successfully. ${trimmedNarrative}`;
+        } else {
+            outcome = `Applying graph patch… ${trimmedNarrative}`;
+        }
+    } else {
+        const friendlyName = (() => {
+            const base = toTitleCase(toolName.replace(/_/g, ' ')).trim();
+            return base.length > 0 ? base : 'Tool call';
+        })();
+        if (status === 'error') {
+            outcome = sanitizedError && sanitizedError.length > 0
+                ? `${friendlyName} failed: ${sanitizedError}. ${trimmedNarrative}`
+                : `${friendlyName} failed. ${trimmedNarrative}`;
+        } else if (status === 'success') {
+            outcome = `${friendlyName} completed successfully. ${trimmedNarrative}`;
+        } else if (status === 'pending' || status === 'running') {
+            outcome = `${friendlyName} in progress. ${trimmedNarrative}`;
+        } else {
+            outcome = `${friendlyName}. ${trimmedNarrative}`;
+        }
+    }
+
+    return {
+        status,
+        outcome: outcome.replace(/\s+/g, ' ').trim(),
+        ...(descriptor.details ? { details: descriptor.details } : {}),
+    };
+};
+
+const summariseToolResultForCompression = (toolCall?: SerializableToolCall): string => {
+    const fallbackStatus: ToolCallSummary['status'] =
+        toolCall?.status === 'error'
+            ? 'error'
+            : toolCall?.status === 'success'
+                ? 'success'
+                : 'running';
+    const fallbackOutcome =
+        fallbackStatus === 'error'
+            ? 'Tool call failed earlier. Output compressed for context.'
+            : 'Tool call succeeded earlier. Output compressed for context.';
+
+    const summary = toolCall?.summary ?? {
+        status: fallbackStatus,
+        outcome: fallbackOutcome,
+    };
+
+    try {
+        return JSON.stringify(summary);
+    } catch {
+        return summary.outcome;
+    }
+};
+
 const serialiseMessageHistoryForApi = (history: Message[]): ApiMessage[] => {
     if (!history || history.length === 0) {
         return [];
     }
 
     const historyMap = new Map(history.map((message) => [message.id, message]));
+
+    const lastUserIndex = (() => {
+        for (let index = history.length - 1; index >= 0; index -= 1) {
+            if (history[index]?.role === 'user') {
+                return index;
+            }
+        }
+        return -1;
+    })();
+
+    const staleAssistantIds = new Set<string>();
+    history.forEach((message, index) => {
+        if (message.role === 'assistant' && index < lastUserIndex) {
+            staleAssistantIds.add(message.id);
+        }
+    });
 
     // FEATURE 6: Helper function to prepend timestamp to content
     const prependTimestamp = (content: string, createdAt?: Date): string => {
@@ -120,6 +315,7 @@ const serialiseMessageHistoryForApi = (history: Message[]): ApiMessage[] => {
             const hasSeparateToolMessages = history.some(
                 (candidate) => candidate.parentId === message.id && candidate.role === 'tool'
             );
+            const isStaleAssistant = staleAssistantIds.has(message.id);
 
             toolStates.forEach((toolCall, index) => {
                 if (!toolCall) return;
@@ -137,7 +333,9 @@ const serialiseMessageHistoryForApi = (history: Message[]): ApiMessage[] => {
                 });
 
                 if (!hasSeparateToolMessages) {
-                    const content = normaliseToolResultContent(toolCall);
+                    const content = isStaleAssistant
+                        ? summariseToolResultForCompression(toolCall)
+                        : normaliseToolResultContent(toolCall);
                     toolMessages.push({
                         role: 'tool',
                         tool_call_id: toolCallId,
@@ -181,13 +379,18 @@ const serialiseMessageHistoryForApi = (history: Message[]): ApiMessage[] => {
             }
 
             const fallbackId = parentToolCallId || (message.parentId ? `${message.parentId}-tool` : `${message.id}-tool`);
+            const isParentStale = parent ? staleAssistantIds.has(parent.id) : false;
+            const matchingToolCall = parent?.toolCalls?.find((toolCall) => toolCall.id === fallbackId);
+            const compressedContent = isParentStale
+                ? summariseToolResultForCompression(matchingToolCall)
+                : message.content ?? '';
 
             // FEATURE 6: Tool messages don't need timestamps (they're already contextualized by the assistant message)
             return [
                 {
                     role: 'tool',
                     tool_call_id: fallbackId,
-                    content: message.content ?? '',
+                    content: compressedContent,
                 },
             ];
         }
@@ -586,33 +789,37 @@ const ChatPane = () => {
             update: {
                 name?: string;
                 arguments?: string;
-                status?: 'pending' | 'running' | 'success' | 'error';
+                status?: ToolCallStatus;
                 response?: string;
                 error?: string;
+                summary?: ToolCallSummary;
             }
         ) => {
             updateMessage(assistantMessage.id, (current) => {
                 const toolCalls = [...(current.toolCalls || [])];
                 const existingIndex = toolCalls.findIndex((call) => call.id === toolId);
+                const { summary: summaryUpdate, ...restUpdate } = update;
 
                 if (existingIndex >= 0) {
                     const existing = toolCalls[existingIndex];
                     toolCalls[existingIndex] = {
                         ...existing,
-                        ...update,
+                        ...restUpdate,
                         id: toolId,
-                        name: update.name ?? existing.name,
-                        arguments: update.arguments ?? existing.arguments,
-                        status: update.status ?? existing.status,
+                        name: restUpdate.name ?? existing.name,
+                        arguments: restUpdate.arguments ?? existing.arguments,
+                        status: restUpdate.status ?? existing.status,
+                        summary: summaryUpdate ?? existing.summary,
                     };
                 } else {
                     toolCalls.push({
                         id: toolId,
-                        name: update.name ?? toolId,
-                        arguments: update.arguments ?? '{}',
-                        status: update.status ?? 'running',
-                        response: update.response,
-                        error: update.error,
+                        name: restUpdate.name ?? toolId,
+                        arguments: restUpdate.arguments ?? '{}',
+                        status: restUpdate.status ?? 'running',
+                        response: restUpdate.response,
+                        error: restUpdate.error,
+                        summary: summaryUpdate,
                     });
                 }
 
@@ -761,10 +968,12 @@ const ChatPane = () => {
                         parsedArgs = argumentString.trim() ? JSON.parse(argumentString) : {};
                     } catch (parseError) {
                         console.error('[ChatPane][MCP] Failed to parse tool arguments for', toolName, parseError);
+                        const summary = buildToolCallSummary(toolName, {}, 'error', 'Invalid JSON arguments');
                         upsertToolCallState(toolId, {
                             status: 'error',
                             error: 'Invalid JSON arguments',
                             response: undefined,
+                            summary,
                         });
                         conversationMessages.push({
                             role: 'tool',
@@ -778,6 +987,16 @@ const ChatPane = () => {
                         if (!toolName) {
                             throw new Error('Tool call did not include a tool name.');
                         }
+
+                        const runningSummary = buildToolCallSummary(toolName, parsedArgs, 'running');
+                        upsertToolCallState(toolId, {
+                            name: toolName,
+                            arguments: argumentString,
+                            status: 'running',
+                            response: undefined,
+                            error: undefined,
+                            summary: runningSummary,
+                        });
 
                         const isInstructionTool = toolName === 'get_system_instructions' || toolName === 'update_system_instructions';
                         if (isInstructionTool && activeInstructionId) {
@@ -813,6 +1032,7 @@ const ChatPane = () => {
                             status: 'success',
                             response: toolContent,
                             error: undefined,
+                            summary: buildToolCallSummary(toolName, parsedArgs, 'success'),
                         });
 
                         conversationMessages.push({
@@ -828,6 +1048,7 @@ const ChatPane = () => {
                             status: 'error',
                             error: errorMessage,
                             response: undefined,
+                            summary: buildToolCallSummary(toolName, parsedArgs, 'error', errorMessage),
                         });
                         conversationMessages.push({
                             role: 'tool',
