@@ -149,6 +149,43 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
                         </Accordion>
                     </div>
                 )}
+                {message.persistedSummaries && message.persistedSummaries.length > 0 && (
+                    <div className="space-y-3 mb-3" data-graph-interactive="true">
+                        {message.persistedSummaries.map((summary) => {
+                            const periodDate = new Date(summary.summary_period_start);
+                            const label = summary.summary_level === 'DAY'
+                                ? periodDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+                                : summary.summary_level === 'WEEK'
+                                ? `Week of ${periodDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`
+                                : periodDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+
+                            return (
+                                <Accordion type="single" collapsible key={summary.id} className="w-full">
+                                    <AccordionItem
+                                        value={`summary-${summary.id}`}
+                                        className="rounded-md border border-muted-foreground/20 bg-background/80"
+                                    >
+                                        <AccordionTrigger className="px-3 py-2 font-medium">
+                                            <div className="flex w-full flex-col gap-1 text-left sm:flex-row sm:items-center sm:justify-between sm:gap-2">
+                                                <div className="flex items-center gap-2">
+                                                    <Badge variant="secondary" className="uppercase tracking-wide text-[0.75em]">
+                                                        {summary.summary_level} Summary
+                                                    </Badge>
+                                                    <span className="text-muted-foreground text-[0.875em]">
+                                                        {label}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </AccordionTrigger>
+                                        <AccordionContent className="px-3 pb-3 text-[0.875em] whitespace-pre-wrap">
+                                            {summary.content}
+                                        </AccordionContent>
+                                    </AccordionItem>
+                                </Accordion>
+                            );
+                        })}
+                    </div>
+                )}
                 {message.contextActions && message.contextActions.length > 0 && (
                     <div className="space-y-3 mb-3" data-graph-interactive="true">
                         {message.contextActions.map((action) => (
@@ -212,6 +249,16 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
                     </div>
                 )}
                 <p className="whitespace-pre-wrap">{message.content}</p>
+                {message.createdAt && (
+                    <div className="mt-2 text-[0.7rem] text-muted-foreground/60">
+                        {message.createdAt.toLocaleString(undefined, {
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                        })}
+                    </div>
+                )}
 
                 <div className="absolute bottom-0 right-1 flex translate-y-1/2 items-center gap-0.5 rounded-md bg-muted p-0.5 text-xs text-foreground/70 shadow-sm">
                     {branchInfo && (

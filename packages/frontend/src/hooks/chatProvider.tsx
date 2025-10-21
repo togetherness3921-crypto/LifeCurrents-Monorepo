@@ -71,7 +71,7 @@ const nowIso = () => new Date().toISOString();
 
 const CONTEXT_MIN = 1;
 const CONTEXT_MAX = 200;
-const VALID_CONTEXT_MODES = new Set(['last-8', 'all-middle-out', 'custom', 'intelligent']);
+const VALID_CONTEXT_MODES = new Set(['all-middle-out', 'custom', 'intelligent']);
 
 const clampCustomMessageCount = (value: unknown): number => {
   const numeric = typeof value === 'number' ? value : Number(value);
@@ -120,6 +120,13 @@ const sanitizeContextConfig = (input: unknown): ChatThread['contextConfig'] => {
   if (typeof (candidate as { summaryPrompt?: unknown }).summaryPrompt === 'string') {
     const promptValue = String((candidate as { summaryPrompt: unknown }).summaryPrompt).trim();
     base.summaryPrompt = promptValue.length > 0 ? promptValue : DEFAULT_CONTEXT_CONFIG.summaryPrompt;
+  }
+  if ('forcedRecentCount' in (candidate as Record<string, unknown>)) {
+    const value = (candidate as { forcedRecentCount?: unknown }).forcedRecentCount;
+    const numeric = typeof value === 'number' ? value : Number(value);
+    if (Number.isFinite(numeric)) {
+      base.forcedRecentCount = Math.min(6, Math.max(0, Math.round(numeric)));
+    }
   }
   return base;
 };
@@ -503,6 +510,14 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
           .select('*');
         if (draftError) throw draftError;
 
+        // Fetch conversation summaries for all threads
+        const { data: summaryRows, error: summaryError } = await supabase
+          .from('conversation_summaries')
+          .select('*');
+        if (summaryError) {
+          console.warn('[ChatProvider] Failed to load conversation summaries', summaryError);
+        }
+
         const { data: lastActiveThread, error: lastActiveThreadError } = await supabase
           .from('user_settings')
           .select('value')
@@ -513,6 +528,27 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         }
 
         const messageStore = parseMessageRows((messageRows ?? []) as SupabaseMessageRow[]);
+
+        // Associate summaries with messages by created_by_message_id
+        if (summaryRows && summaryRows.length > 0) {
+          summaryRows.forEach((summaryRow) => {
+            const messageId = summaryRow.created_by_message_id;
+            if (messageId && messageStore[messageId]) {
+              if (!messageStore[messageId].persistedSummaries) {
+                messageStore[messageId].persistedSummaries = [];
+              }
+              messageStore[messageId].persistedSummaries!.push({
+                id: summaryRow.id,
+                thread_id: summaryRow.thread_id,
+                summary_level: summaryRow.summary_level as 'DAY' | 'WEEK' | 'MONTH',
+                summary_period_start: summaryRow.summary_period_start,
+                content: summaryRow.content,
+                created_by_message_id: summaryRow.created_by_message_id,
+                created_at: summaryRow.created_at,
+              });
+            }
+          });
+        }
 
         const parsedThreads = (refreshedThreads ?? []).map((row) =>
           toChatThread(row as SupabaseThreadRow, messageStore)
@@ -671,6 +707,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         contextActions: [],
       };
 
+      // Perform both state updates in a single synchronous block to prevent race conditions
       setMessages((previous) => {
         const updated: MessageStore = { ...previous, [id]: newMessage };
         if (messageData.parentId && updated[messageData.parentId]) {
@@ -705,6 +742,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
             rootChildren,
             selectedRootChild,
           };
+          // Persist thread state immediately to ensure consistency
           persistThreadState(updatedThread);
           return updatedThread;
         })

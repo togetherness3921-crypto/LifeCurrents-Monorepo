@@ -90,6 +90,13 @@ const createToolCallId = (messageId: string, toolCall: SerializableToolCall, ind
     return `${messageId}-tool-${index + 1}`;
 };
 
+const prependTimestamp = (content: string, createdAt?: Date): string => {
+    if (!createdAt) return content;
+    const timeStr = createdAt.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
+    const dateStr = createdAt.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    return `[${timeStr} | ${dateStr}] ${content}`;
+};
+
 const serialiseMessageHistoryForApi = (history: Message[]): ApiMessage[] => {
     if (!history || history.length === 0) {
         return [];
@@ -133,7 +140,7 @@ const serialiseMessageHistoryForApi = (history: Message[]): ApiMessage[] => {
 
             const assistantMessage: ApiMessage = {
                 role: 'assistant',
-                content: message.content ?? '',
+                content: prependTimestamp(message.content ?? '', message.createdAt),
                 ...(toolCalls.length > 0 ? { tool_calls: toolCalls } : {}),
             };
 
@@ -178,7 +185,7 @@ const serialiseMessageHistoryForApi = (history: Message[]): ApiMessage[] => {
         return [
             {
                 role: message.role,
-                content: message.content ?? '',
+                content: prependTimestamp(message.content ?? '', message.createdAt),
             },
         ];
     });
@@ -232,7 +239,7 @@ const ChatPane = () => {
     const { activeInstruction, activeInstructionId } = useSystemInstructions();
     const { tools: availableTools, callTool } = useMcp();
     const { selectedModel, recordModelUsage, getToolIntentCheck } = useModelSelection();
-    const { mode, summaryPrompt, applyContextToMessages, transforms } = useConversationContext();
+    const { mode, summaryPrompt, applyContextToMessages, transforms, forcedRecentCount } = useConversationContext();
     const { registerLatestMessage, revertToMessage, applyPatchResult, activeMessageId, isViewingHistorical, syncToThread } = useGraphHistory();
 
     useEffect(() => {
@@ -461,6 +468,7 @@ const ChatPane = () => {
                     model: selectedModel.id,
                     registerAction: registerSummarizeAction,
                     updateAction: updateSummarizeAction,
+                    forcedRecentCount,
                 });
                 const recentHistory = serialiseMessageHistoryForApi(intelligentContext.recentMessages);
                 historyMessagesForApi = [...intelligentContext.systemMessages, ...recentHistory];
@@ -475,10 +483,28 @@ const ChatPane = () => {
             historyMessagesForApi = serialiseMessageHistoryForApi(limitedHistory);
         }
 
+        // Fetch today's graph context and inject it as a system message
+        let dailyContextMessage: ApiMessage | null = null;
+        try {
+            const todaysContextResult = await callTool('get_todays_context', {});
+            if (todaysContextResult && !todaysContextResult.isError) {
+                const contextContent = typeof todaysContextResult.content === 'string'
+                    ? todaysContextResult.content
+                    : JSON.stringify(todaysContextResult.content, null, 2);
+                dailyContextMessage = {
+                    role: 'system' as const,
+                    content: `Here is the user's current daily context from their task graph:\n\n${contextContent}`,
+                };
+            }
+        } catch (error) {
+            console.warn('[ChatPane] Failed to fetch today\'s context', error);
+        }
+
         const conversationMessages: ApiMessage[] = [
             ...(systemPrompt ? [{ role: 'system' as const, content: systemPrompt }] : []),
+            ...(dailyContextMessage ? [dailyContextMessage] : []),
             ...historyMessagesForApi,
-            { role: 'user' as const, content },
+            { role: 'user' as const, content: prependTimestamp(content, userMessage.createdAt) },
         ];
 
         const toolDefinitions: ApiToolDefinition[] = availableTools.map((tool) => ({
