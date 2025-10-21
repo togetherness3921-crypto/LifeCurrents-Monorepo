@@ -31,8 +31,8 @@ jobs:
         run: |
           npm install -g wrangler
           WORKER_NAME="pr-${{ github.event.pull_request.number }}-lifecurrents-worker"
-          # Deploy the worker. The project is determined by wrangler.toml
-          OUTPUT=$(wrangler deploy packages/worker/src/index.ts --name $WORKER_NAME --compatibility-date=2023-10-30)
+          # Deploy the worker. The project and compatibility date are determined by wrangler.toml
+          OUTPUT=$(wrangler deploy packages/worker/src/index.ts --name $WORKER_NAME)
           URL=$(echo "$OUTPUT" | grep -o 'https://[^ ]*')
           echo "url=$URL" >> $GITHUB_OUTPUT
           echo "Deployed Worker to $URL"
