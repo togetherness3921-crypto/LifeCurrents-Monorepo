@@ -707,6 +707,101 @@ const filterRecentMessages = (history: Message[], now: Date, forcedRecentCount: 
     return history.filter((message) => recentIds.has(message.id));
 };
 
+const buildCompressedToolContent = (toolCall: NonNullable<Message['toolCalls']>[number]): string | null => {
+    if (!toolCall) {
+        return null;
+    }
+
+    const summary = toolCall.compressionSummary;
+    if (summary && summary.status === 'pending') {
+        return null;
+    }
+
+    const toolName = toolCall.name && toolCall.name.trim().length > 0 ? toolCall.name : 'tool';
+    const status = summary?.status ?? (toolCall.status === 'error' ? 'error' : 'success');
+
+    let outcome: string;
+    if (summary?.outcome && summary.outcome.trim().length > 0) {
+        outcome = summary.outcome;
+    } else if (toolCall.status === 'error') {
+        const errorMessage = toolCall.error?.trim() ?? 'Tool call failed.';
+        outcome = errorMessage.startsWith('Error:') ? errorMessage : `Tool ${toolName} failed: ${errorMessage}`;
+    } else {
+        outcome = `Tool ${toolName} completed successfully.`;
+    }
+
+    const payload: Record<string, unknown> = {
+        status,
+        outcome,
+        tool: summary?.tool ?? toolName,
+    };
+
+    if (summary?.request && summary.request.trim().length > 0) {
+        payload.request = summary.request;
+    }
+
+    try {
+        return JSON.stringify(payload);
+    } catch (error) {
+        console.warn('[IntelligentContext] Failed to serialise tool compression payload', error);
+        return null;
+    }
+};
+
+export const cloneMessagesWithStaleToolCompression = (messages: Message[]): Message[] => {
+    if (!messages || messages.length === 0) {
+        return [];
+    }
+
+    let lastUserIndex = -1;
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+        if (messages[index]?.role === 'user') {
+            lastUserIndex = index;
+            break;
+        }
+    }
+
+    if (lastUserIndex <= 0) {
+        return messages.slice();
+    }
+
+    return messages.map((message, index) => {
+        if (!message || message.role !== 'assistant' || index >= lastUserIndex) {
+            return message;
+        }
+
+        const toolCalls = Array.isArray(message.toolCalls) ? message.toolCalls : [];
+        if (toolCalls.length === 0) {
+            return message;
+        }
+
+        let mutated = false;
+        const compressedCalls = toolCalls.map((call) => {
+            if (!call) {
+                return call;
+            }
+            const compressed = buildCompressedToolContent(call);
+            if (!compressed) {
+                return call;
+            }
+            mutated = true;
+            return {
+                ...call,
+                modelResponseOverride: compressed,
+            };
+        });
+
+        if (!mutated) {
+            return message;
+        }
+
+        return {
+            ...message,
+            toolCalls: compressedCalls,
+        };
+    });
+};
+
 export const prepareIntelligentContext = async (
     options: PrepareIntelligentContextOptions
 ): Promise<IntelligentContextResult> => {

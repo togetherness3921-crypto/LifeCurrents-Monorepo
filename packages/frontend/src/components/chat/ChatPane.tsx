@@ -26,8 +26,13 @@ import { useAudioTranscriptionRecorder } from '@/hooks/useAudioTranscriptionReco
 import RecordingStatusBar from './RecordingStatusBar';
 import ConnectivityStatusBar from './ConnectivityStatusBar';
 import { usePreviewBuilds } from '@/hooks/usePreviewBuilds';
-import { Message, ContextActionState } from '@/hooks/chatProviderContext';
-import { prepareIntelligentContext, type SummarizeActionDescriptor, type SummarizeActionUpdate } from '@/services/intelligentContext';
+import { Message, ContextActionState, ToolCallCompressionSummary } from '@/hooks/chatProviderContext';
+import {
+    prepareIntelligentContext,
+    cloneMessagesWithStaleToolCompression,
+    type SummarizeActionDescriptor,
+    type SummarizeActionUpdate,
+} from '@/services/intelligentContext';
 import { v4 as uuidv4 } from 'uuid';
 
 const SETTINGS_BADGE_MAX = 99;
@@ -58,6 +63,10 @@ const ensureJsonArguments = (value: SerializableToolCall['arguments']): string =
 };
 
 const normaliseToolResultContent = (toolCall: SerializableToolCall): string => {
+    if (typeof toolCall.modelResponseOverride === 'string' && toolCall.modelResponseOverride.length > 0) {
+        return toolCall.modelResponseOverride;
+    }
+
     const { response, error, status } = toolCall;
 
     if (typeof response === 'string') {
@@ -90,12 +99,111 @@ const createToolCallId = (messageId: string, toolCall: SerializableToolCall, ind
     return `${messageId}-tool-${index + 1}`;
 };
 
+interface ToolSummaryPlan {
+    request: string;
+    successOutcome: string;
+    failureOutcome: (error: string) => string;
+}
+
+const pluralise = (count: number, singular: string, plural: string): string => (count === 1 ? singular : plural);
+
+const buildPatchGraphSummaryPlan = (args: Record<string, unknown>): ToolSummaryPlan => {
+    const rawPatches = Array.isArray(args.patches) ? args.patches : [];
+    const totalPatches = rawPatches.length;
+    const opCounts = new Map<string, number>();
+
+    let nodeAdds = 0;
+    let nodeRemovals = 0;
+    let nodeUpdates = 0;
+    let edgeAdds = 0;
+    let edgeRemovals = 0;
+
+    rawPatches.forEach((entry) => {
+        if (!entry || typeof entry !== 'object') {
+            return;
+        }
+        const operation = typeof (entry as { op?: unknown }).op === 'string'
+            ? (entry as { op: string }).op.toLowerCase()
+            : 'unknown';
+        opCounts.set(operation, (opCounts.get(operation) ?? 0) + 1);
+
+        const path = typeof (entry as { path?: unknown }).path === 'string' ? (entry as { path: string }).path : '';
+        if (path.startsWith('/nodes/')) {
+            if (operation === 'add') {
+                nodeAdds += 1;
+            } else if (operation === 'remove') {
+                nodeRemovals += 1;
+            } else if (operation === 'replace') {
+                nodeUpdates += 1;
+            }
+        } else if (path.startsWith('/edges/')) {
+            if (operation === 'add') {
+                edgeAdds += 1;
+            } else if (operation === 'remove') {
+                edgeRemovals += 1;
+            }
+        }
+    });
+
+    const opSummaryParts = Array.from(opCounts.entries())
+        .filter(([, count]) => count > 0 && Number.isFinite(count))
+        .map(([operation, count]) => `${operation}: ${count}`);
+    const operationsSummary = opSummaryParts.length > 0 ? opSummaryParts.join(', ') : 'none';
+
+    const changeHighlights: string[] = [];
+    if (nodeAdds > 0) {
+        changeHighlights.push(`${nodeAdds} ${pluralise(nodeAdds, 'node', 'nodes')} added`);
+    }
+    if (nodeRemovals > 0) {
+        changeHighlights.push(`${nodeRemovals} ${pluralise(nodeRemovals, 'node', 'nodes')} removed`);
+    }
+    if (nodeUpdates > 0) {
+        changeHighlights.push(`${nodeUpdates} ${pluralise(nodeUpdates, 'node', 'nodes')} updated`);
+    }
+    if (edgeAdds > 0) {
+        changeHighlights.push(`${edgeAdds} ${pluralise(edgeAdds, 'edge', 'edges')} added`);
+    }
+    if (edgeRemovals > 0) {
+        changeHighlights.push(`${edgeRemovals} ${pluralise(edgeRemovals, 'edge', 'edges')} removed`);
+    }
+
+    const changeSentence = changeHighlights.length > 0
+        ? `${changeHighlights.join(', ')}.`
+        : 'No structural node or edge changes were requested.';
+
+    const request = totalPatches > 0
+        ? `Applying ${totalPatches} patch ${pluralise(totalPatches, 'operation', 'operations')} (operations: ${operationsSummary}). Planned effect: ${changeHighlights.length > 0 ? changeHighlights.join(', ') : 'none'}.`
+        : 'Applying patch_graph_document with no patches.';
+
+    return {
+        request,
+        successOutcome: `Graph patched successfully. ${changeSentence}`,
+        failureOutcome: (error: string) => `Graph patch failed: ${error}. ${changeSentence}`,
+    };
+};
+
+const buildToolSummaryPlan = (toolName: string, args: Record<string, unknown>): ToolSummaryPlan => {
+    if (toolName === 'patch_graph_document') {
+        return buildPatchGraphSummaryPlan(args);
+    }
+
+    const argumentKeys = Object.keys(args ?? {});
+    const keyDescription = argumentKeys.length > 0 ? argumentKeys.join(', ') : 'no arguments';
+    const request = `Calling ${toolName} with ${keyDescription}.`;
+    return {
+        request,
+        successOutcome: `Tool ${toolName} completed successfully.`,
+        failureOutcome: (error: string) => `Tool ${toolName} failed: ${error}.`,
+    };
+};
+
 const serialiseMessageHistoryForApi = (history: Message[]): ApiMessage[] => {
     if (!history || history.length === 0) {
         return [];
     }
 
-    const historyMap = new Map(history.map((message) => [message.id, message]));
+    const preparedHistory = cloneMessagesWithStaleToolCompression(history);
+    const historyMap = new Map(preparedHistory.map((message) => [message.id, message]));
 
     // FEATURE 6: Helper function to prepend timestamp to content
     const prependTimestamp = (content: string, createdAt?: Date): string => {
@@ -112,12 +220,12 @@ const serialiseMessageHistoryForApi = (history: Message[]): ApiMessage[] => {
         return `[${timeStr} | ${dateStr}] ${content}`;
     };
 
-    return history.flatMap((message) => {
+    return preparedHistory.flatMap((message) => {
         if (message.role === 'assistant') {
             const toolStates = Array.isArray(message.toolCalls) ? message.toolCalls : [];
             const toolCalls: ApiToolCall[] = [];
             const toolMessages: ApiMessage[] = [];
-            const hasSeparateToolMessages = history.some(
+            const hasSeparateToolMessages = preparedHistory.some(
                 (candidate) => candidate.parentId === message.id && candidate.role === 'tool'
             );
 
@@ -181,13 +289,15 @@ const serialiseMessageHistoryForApi = (history: Message[]): ApiMessage[] => {
             }
 
             const fallbackId = parentToolCallId || (message.parentId ? `${message.parentId}-tool` : `${message.id}-tool`);
+            const parentToolCall = parent?.toolCalls?.find((toolCall) => toolCall.id === parentToolCallId)
+                ?? parent?.toolCalls?.find((toolCall) => toolCall.modelResponseOverride);
 
             // FEATURE 6: Tool messages don't need timestamps (they're already contextualized by the assistant message)
             return [
                 {
                     role: 'tool',
                     tool_call_id: fallbackId,
-                    content: message.content ?? '',
+                    content: parentToolCall?.modelResponseOverride ?? message.content ?? '',
                 },
             ];
         }
@@ -291,7 +401,7 @@ const ChatPane = () => {
         if (activeThreadId) {
             void syncToThread(messages);
         }
-    }, [activeThreadId, syncToThread]);
+    }, [activeThreadId, messages, syncToThread]);
 
     useEffect(() => {
         if (messages.length === 0) {
@@ -589,30 +699,39 @@ const ChatPane = () => {
                 status?: 'pending' | 'running' | 'success' | 'error';
                 response?: string;
                 error?: string;
+                compressionSummary?: ToolCallCompressionSummary;
             }
         ) => {
             updateMessage(assistantMessage.id, (current) => {
                 const toolCalls = [...(current.toolCalls || [])];
                 const existingIndex = toolCalls.findIndex((call) => call.id === toolId);
 
+                const { compressionSummary, ...restUpdate } = update;
+
                 if (existingIndex >= 0) {
                     const existing = toolCalls[existingIndex];
+                    const mergedSummary =
+                        compressionSummary !== undefined
+                            ? { ...(existing.compressionSummary ?? {}), ...compressionSummary }
+                            : existing.compressionSummary;
                     toolCalls[existingIndex] = {
                         ...existing,
-                        ...update,
+                        ...restUpdate,
                         id: toolId,
-                        name: update.name ?? existing.name,
-                        arguments: update.arguments ?? existing.arguments,
-                        status: update.status ?? existing.status,
+                        name: restUpdate.name ?? existing.name,
+                        arguments: restUpdate.arguments ?? existing.arguments,
+                        status: restUpdate.status ?? existing.status,
+                        compressionSummary: mergedSummary,
                     };
                 } else {
                     toolCalls.push({
                         id: toolId,
-                        name: update.name ?? toolId,
-                        arguments: update.arguments ?? '{}',
-                        status: update.status ?? 'running',
-                        response: update.response,
-                        error: update.error,
+                        name: restUpdate.name ?? toolId,
+                        arguments: restUpdate.arguments ?? '{}',
+                        status: restUpdate.status ?? 'running',
+                        response: restUpdate.response,
+                        error: restUpdate.error,
+                        compressionSummary: compressionSummary ?? undefined,
                     });
                 }
 
@@ -756,15 +875,40 @@ const ChatPane = () => {
                     const toolName = toolCall.function.name;
                     const argumentString = toolCall.function.arguments ?? '{}';
 
-                    let parsedArgs: Record<string, unknown>;
+                    let parsedArgs: Record<string, unknown> = {};
+                    let summaryPlan: ToolSummaryPlan | null = null;
+                    let summaryTimestamp: string | null = null;
+
                     try {
                         parsedArgs = argumentString.trim() ? JSON.parse(argumentString) : {};
+                        summaryPlan = buildToolSummaryPlan(toolName, parsedArgs);
+                        summaryTimestamp = new Date().toISOString();
+                        if (summaryPlan) {
+                            upsertToolCallState(toolId, {
+                                compressionSummary: {
+                                    status: 'pending',
+                                    tool: toolName,
+                                    request: summaryPlan.request,
+                                    outcome: summaryPlan.request,
+                                    generatedAt: summaryTimestamp,
+                                },
+                            });
+                        }
                     } catch (parseError) {
                         console.error('[ChatPane][MCP] Failed to parse tool arguments for', toolName, parseError);
+                        const fallbackSummary = buildToolSummaryPlan(toolName, {});
+                        const failureOutcome = fallbackSummary.failureOutcome('Invalid JSON arguments');
                         upsertToolCallState(toolId, {
                             status: 'error',
                             error: 'Invalid JSON arguments',
                             response: undefined,
+                            compressionSummary: {
+                                status: 'error',
+                                tool: toolName,
+                                request: fallbackSummary.request,
+                                outcome: failureOutcome,
+                                generatedAt: new Date().toISOString(),
+                            },
                         });
                         conversationMessages.push({
                             role: 'tool',
@@ -813,6 +957,15 @@ const ChatPane = () => {
                             status: 'success',
                             response: toolContent,
                             error: undefined,
+                            compressionSummary: {
+                                status: 'success',
+                                tool: toolName,
+                                request: summaryPlan?.request,
+                                outcome:
+                                    summaryPlan?.successOutcome
+                                        ?? `Tool ${toolName || toolId} completed successfully.`,
+                                generatedAt: summaryTimestamp ?? new Date().toISOString(),
+                            },
                         });
 
                         conversationMessages.push({
@@ -824,10 +977,19 @@ const ChatPane = () => {
                         console.error('[ChatPane][MCP] Tool execution failed', toolError);
                         const errorMessage =
                             toolError instanceof Error ? toolError.message : 'Tool call failed';
+                        const failureSummary = summaryPlan?.failureOutcome(errorMessage)
+                            ?? `Tool ${toolName || toolId} failed: ${errorMessage}.`;
                         upsertToolCallState(toolId, {
                             status: 'error',
                             error: errorMessage,
                             response: undefined,
+                            compressionSummary: {
+                                status: 'error',
+                                tool: toolName,
+                                request: summaryPlan?.request,
+                                outcome: failureSummary,
+                                generatedAt: summaryTimestamp ?? new Date().toISOString(),
+                            },
                         });
                         conversationMessages.push({
                             role: 'tool',
