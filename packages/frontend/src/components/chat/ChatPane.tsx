@@ -90,12 +90,64 @@ const createToolCallId = (messageId: string, toolCall: SerializableToolCall, ind
     return `${messageId}-tool-${index + 1}`;
 };
 
+// FEATURE 3: Generate programmatic summaries for tool calls
+const generateToolCallSummary = (toolCall: SerializableToolCall): string => {
+    const toolName = toolCall.name || 'tool';
+
+    try {
+        const args = typeof toolCall.arguments === 'string'
+            ? JSON.parse(toolCall.arguments)
+            : toolCall.arguments;
+
+        if (toolName === 'patch_graph_document' && args.patches && Array.isArray(args.patches)) {
+            const operations = args.patches.reduce((counts: Record<string, number>, patch: any) => {
+                const op = patch.op || 'unknown';
+                counts[op] = (counts[op] || 0) + 1;
+                return counts;
+            }, {});
+
+            const parts: string[] = [];
+            if (operations.add) parts.push(`${operations.add} ${operations.add === 1 ? 'node' : 'nodes'} added`);
+            if (operations.remove) parts.push(`${operations.remove} ${operations.remove === 1 ? 'node' : 'nodes'} removed`);
+            if (operations.replace) parts.push(`${operations.replace} ${operations.replace === 1 ? 'property' : 'properties'} updated`);
+
+            const summary = parts.length > 0 ? parts.join(', ') : 'graph modified';
+
+            return JSON.stringify({
+                status: 'success',
+                outcome: `Graph patched: ${summary}.`
+            });
+        }
+
+        // Generic summary for other tools
+        return JSON.stringify({
+            status: 'success',
+            outcome: `${toolName} executed successfully.`
+        });
+    } catch (error) {
+        // Fallback if we can't parse arguments
+        return JSON.stringify({
+            status: 'success',
+            outcome: `${toolName} executed.`
+        });
+    }
+};
+
 const serialiseMessageHistoryForApi = (history: Message[]): ApiMessage[] => {
     if (!history || history.length === 0) {
         return [];
     }
 
     const historyMap = new Map(history.map((message) => [message.id, message]));
+
+    // FEATURE 3: Find the index of the most recent user message to identify stale tool calls
+    let mostRecentUserMessageIndex = -1;
+    for (let i = history.length - 1; i >= 0; i--) {
+        if (history[i].role === 'user') {
+            mostRecentUserMessageIndex = i;
+            break;
+        }
+    }
 
     // FEATURE 6: Helper function to prepend timestamp to content
     const prependTimestamp = (content: string, createdAt?: Date): string => {
@@ -112,7 +164,7 @@ const serialiseMessageHistoryForApi = (history: Message[]): ApiMessage[] => {
         return `[${timeStr} | ${dateStr}] ${content}`;
     };
 
-    return history.flatMap((message) => {
+    return history.flatMap((message, messageIndex) => {
         if (message.role === 'assistant') {
             const toolStates = Array.isArray(message.toolCalls) ? message.toolCalls : [];
             const toolCalls: ApiToolCall[] = [];
@@ -120,6 +172,9 @@ const serialiseMessageHistoryForApi = (history: Message[]): ApiMessage[] => {
             const hasSeparateToolMessages = history.some(
                 (candidate) => candidate.parentId === message.id && candidate.role === 'tool'
             );
+
+            // FEATURE 3: Check if this assistant message's tool calls are stale
+            const isStale = mostRecentUserMessageIndex >= 0 && messageIndex < mostRecentUserMessageIndex;
 
             toolStates.forEach((toolCall, index) => {
                 if (!toolCall) return;
@@ -137,7 +192,10 @@ const serialiseMessageHistoryForApi = (history: Message[]): ApiMessage[] => {
                 });
 
                 if (!hasSeparateToolMessages) {
-                    const content = normaliseToolResultContent(toolCall);
+                    // FEATURE 3: Use compressed summary for stale tool calls, full content for active ones
+                    const content = isStale
+                        ? generateToolCallSummary(toolCall)
+                        : normaliseToolResultContent(toolCall);
                     toolMessages.push({
                         role: 'tool',
                         tool_call_id: toolCallId,
@@ -497,7 +555,7 @@ const ChatPane = () => {
                 const intelligentContext = await prepareIntelligentContext({
                     conversationId: threadId,
                     branchHeadMessageId: parentId,
-                    createdByMessageId: userMessage.id,
+                    createdByMessageId: assistantMessage.id,
                     historyChain: rawHistoryChain,
                     callTool,
                     summaryPrompt,
