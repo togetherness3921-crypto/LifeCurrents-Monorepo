@@ -1,6 +1,6 @@
 // This component will render a single chat message bubble
 import React, { useState, useEffect, useCallback } from 'react';
-import { Message } from '@/hooks/chatProviderContext';
+import { Message, ConversationSummaryRecord } from '@/hooks/chatProviderContext';
 import { Button } from '../ui/button';
 import { Pencil, Save, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Textarea } from '../ui/textarea';
@@ -13,6 +13,33 @@ import {
 import { Badge } from '../ui/badge';
 import ToolCallDetails from './ToolCallDetails';
 import { cn } from '@/lib/utils';
+import { formatDisplayTimestamp } from '@/lib/chatTimestamps';
+
+const DISPLAY_DATE_FORMAT = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+const DISPLAY_MONTH_FORMAT = new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' });
+
+const SUMMARY_LABELS: Record<ConversationSummaryRecord['summary_level'], string> = {
+    DAY: 'Day Summary',
+    WEEK: 'Week Summary',
+    MONTH: 'Month Summary',
+};
+
+const formatSummaryPeriod = (summary: ConversationSummaryRecord): string => {
+    const start = new Date(summary.summary_period_start);
+    if (Number.isNaN(start.getTime())) {
+        return summary.summary_period_start;
+    }
+    if (summary.summary_level === 'DAY') {
+        return DISPLAY_DATE_FORMAT.format(start);
+    }
+    if (summary.summary_level === 'WEEK') {
+        return `Week of ${DISPLAY_DATE_FORMAT.format(start)}`;
+    }
+    if (summary.summary_level === 'MONTH') {
+        return DISPLAY_MONTH_FORMAT.format(start);
+    }
+    return DISPLAY_DATE_FORMAT.format(start);
+};
 
 interface ChatMessageProps {
     message: Message;
@@ -119,7 +146,8 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
         );
     }
 
-    const isUser = message.role === 'user';
+    const persistedSummaries = Array.isArray(message.persistedSummaries) ? message.persistedSummaries : [];
+    const timestampLabel = formatDisplayTimestamp(message.createdAt);
 
     return (
         <div className={containerClasses}>
@@ -147,6 +175,35 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
                                 </AccordionContent>
                             </AccordionItem>
                         </Accordion>
+                    </div>
+                )}
+                {persistedSummaries.length > 0 && (
+                    <div className="space-y-3 mb-3" data-graph-interactive="true">
+                        {persistedSummaries.map((summary) => (
+                            <Accordion type="single" collapsible key={summary.id} className="w-full">
+                                <AccordionItem
+                                    value={`persisted-${summary.id}`}
+                                    className="rounded-md border border-muted-foreground/20 bg-background/80"
+                                >
+                                    <AccordionTrigger className="px-3 py-2 font-medium">
+                                        <div className="flex w-full flex-col gap-1 text-left sm:flex-row sm:items-center sm:justify-between sm:gap-2">
+                                            <div className="flex items-center gap-2">
+                                                <Badge variant="secondary" className="uppercase tracking-wide text-[0.75em]">
+                                                    {SUMMARY_LABELS[summary.summary_level]}
+                                                </Badge>
+                                                <span className="text-muted-foreground text-[0.875em]">
+                                                    {formatSummaryPeriod(summary)}
+                                                </span>
+                                            </div>
+                                            <span className="text-[0.75em] text-muted-foreground">Persisted summary</span>
+                                        </div>
+                                    </AccordionTrigger>
+                                    <AccordionContent className="px-3 pb-3 text-[0.875em] whitespace-pre-wrap">
+                                        {summary.content}
+                                    </AccordionContent>
+                                </AccordionItem>
+                            </Accordion>
+                        ))}
                     </div>
                 )}
                 {message.contextActions && message.contextActions.length > 0 && (
@@ -213,48 +270,53 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
                 )}
                 <p className="whitespace-pre-wrap">{message.content}</p>
 
-                <div className="absolute bottom-0 right-1 flex translate-y-1/2 items-center gap-0.5 rounded-md bg-muted p-0.5 text-xs text-foreground/70 shadow-sm">
-                    {branchInfo && (
-                        <>
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-5 w-5"
-                                onClick={(event) => {
-                                    event.stopPropagation();
-                                    branchInfo.onPrev();
-                                }}
-                                data-graph-interactive="true"
-                            >
-                                <ChevronLeft className="h-3 w-3" />
-                            </Button>
-                            <span className="px-1 font-mono text-[0.6rem]">{branchInfo.index + 1}/{branchInfo.total}</span>
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-5 w-5"
-                                onClick={(event) => {
-                                    event.stopPropagation();
-                                    branchInfo.onNext();
-                                }}
-                                data-graph-interactive="true"
-                            >
-                                <ChevronRight className="h-3 w-3" />
-                            </Button>
-                        </>
-                    )}
-                    <Button
-                        onClick={(event) => {
-                            event.stopPropagation();
-                            setIsEditing(true);
-                        }}
-                        variant="ghost"
-                        size="icon"
-                        className="h-5 w-5 p-0"
-                        data-graph-interactive="true"
-                    >
-                        <Pencil className="h-3 w-3" />
-                    </Button>
+                <div className="absolute bottom-0 left-3 right-3 flex translate-y-1/2 items-center justify-between gap-2 rounded-md bg-muted px-2 py-0.5 text-[0.65rem] text-foreground/70 shadow-sm">
+                    <span className="font-mono text-[0.65rem]">{timestampLabel}</span>
+                    <div className="flex items-center gap-0.5">
+                        {branchInfo && (
+                            <div className="flex items-center gap-0.5">
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-5 w-5"
+                                    onClick={(event) => {
+                                        event.stopPropagation();
+                                        branchInfo.onPrev();
+                                    }}
+                                    data-graph-interactive="true"
+                                >
+                                    <ChevronLeft className="h-3 w-3" />
+                                </Button>
+                                <span className="px-1 font-mono text-[0.6rem]">
+                                    {branchInfo.index + 1}/{branchInfo.total}
+                                </span>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-5 w-5"
+                                    onClick={(event) => {
+                                        event.stopPropagation();
+                                        branchInfo.onNext();
+                                    }}
+                                    data-graph-interactive="true"
+                                >
+                                    <ChevronRight className="h-3 w-3" />
+                                </Button>
+                            </div>
+                        )}
+                        <Button
+                            onClick={(event) => {
+                                event.stopPropagation();
+                                setIsEditing(true);
+                            }}
+                            variant="ghost"
+                            size="icon"
+                            className="h-5 w-5 p-0"
+                            data-graph-interactive="true"
+                        >
+                            <Pencil className="h-3 w-3" />
+                        </Button>
+                    </div>
                 </div>
             </div>
         </div>

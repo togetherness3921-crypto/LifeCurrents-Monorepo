@@ -9,10 +9,17 @@ import { DEFAULT_CONTEXT_CONFIG } from './chatDefaults';
 
 const CUSTOM_MIN = 1;
 const CUSTOM_MAX = 200;
+const FORCED_RECENT_MIN = 0;
+const FORCED_RECENT_MAX = 6;
 
 const clampCustomCount = (value: number) => {
     if (Number.isNaN(value)) return DEFAULT_CONTEXT_CONFIG.customMessageCount;
     return Math.min(CUSTOM_MAX, Math.max(CUSTOM_MIN, Math.round(value)));
+};
+
+const clampForcedRecentCount = (value: number) => {
+    if (Number.isNaN(value)) return DEFAULT_CONTEXT_CONFIG.forcedRecentMessages;
+    return Math.min(FORCED_RECENT_MAX, Math.max(FORCED_RECENT_MIN, Math.round(value)));
 };
 
 export const ConversationContextProvider = ({ children }: { children: ReactNode }) => {
@@ -43,6 +50,16 @@ export const ConversationContextProvider = ({ children }: { children: ReactNode 
         });
     }, [activeThreadId, contextConfig, updateThreadSettings]);
 
+    const setForcedRecentMessages = useCallback((value: number) => {
+        if (!activeThreadId) return;
+        updateThreadSettings(activeThreadId, {
+            contextConfig: {
+                ...contextConfig,
+                forcedRecentMessages: clampForcedRecentCount(value),
+            },
+        });
+    }, [activeThreadId, contextConfig, updateThreadSettings]);
+
     const setSummaryPrompt = useCallback(
         (prompt: string) => {
             if (!activeThreadId) return;
@@ -66,7 +83,7 @@ export const ConversationContextProvider = ({ children }: { children: ReactNode 
                 return [...messages];
             }
 
-            const limit = contextConfig.mode === 'last-8' ? 8 : clampCustomCount(contextConfig.customMessageCount);
+            const limit = clampCustomCount(contextConfig.customMessageCount);
             if (limit >= messages.length) {
                 return [...messages];
             }
@@ -90,14 +107,18 @@ export const ConversationContextProvider = ({ children }: { children: ReactNode 
             transforms,
             summaryPrompt: contextConfig.summaryPrompt,
             setSummaryPrompt,
+            forcedRecentMessages: contextConfig.forcedRecentMessages,
+            setForcedRecentMessages,
         }),
         [
             applyContextToMessages,
             contextConfig.customMessageCount,
             contextConfig.mode,
             contextConfig.summaryPrompt,
+            contextConfig.forcedRecentMessages,
             setMode,
             setCustomMessageCount,
+            setForcedRecentMessages,
             setSummaryPrompt,
             transforms,
         ]
