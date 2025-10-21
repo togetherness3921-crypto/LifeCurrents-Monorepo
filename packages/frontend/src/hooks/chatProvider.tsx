@@ -127,9 +127,9 @@ const sanitizeContextConfig = (input: unknown): ChatThread['contextConfig'] => {
       (candidate as { customMessageCount?: unknown }).customMessageCount
     );
   }
+  // BUG FIX 2: Allow trailing spaces and empty values for summaryPrompt
   if (typeof (candidate as { summaryPrompt?: unknown }).summaryPrompt === 'string') {
-    const promptValue = String((candidate as { summaryPrompt: unknown }).summaryPrompt).trim();
-    base.summaryPrompt = promptValue.length > 0 ? promptValue : DEFAULT_CONTEXT_CONFIG.summaryPrompt;
+    base.summaryPrompt = String((candidate as { summaryPrompt: unknown }).summaryPrompt);
   }
   return base;
 };
@@ -250,7 +250,7 @@ const mapRowToThreadSettings = (row: SupabaseThreadRow): ThreadSettings =>
 const parseMessageRows = (rows: SupabaseMessageRow[], summaries?: SupabaseSummaryRow[]): MessageStore => {
   const store: MessageStore = {};
 
-  // BUG FIX 2: Build a map of summaries by created_by_message_id for efficient lookup
+  // BUG FIX 1: Build a map of summaries by created_by_message_id for efficient lookup
   const summariesByMessageId = new Map<string, SupabaseSummaryRow[]>();
   if (summaries) {
     summaries.forEach((summary) => {
@@ -265,7 +265,7 @@ const parseMessageRows = (rows: SupabaseMessageRow[], summaries?: SupabaseSummar
     const createdAt = row.created_at ? new Date(row.created_at) : undefined;
     const updatedAt = row.updated_at ? new Date(row.updated_at) : createdAt;
 
-    // BUG FIX 2: Attach persisted summaries to the message that created them
+    // BUG FIX 1: Attach persisted summaries to the message that created them
     const persistedSummaries = summariesByMessageId.get(row.id)?.map(summary => ({
       id: summary.id,
       thread_id: summary.thread_id,
@@ -533,7 +533,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
           .select('*');
         if (messageError) throw messageError;
 
-        // BUG FIX 2: Load conversation summaries from the database
+        // BUG FIX 1: Load conversation summaries from the database
         const { data: summaryRows, error: summaryError } = await supabase
           .from('conversation_summaries')
           .select('*');
@@ -555,7 +555,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
           console.warn('[ChatProvider] Failed to load last active thread', lastActiveThreadError);
         }
 
-        // BUG FIX 2: Pass summaries to parseMessageRows to attach them to messages
+        // BUG FIX 1: Pass summaries to parseMessageRows to attach them to messages
         const messageStore = parseMessageRows(
           (messageRows ?? []) as SupabaseMessageRow[],
           (summaryRows ?? []) as SupabaseSummaryRow[]
