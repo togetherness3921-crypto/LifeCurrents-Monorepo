@@ -128,8 +128,9 @@ const sanitizeContextConfig = (input: unknown): ChatThread['contextConfig'] => {
     );
   }
   if (typeof (candidate as { summaryPrompt?: unknown }).summaryPrompt === 'string') {
-    const promptValue = String((candidate as { summaryPrompt: unknown }).summaryPrompt).trim();
-    base.summaryPrompt = promptValue.length > 0 ? promptValue : DEFAULT_CONTEXT_CONFIG.summaryPrompt;
+    // BUG FIX: Allow empty prompts and preserve trailing spaces
+    // Do not trim or auto-restore defaults - respect user's exact input
+    base.summaryPrompt = String((candidate as { summaryPrompt: unknown }).summaryPrompt);
   }
   return base;
 };
