@@ -26,7 +26,7 @@ import { useAudioTranscriptionRecorder } from '@/hooks/useAudioTranscriptionReco
 import RecordingStatusBar from './RecordingStatusBar';
 import ConnectivityStatusBar from './ConnectivityStatusBar';
 import { usePreviewBuilds } from '@/hooks/usePreviewBuilds';
-import { Message, ContextActionState } from '@/hooks/chatProviderContext';
+import { Message, ContextActionState, ToolCallCompressionSummary } from '@/hooks/chatProviderContext';
 import { prepareIntelligentContext, type SummarizeActionDescriptor, type SummarizeActionUpdate } from '@/services/intelligentContext';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -90,6 +90,189 @@ const createToolCallId = (messageId: string, toolCall: SerializableToolCall, ind
     return `${messageId}-tool-${index + 1}`;
 };
 
+const PATCH_GRAPH_TOOL = 'patch_graph_document';
+
+type PatchCountStats = {
+    total: number;
+    addNodes: number;
+    removeNodes: number;
+    replaceNodes: number;
+    otherOps: number;
+};
+
+const capitalise = (value: string): string => (value.length > 0 ? value[0].toUpperCase() + value.slice(1) : value);
+
+const computePatchCountStats = (patches: unknown[]): PatchCountStats => {
+    const stats: PatchCountStats = { total: 0, addNodes: 0, removeNodes: 0, replaceNodes: 0, otherOps: 0 };
+
+    patches.forEach((patch) => {
+        if (!patch || typeof patch !== 'object') {
+            return;
+        }
+
+        stats.total += 1;
+
+        const op = typeof (patch as { op?: unknown }).op === 'string' ? (patch as { op: string }).op.toLowerCase() : '';
+        const path = typeof (patch as { path?: unknown }).path === 'string' ? (patch as { path: string }).path : '';
+        const targetsNode = path.startsWith('/nodes/');
+
+        if (targetsNode) {
+            if (op === 'add') {
+                stats.addNodes += 1;
+            } else if (op === 'remove') {
+                stats.removeNodes += 1;
+            } else if (op === 'replace') {
+                stats.replaceNodes += 1;
+            } else {
+                stats.otherOps += 1;
+            }
+            return;
+        }
+
+        stats.otherOps += 1;
+    });
+
+    return stats;
+};
+
+const describePatchCountStats = (counts: PatchCountStats): string | null => {
+    const segments: string[] = [];
+
+    if (counts.addNodes) {
+        segments.push(`${counts.addNodes} node${counts.addNodes === 1 ? '' : 's'} added`);
+    }
+    if (counts.removeNodes) {
+        segments.push(`${counts.removeNodes} node${counts.removeNodes === 1 ? '' : 's'} removed`);
+    }
+    if (counts.replaceNodes) {
+        segments.push(`${counts.replaceNodes} node${counts.replaceNodes === 1 ? '' : 's'} updated`);
+    }
+    if (counts.otherOps) {
+        segments.push(`${counts.otherOps} other change${counts.otherOps === 1 ? '' : 's'}`);
+    }
+
+    if (segments.length === 0) {
+        if (counts.total === 0) {
+            return null;
+        }
+        return `${counts.total} change${counts.total === 1 ? '' : 's'} applied`;
+    }
+
+    return segments
+        .map((segment, index) => (index === 0 ? capitalise(segment) : segment))
+        .join(', ');
+};
+
+const buildToolCallCompressionSummary = (
+    toolName: string,
+    args: Record<string, unknown>
+): ToolCallCompressionSummary => {
+    const normalisedName = toolName || 'tool';
+
+    if (normalisedName === PATCH_GRAPH_TOOL) {
+        const patches = Array.isArray((args as { patches?: unknown }).patches)
+            ? ((args as { patches: unknown[] }).patches as unknown[])
+            : [];
+        const stats = computePatchCountStats(patches);
+        const description = describePatchCountStats(stats);
+        const baseOutcome = description
+            ? `Preparing graph patch request: ${description.endsWith('.') ? description : `${description}.`}`
+            : 'Preparing graph patch request.';
+
+        return {
+            status: 'running',
+            outcome: baseOutcome,
+            details: {
+                tool: normalisedName,
+                patchCounts: stats,
+            },
+        };
+    }
+
+    const argumentKeys = Object.keys(args ?? {});
+    const baseOutcome = argumentKeys.length
+        ? `Preparing ${normalisedName} request with arguments: ${argumentKeys.join(', ')}.`
+        : `Preparing ${normalisedName} request.`;
+
+    return {
+        status: 'running',
+        outcome: capitalise(baseOutcome),
+        details: {
+            tool: normalisedName,
+            argumentKeys,
+        },
+    };
+};
+
+const finaliseToolCallCompressionSummary = (
+    summary: ToolCallCompressionSummary | undefined,
+    status: ToolCallCompressionSummary['status'],
+    overrideOutcome?: string
+): ToolCallCompressionSummary => {
+    if (!summary) {
+        return {
+            status,
+            outcome:
+                overrideOutcome ??
+                (status === 'error'
+                    ? 'Tool call failed.'
+                    : status === 'running'
+                        ? 'Tool call in progress.'
+                        : 'Tool call completed.'),
+        };
+    }
+
+    const details = summary.details && typeof summary.details === 'object' ? summary.details : undefined;
+    let outcome = overrideOutcome ?? summary.outcome;
+
+    if (!overrideOutcome && details) {
+        const record = details as Record<string, unknown> & { patchCounts?: PatchCountStats; tool?: string };
+        if (record.tool === PATCH_GRAPH_TOOL && record.patchCounts) {
+            const changeDescription = describePatchCountStats(record.patchCounts);
+            if (status === 'success') {
+                outcome = changeDescription
+                    ? `Graph patched successfully. ${changeDescription.endsWith('.') ? changeDescription : `${changeDescription}.`}`
+                    : 'Graph patched successfully.';
+            } else if (status === 'error') {
+                outcome = 'Graph patch failed.';
+            }
+        } else if (typeof record.tool === 'string') {
+            if (status === 'success') {
+                outcome = `${capitalise(record.tool)} completed successfully.`;
+            } else if (status === 'error') {
+                outcome = `${capitalise(record.tool)} failed.`;
+            }
+        }
+    }
+
+    return {
+        ...summary,
+        status,
+        outcome,
+    };
+};
+
+const formatCompressionSummary = (toolCall: SerializableToolCall): string => {
+    const summary = toolCall.compressionSummary;
+    if (!summary) {
+        const fallbackStatus = toolCall.status ?? 'success';
+        const fallbackOutcome =
+            fallbackStatus === 'error'
+                ? toolCall.error ?? 'Tool call failed.'
+                : 'Tool result truncated for brevity.';
+        return JSON.stringify({ status: fallbackStatus, outcome: fallbackOutcome });
+    }
+
+    try {
+        return JSON.stringify(summary);
+    } catch {
+        return JSON.stringify({
+            status: summary.status,
+            outcome: summary.outcome,
+        });
+    }
+};
+
 const serialiseMessageHistoryForApi = (history: Message[]): ApiMessage[] => {
     if (!history || history.length === 0) {
         return [];
@@ -97,7 +280,6 @@ const serialiseMessageHistoryForApi = (history: Message[]): ApiMessage[] => {
 
     const historyMap = new Map(history.map((message) => [message.id, message]));
 
-    // FEATURE 6: Helper function to prepend timestamp to content
     const prependTimestamp = (content: string, createdAt?: Date): string => {
         if (!createdAt) return content;
         const timeStr = createdAt.toLocaleTimeString(undefined, {
@@ -112,6 +294,23 @@ const serialiseMessageHistoryForApi = (history: Message[]): ApiMessage[] => {
         return `[${timeStr} | ${dateStr}] ${content}`;
     };
 
+    const lastUserIndex = history.reduce(
+        (latest, message, index) => (message.role === 'user' ? index : latest),
+        -1
+    );
+
+    const staleAssistantIds = new Set<string>();
+    if (lastUserIndex >= 0) {
+        for (let index = 0; index < lastUserIndex; index += 1) {
+            const candidate = history[index];
+            if (candidate.role === 'assistant') {
+                staleAssistantIds.add(candidate.id);
+            }
+        }
+    }
+
+    const staleToolSummaries = new Map<string, string>();
+
     return history.flatMap((message) => {
         if (message.role === 'assistant') {
             const toolStates = Array.isArray(message.toolCalls) ? message.toolCalls : [];
@@ -120,6 +319,7 @@ const serialiseMessageHistoryForApi = (history: Message[]): ApiMessage[] => {
             const hasSeparateToolMessages = history.some(
                 (candidate) => candidate.parentId === message.id && candidate.role === 'tool'
             );
+            const isStaleAssistant = staleAssistantIds.has(message.id);
 
             toolStates.forEach((toolCall, index) => {
                 if (!toolCall) return;
@@ -136,8 +336,16 @@ const serialiseMessageHistoryForApi = (history: Message[]): ApiMessage[] => {
                     },
                 });
 
+                let compressedContent: string | undefined;
+                if (isStaleAssistant) {
+                    compressedContent = formatCompressionSummary(toolCall);
+                    staleToolSummaries.set(toolCallId, compressedContent);
+                }
+
                 if (!hasSeparateToolMessages) {
-                    const content = normaliseToolResultContent(toolCall);
+                    const content = isStaleAssistant
+                        ? compressedContent ?? formatCompressionSummary(toolCall)
+                        : normaliseToolResultContent(toolCall);
                     toolMessages.push({
                         role: 'tool',
                         tool_call_id: toolCallId,
@@ -146,7 +354,6 @@ const serialiseMessageHistoryForApi = (history: Message[]): ApiMessage[] => {
                 }
             });
 
-            // FEATURE 6: Prepend timestamp to assistant message content
             const assistantMessage: ApiMessage = {
                 role: 'assistant',
                 content: prependTimestamp(message.content ?? '', message.createdAt),
@@ -181,18 +388,44 @@ const serialiseMessageHistoryForApi = (history: Message[]): ApiMessage[] => {
             }
 
             const fallbackId = parentToolCallId || (message.parentId ? `${message.parentId}-tool` : `${message.id}-tool`);
+            const isStaleParent = parent ? staleAssistantIds.has(parent.id) : false;
 
-            // FEATURE 6: Tool messages don't need timestamps (they're already contextualized by the assistant message)
+            let content = message.content ?? '';
+            if (isStaleParent) {
+                const summaryFromCache =
+                    (parentToolCallId && staleToolSummaries.get(parentToolCallId)) ??
+                    (parentToolCallId && parent?.toolCalls
+                        ? (() => {
+                              const matched = parent.toolCalls.find((toolCall) => toolCall.id === parentToolCallId);
+                              return matched ? formatCompressionSummary(matched) : undefined;
+                          })()
+                        : undefined);
+
+                let defaultSummary: string | undefined;
+                if (parent?.toolCalls && parent.toolCalls.length > 0) {
+                    defaultSummary = formatCompressionSummary(parent.toolCalls[0]);
+                }
+
+                const fallbackSummary =
+                    summaryFromCache ??
+                    defaultSummary ??
+                    JSON.stringify({ status: 'success', outcome: 'Tool result truncated for brevity.' });
+
+                content = fallbackSummary;
+                if (parentToolCallId && !staleToolSummaries.has(parentToolCallId)) {
+                    staleToolSummaries.set(parentToolCallId, fallbackSummary);
+                }
+            }
+
             return [
                 {
                     role: 'tool',
                     tool_call_id: fallbackId,
-                    content: message.content ?? '',
+                    content,
                 },
             ];
         }
 
-        // FEATURE 6: Prepend timestamp to user and system messages
         return [
             {
                 role: message.role,
@@ -589,6 +822,7 @@ const ChatPane = () => {
                 status?: 'pending' | 'running' | 'success' | 'error';
                 response?: string;
                 error?: string;
+                compressionSummary?: ToolCallCompressionSummary;
             }
         ) => {
             updateMessage(assistantMessage.id, (current) => {
@@ -604,6 +838,7 @@ const ChatPane = () => {
                         name: update.name ?? existing.name,
                         arguments: update.arguments ?? existing.arguments,
                         status: update.status ?? existing.status,
+                        compressionSummary: update.compressionSummary ?? existing.compressionSummary,
                     };
                 } else {
                     toolCalls.push({
@@ -613,6 +848,7 @@ const ChatPane = () => {
                         status: update.status ?? 'running',
                         response: update.response,
                         error: update.error,
+                        compressionSummary: update.compressionSummary,
                     });
                 }
 
@@ -735,16 +971,6 @@ const ChatPane = () => {
                     };
                 });
 
-                normalisedToolCalls.forEach((toolCall) => {
-                    upsertToolCallState(toolCall.id, {
-                        name: toolCall.function.name,
-                        arguments: toolCall.function.arguments,
-                        status: 'running',
-                        response: undefined,
-                        error: undefined,
-                    });
-                });
-
                 conversationMessages.push({
                     role: 'assistant',
                     content: geminiResult.content ?? '',
@@ -756,33 +982,54 @@ const ChatPane = () => {
                     const toolName = toolCall.function.name;
                     const argumentString = toolCall.function.arguments ?? '{}';
 
+                    const baseUpdate = {
+                        name: toolCall.function.name,
+                        arguments: argumentString,
+                    };
+
                     let parsedArgs: Record<string, unknown>;
                     try {
                         parsedArgs = argumentString.trim() ? JSON.parse(argumentString) : {};
                     } catch (parseError) {
                         console.error('[ChatPane][MCP] Failed to parse tool arguments for', toolName, parseError);
+                        const parseErrorMessage = 'Invalid JSON arguments';
+                        const errorSummary = finaliseToolCallCompressionSummary(undefined, 'error', parseErrorMessage);
                         upsertToolCallState(toolId, {
+                            ...baseUpdate,
                             status: 'error',
-                            error: 'Invalid JSON arguments',
+                            error: parseErrorMessage,
                             response: undefined,
+                            compressionSummary: errorSummary,
                         });
                         conversationMessages.push({
                             role: 'tool',
                             tool_call_id: toolId,
-                            content: 'Error: Invalid JSON arguments',
+                            content: `Error: ${parseErrorMessage}`,
                         });
                         continue;
                     }
 
+                    let initialSummary: ToolCallCompressionSummary | undefined;
                     try {
                         if (!toolName) {
                             throw new Error('Tool call did not include a tool name.');
                         }
 
-                        const isInstructionTool = toolName === 'get_system_instructions' || toolName === 'update_system_instructions';
+                        const isInstructionTool =
+                            toolName === 'get_system_instructions' || toolName === 'update_system_instructions';
                         if (isInstructionTool && activeInstructionId) {
                             parsedArgs.instruction_id = activeInstructionId;
                         }
+
+                        initialSummary = buildToolCallCompressionSummary(toolName, parsedArgs);
+
+                        upsertToolCallState(toolId, {
+                            ...baseUpdate,
+                            status: 'running',
+                            response: undefined,
+                            error: undefined,
+                            compressionSummary: initialSummary,
+                        });
 
                         console.log('[ChatPane][MCP] Calling tool', toolName, 'with args', parsedArgs);
                         const toolResult = await callTool(toolName, parsedArgs);
@@ -809,10 +1056,12 @@ const ChatPane = () => {
                             }
                         }
 
+                        const successSummary = finaliseToolCallCompressionSummary(initialSummary, 'success');
                         upsertToolCallState(toolId, {
                             status: 'success',
                             response: toolContent,
                             error: undefined,
+                            compressionSummary: successSummary,
                         });
 
                         conversationMessages.push({
@@ -824,15 +1073,18 @@ const ChatPane = () => {
                         console.error('[ChatPane][MCP] Tool execution failed', toolError);
                         const errorMessage =
                             toolError instanceof Error ? toolError.message : 'Tool call failed';
+                        const summaryOverride = `Tool call failed: ${errorMessage}`;
+                        const errorSummary = finaliseToolCallCompressionSummary(initialSummary, 'error', summaryOverride);
                         upsertToolCallState(toolId, {
                             status: 'error',
                             error: errorMessage,
                             response: undefined,
+                            compressionSummary: errorSummary,
                         });
                         conversationMessages.push({
                             role: 'tool',
                             tool_call_id: toolId,
-                            content: `Error: ${errorMessage}`,
+                            content: errorMessage.startsWith('Error:') ? errorMessage : `Error: ${errorMessage}`,
                         });
                     }
                 }

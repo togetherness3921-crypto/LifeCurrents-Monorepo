@@ -10,6 +10,12 @@ export interface ConversationContextConfig {
 
 export type SummaryLevel = 'DAY' | 'WEEK' | 'MONTH';
 
+export interface ToolCallCompressionSummary {
+    status: 'pending' | 'running' | 'success' | 'error';
+    outcome: string;
+    details?: Record<string, unknown>;
+}
+
 export interface ContextActionState {
     id: string;
     type: 'summarize';
@@ -29,6 +35,7 @@ export interface ToolCallState {
     status: 'pending' | 'running' | 'success' | 'error';
     response?: string;
     error?: string;
+    compressionSummary?: ToolCallCompressionSummary;
 }
 
 export interface ConversationSummaryRecord {
