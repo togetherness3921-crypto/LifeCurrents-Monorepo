@@ -1,6 +1,6 @@
 import { createContext } from 'react';
 
-export type ConversationContextMode = 'last-8' | 'all-middle-out' | 'custom' | 'intelligent';
+export type ConversationContextMode = 'all-middle-out' | 'custom' | 'intelligent';
 
 export interface ConversationContextSettingsValue {
     mode: ConversationContextMode;
@@ -11,6 +11,8 @@ export interface ConversationContextSettingsValue {
     transforms: string[];
     summaryPrompt: string;
     setSummaryPrompt: (prompt: string) => void;
+    forcedRecentMessageCount: number;
+    setForcedRecentMessageCount: (count: number) => void;
 }
 
 export const ConversationContextSettingsContext = createContext<ConversationContextSettingsValue | undefined>(undefined);

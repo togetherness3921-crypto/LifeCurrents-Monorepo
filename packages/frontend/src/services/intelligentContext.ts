@@ -57,6 +57,7 @@ export interface PrepareIntelligentContextOptions {
     model: string;
     registerAction: (descriptor: SummarizeActionDescriptor) => string;
     updateAction: (actionId: string, update: SummarizeActionUpdate) => void;
+    forcedRecentMessageCount?: number;
     now?: Date;
 }
 
@@ -680,19 +681,23 @@ const buildSystemMessages = (
     return { systemMessages, yesterdaySummary };
 };
 
-const filterRecentMessages = (history: Message[], now: Date): Message[] => {
+const filterRecentMessages = (history: Message[], now: Date, forcedRecentCount: number = 0): Message[] => {
     if (!history || history.length === 0) {
         return [];
     }
     const todayStart = startOfUtcDay(now);
     const recentIds = new Set<string>();
+    // Add all messages from today
     history.forEach((message) => {
         if (message.createdAt && message.createdAt >= todayStart) {
             recentIds.add(message.id);
         }
     });
-    const lastSix = history.slice(Math.max(0, history.length - 6));
-    lastSix.forEach((message) => recentIds.add(message.id));
+    // Add the configurable forced recent count (0-6)
+    if (forcedRecentCount > 0) {
+        const forcedRecent = history.slice(Math.max(0, history.length - forcedRecentCount));
+        forcedRecent.forEach((message) => recentIds.add(message.id));
+    }
     if (recentIds.size === history.length) {
         return [...history];
     }
@@ -704,11 +709,12 @@ export const prepareIntelligentContext = async (
 ): Promise<IntelligentContextResult> => {
     const now = options.now ?? new Date();
     const historyChain = options.historyChain ?? [];
+    const forcedRecentCount = options.forcedRecentMessageCount ?? 0;
 
     if (!options.branchHeadMessageId) {
         return {
             systemMessages: [],
-            recentMessages: filterRecentMessages(historyChain, now),
+            recentMessages: filterRecentMessages(historyChain, now, forcedRecentCount),
         };
     }
 
@@ -738,7 +744,7 @@ export const prepareIntelligentContext = async (
 
     return {
         systemMessages,
-        recentMessages: filterRecentMessages(historyChain, now),
+        recentMessages: filterRecentMessages(historyChain, now, forcedRecentCount),
     };
 };
 

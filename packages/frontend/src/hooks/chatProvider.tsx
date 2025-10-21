@@ -1,4 +1,5 @@
 import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -71,7 +72,7 @@ const nowIso = () => new Date().toISOString();
 
 const CONTEXT_MIN = 1;
 const CONTEXT_MAX = 200;
-const VALID_CONTEXT_MODES = new Set(['last-8', 'all-middle-out', 'custom', 'intelligent']);
+const VALID_CONTEXT_MODES = new Set(['all-middle-out', 'custom', 'intelligent']);
 
 const clampCustomMessageCount = (value: unknown): number => {
   const numeric = typeof value === 'number' ? value : Number(value);
@@ -93,6 +94,14 @@ const sanitizeInstructionId = (value: unknown): string | null => {
     return value;
   }
   return null;
+};
+
+const clampForcedRecentCount = (value: unknown): number => {
+  const numeric = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(numeric)) {
+    return DEFAULT_CONTEXT_CONFIG.forcedRecentMessageCount;
+  }
+  return Math.min(6, Math.max(0, Math.round(numeric)));
 };
 
 const sanitizeContextConfig = (input: unknown): ChatThread['contextConfig'] => {
@@ -120,6 +129,11 @@ const sanitizeContextConfig = (input: unknown): ChatThread['contextConfig'] => {
   if (typeof (candidate as { summaryPrompt?: unknown }).summaryPrompt === 'string') {
     const promptValue = String((candidate as { summaryPrompt: unknown }).summaryPrompt).trim();
     base.summaryPrompt = promptValue.length > 0 ? promptValue : DEFAULT_CONTEXT_CONFIG.summaryPrompt;
+  }
+  if ('forcedRecentMessageCount' in (candidate as Record<string, unknown>)) {
+    base.forcedRecentMessageCount = clampForcedRecentCount(
+      (candidate as { forcedRecentMessageCount?: unknown }).forcedRecentMessageCount
+    );
   }
   return base;
 };
@@ -512,7 +526,36 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
           console.warn('[ChatProvider] Failed to load last active thread', lastActiveThreadError);
         }
 
+        // Fetch conversation summaries
+        const { data: summaryRows, error: summaryError } = await supabase
+          .from('conversation_summaries')
+          .select('*');
+        if (summaryError) {
+          console.warn('[ChatProvider] Failed to load conversation summaries', summaryError);
+        }
+
         const messageStore = parseMessageRows((messageRows ?? []) as SupabaseMessageRow[]);
+
+        // Associate summaries with messages by created_by_message_id
+        if (summaryRows && summaryRows.length > 0) {
+          const summariesByMessageId: Record<string, any[]> = {};
+          summaryRows.forEach((summary) => {
+            const messageId = summary.created_by_message_id;
+            if (messageId) {
+              if (!summariesByMessageId[messageId]) {
+                summariesByMessageId[messageId] = [];
+              }
+              summariesByMessageId[messageId].push(summary);
+            }
+          });
+
+          // Attach summaries to messages
+          Object.keys(summariesByMessageId).forEach((messageId) => {
+            if (messageStore[messageId]) {
+              messageStore[messageId].persistedSummaries = summariesByMessageId[messageId];
+            }
+          });
+        }
 
         const parsedThreads = (refreshedThreads ?? []).map((row) =>
           toChatThread(row as SupabaseThreadRow, messageStore)
@@ -671,44 +714,49 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         contextActions: [],
       };
 
-      setMessages((previous) => {
-        const updated: MessageStore = { ...previous, [id]: newMessage };
-        if (messageData.parentId && updated[messageData.parentId]) {
-          const parent = updated[messageData.parentId];
-          updated[messageData.parentId] = {
-            ...parent,
-            children: [...parent.children, id],
-          };
-        }
-        return updated;
-      });
-
-      setThreads((previous) =>
-        previous.map((thread) => {
-          if (thread.id !== threadId) return thread;
-
-          const selectedChildByMessageId = { ...thread.selectedChildByMessageId };
-          let rootChildren = [...thread.rootChildren];
-          let selectedRootChild = thread.selectedRootChild;
-
-          if (messageData.parentId) {
-            selectedChildByMessageId[messageData.parentId] = id;
-          } else {
-            rootChildren = [...rootChildren, id];
-            selectedRootChild = id;
+      // Use flushSync to ensure both state updates complete atomically
+      // This prevents race conditions where thread metadata points to a message
+      // that hasn't been added to the store yet, which causes invisible messages
+      flushSync(() => {
+        setMessages((previous) => {
+          const updated: MessageStore = { ...previous, [id]: newMessage };
+          if (messageData.parentId && updated[messageData.parentId]) {
+            const parent = updated[messageData.parentId];
+            updated[messageData.parentId] = {
+              ...parent,
+              children: [...parent.children, id],
+            };
           }
+          return updated;
+        });
 
-          const updatedThread: ChatThread = {
-            ...thread,
-            leafMessageId: id,
-            selectedChildByMessageId,
-            rootChildren,
-            selectedRootChild,
-          };
-          persistThreadState(updatedThread);
-          return updatedThread;
-        })
-      );
+        setThreads((previous) =>
+          previous.map((thread) => {
+            if (thread.id !== threadId) return thread;
+
+            const selectedChildByMessageId = { ...thread.selectedChildByMessageId };
+            let rootChildren = [...thread.rootChildren];
+            let selectedRootChild = thread.selectedRootChild;
+
+            if (messageData.parentId) {
+              selectedChildByMessageId[messageData.parentId] = id;
+            } else {
+              rootChildren = [...rootChildren, id];
+              selectedRootChild = id;
+            }
+
+            const updatedThread: ChatThread = {
+              ...thread,
+              leafMessageId: id,
+              selectedChildByMessageId,
+              rootChildren,
+              selectedRootChild,
+            };
+            persistThreadState(updatedThread);
+            return updatedThread;
+          })
+        );
+      });
 
       const newRow: SupabaseMessageRow = {
         id,
