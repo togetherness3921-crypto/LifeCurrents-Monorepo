@@ -494,10 +494,11 @@ const ChatPane = () => {
 
         if (mode === 'intelligent') {
             try {
+                // OBJECTIVE 1 FIX: Pass assistantMessage.id so summaries are attached to the assistant message, not the user message
                 const intelligentContext = await prepareIntelligentContext({
                     conversationId: threadId,
                     branchHeadMessageId: parentId,
-                    createdByMessageId: userMessage.id,
+                    createdByMessageId: assistantMessage.id,
                     historyChain: rawHistoryChain,
                     callTool,
                     summaryPrompt,
