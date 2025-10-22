@@ -13,6 +13,12 @@ const WEEK_RANGE_FORMAT = new Intl.DateTimeFormat(undefined, { timeZone: 'UTC', 
 const MONTH_YEAR_FORMAT = new Intl.DateTimeFormat(undefined, { timeZone: 'UTC', month: 'long', year: 'numeric' });
 const TIME_FORMAT = new Intl.DateTimeFormat(undefined, { timeZone: 'UTC', hour: '2-digit', minute: '2-digit' });
 
+// TIMEZONE FIX: Day boundary configuration
+// Day starts at 5 AM Central Time instead of midnight UTC
+// 5 AM CST (UTC-6) = 11:00 UTC
+// Note: This doesn't account for DST transitions (CDT would be 10:00 UTC)
+const DAY_BOUNDARY_UTC_HOUR = 11;
+
 type SummaryMap = Record<SummaryLevel, Map<string, ConversationSummaryRecord>>;
 
 type ActionStatus = 'pending' | 'running' | 'success' | 'error';
@@ -68,7 +74,15 @@ export interface IntelligentContextResult {
 
 const startOfUtcDay = (input: Date): Date => {
     const value = new Date(input);
+    // Subtract the day boundary offset to find which "day" we're in from Central Time perspective
+    // For example, if it's 10:00 UTC (4 AM Central), that's before the 11:00 boundary,
+    // so we're still in "yesterday" from the user's perspective
+    value.setUTCHours(value.getUTCHours() - DAY_BOUNDARY_UTC_HOUR);
+    // Set to start of that UTC day (midnight)
     value.setUTCHours(0, 0, 0, 0);
+    // Add the offset back to get to the actual day boundary hour
+    // This gives us the "start of day" at 5 AM Central (11 AM UTC)
+    value.setUTCHours(value.getUTCHours() + DAY_BOUNDARY_UTC_HOUR);
     return value;
 };
 
