@@ -27,6 +27,85 @@ const GRAPH_CONTRACT_INSTRUCTIONS = `${GRAPH_CONTRACT_SECTION_HEADING}
 - Never omit \`graph\`, never point it at the node itself, and never reference a deleted/non-existent node ID.
 - Example: The node \`workout_plan\` can set \`graph: "fitness_hub"\` to live inside the \`fitness_hub\` container while keeping \`parents: ["health_goal"]\` to express causality separately.`;
 
+// TIMEZONE FIX: Day boundary configuration
+// Day starts at 5 AM Central Time instead of midnight UTC
+// This is DST-aware and automatically adjusts for timezone changes:
+// - 5 AM CDT (UTC-5) = 10:00 UTC (March-November, Daylight Time)
+// - 5 AM CST (UTC-6) = 11:00 UTC (November-March, Standard Time)
+const CENTRAL_TIMEZONE = 'America/Chicago';
+const DAY_BOUNDARY_LOCAL_HOUR = 5; // 5 AM local time
+
+/**
+ * Calculates the UTC hour that corresponds to 5 AM Central Time on a given date.
+ * This automatically handles DST transitions.
+ */
+const getDayBoundaryUtcHour = (date: Date): number => {
+    // Create a date at 5 AM Central Time on the given day
+    const year = date.getUTCFullYear();
+    const month = date.getUTCMonth();
+    const day = date.getUTCDate();
+
+    // Use noon to avoid edge cases when determining offset
+    const testDate = new Date(date.getTime());
+    testDate.setUTCHours(12, 0, 0, 0);
+
+    // Format the date in Central Time to determine the offset
+    const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: CENTRAL_TIMEZONE,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+    });
+
+    const parts = formatter.formatToParts(testDate);
+    const centralHour = parseInt(parts.find(p => p.type === 'hour')?.value || '12', 10);
+    const utcHour = testDate.getUTCHours();
+
+    // Calculate the offset: if Central is behind UTC, offset is negative
+    let offset = centralHour - utcHour;
+
+    // Handle day boundary crossing
+    if (offset > 12) offset -= 24;
+    if (offset < -12) offset += 24;
+
+    // 5 AM Central = 5 AM - offset in UTC
+    // For CDT (UTC-5): 5 AM - (-5) = 10 AM UTC
+    // For CST (UTC-6): 5 AM - (-6) = 11 AM UTC
+    return DAY_BOUNDARY_LOCAL_HOUR - offset;
+};
+
+/**
+ * Gets the start of the day for a given date, using 5 AM Central as the boundary.
+ * This means times before 5 AM Central are considered part of the previous day.
+ */
+const startOfUtcDay = (input: Date): Date => {
+    const value = new Date(input);
+
+    // Get the DST-aware day boundary hour for this date
+    const boundaryHour = getDayBoundaryUtcHour(value);
+
+    // Subtract the day boundary offset to find which "day" we're in from Central Time perspective
+    // For example, if it's 09:00 UTC (4 AM Central in CDT), that's before the 10:00 boundary,
+    // so we're still in "yesterday" from the user's perspective
+    value.setUTCHours(value.getUTCHours() - boundaryHour);
+    // Set to start of that UTC day (midnight)
+    value.setUTCHours(0, 0, 0, 0);
+    // Add the offset back to get to the actual day boundary hour
+    // This gives us the "start of day" at 5 AM Central (10 AM UTC in CDT, 11 AM UTC in CST)
+    value.setUTCHours(value.getUTCHours() + boundaryHour);
+    return value;
+};
+
+const addUtcDays = (input: Date, amount: number): Date => {
+    const value = new Date(input);
+    value.setUTCDate(value.getUTCDate() + amount);
+    return value;
+};
+
 const ensureGraphContractInstructionSection = (content: string | null | undefined): string => {
     const base = content ?? '';
     if (base.includes(GRAPH_CONTRACT_SECTION_HEADING)) {
@@ -162,10 +241,10 @@ function calculateTruePercentages(
 }
 
 function calculateScores(nodes: Record<string, Node>): object {
-    // Placeholder implementation
-    // TODO: Replace with actual score calculation logic based on historical data
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // Use day boundary logic: 5 AM Central Time
+    const now = new Date();
+    const todayStart = startOfUtcDay(now);
+    const tomorrowStart = addUtcDays(todayStart, 1);
 
     let current_daily_score = 0;
     let planned_daily_score = 0;
@@ -174,7 +253,8 @@ function calculateScores(nodes: Record<string, Node>): object {
         const node = nodes[nodeId];
         const scheduledStart = node.scheduled_start ? new Date(node.scheduled_start) : null;
 
-        if (scheduledStart && scheduledStart.getTime() >= today.getTime()) {
+        // Node is "today" if it starts >= todayStart and < tomorrowStart
+        if (scheduledStart && scheduledStart >= todayStart && scheduledStart < tomorrowStart) {
             if (node.status === 'completed') {
                 current_daily_score += node.true_percentage_of_total || 0;
             } else {
@@ -761,12 +841,25 @@ export class MyMCP extends McpAgent {
                     let allNodes = doc.nodes;
                     const todaysNodes = new Set<string>();
                     const contextNodes = new Set<string>();
-                    const today = new Date().toISOString().split('T')[0];
-                    console.log(`Filtering for nodes scheduled on or after: ${today}`);
+
+                    // Use day boundary logic: 5 AM Central Time
+                    const now = new Date();
+                    const todayStart = startOfUtcDay(now);
+                    const tomorrowStart = addUtcDays(todayStart, 1);
+
+                    console.log(`[get_todays_context] Current time: ${now.toISOString()}`);
+                    console.log(`[get_todays_context] Today starts at (5 AM Central): ${todayStart.toISOString()}`);
+                    console.log(`[get_todays_context] Tomorrow starts at (5 AM Central): ${tomorrowStart.toISOString()}`);
 
                     for (const nodeId in allNodes) {
-                        if (allNodes[nodeId].scheduled_start?.startsWith(today)) {
-                            todaysNodes.add(nodeId);
+                        const node = allNodes[nodeId];
+                        if (node.scheduled_start) {
+                            const schedStart = new Date(node.scheduled_start);
+                            // Node is "today" if it starts >= todayStart and < tomorrowStart
+                            if (schedStart >= todayStart && schedStart < tomorrowStart) {
+                                console.log(`[get_todays_context] Node ${nodeId} scheduled for today: ${node.scheduled_start}`);
+                                todaysNodes.add(nodeId);
+                            }
                         }
                     }
                     console.log(`Found ${todaysNodes.size} nodes for today.`);

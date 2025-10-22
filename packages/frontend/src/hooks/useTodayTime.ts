@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { startOfUtcDay, endOfUtcDay } from '@/services/intelligentContext';
 
 function toDayKey(d: Date): string {
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
+    // Use the custom day boundary (5 AM Central) for day key calculation
+    const dayStart = startOfUtcDay(d);
+    const y = dayStart.getUTCFullYear();
+    const m = String(dayStart.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(dayStart.getUTCDate()).padStart(2, '0');
     return `${y}-${m}-${day}`;
 }
 
@@ -28,10 +31,9 @@ export function useTodayTime(tickMs: number = 60000) {
     }, [tickMs]);
 
     const { startOfDay, endOfDay } = useMemo(() => {
-        const sod = new Date(now);
-        sod.setHours(0, 0, 0, 0);
-        const eod = new Date(now);
-        eod.setHours(23, 59, 59, 999);
+        // Use custom day boundary (5 AM Central) instead of local midnight
+        const sod = startOfUtcDay(now);
+        const eod = endOfUtcDay(now);
         return { startOfDay: sod, endOfDay: eod };
     }, [now]);
 

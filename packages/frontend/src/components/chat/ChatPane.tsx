@@ -545,6 +545,8 @@ const ChatPane = () => {
         const userMessageTimestamp = userMessage.createdAt;
         let timestampedContent = content;
         if (userMessageTimestamp) {
+            console.log('[ChatPane] User message createdAt:', userMessageTimestamp.toISOString());
+            console.log('[ChatPane] User message createdAt (local):', userMessageTimestamp.toString());
             const timeStr = userMessageTimestamp.toLocaleTimeString(undefined, {
                 hour: '2-digit',
                 minute: '2-digit',
@@ -554,13 +556,27 @@ const ChatPane = () => {
                 month: 'short',
                 day: 'numeric',
             });
+            console.log('[ChatPane] Formatted timestamp for API:', `[${timeStr} | ${dateStr}]`);
             timestampedContent = `[${timeStr} | ${dateStr}] ${content}`;
         }
 
+        // Combine all system messages into a single message to reduce message count
+        const systemContents: string[] = [];
+        if (systemPrompt) {
+            systemContents.push(systemPrompt);
+        }
+        if (dailyContextMessage) {
+            systemContents.push(dailyContextMessage.content);
+        }
+
+        // Extract system messages from historyMessagesForApi and combine them
+        const systemMessagesFromHistory = historyMessagesForApi.filter(msg => msg.role === 'system');
+        const nonSystemMessagesFromHistory = historyMessagesForApi.filter(msg => msg.role !== 'system');
+        systemMessagesFromHistory.forEach(msg => systemContents.push(msg.content));
+
         const conversationMessages: ApiMessage[] = [
-            ...(systemPrompt ? [{ role: 'system' as const, content: systemPrompt }] : []),
-            ...(dailyContextMessage ? [dailyContextMessage] : []),
-            ...historyMessagesForApi,
+            ...(systemContents.length > 0 ? [{ role: 'system' as const, content: systemContents.join('\n\n') }] : []),
+            ...nonSystemMessagesFromHistory,
             { role: 'user' as const, content: timestampedContent },
         ];
 

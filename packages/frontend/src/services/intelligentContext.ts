@@ -18,14 +18,14 @@ const TIME_FORMAT = new Intl.DateTimeFormat(undefined, { timeZone: 'UTC', hour: 
 // This is DST-aware and automatically adjusts for timezone changes:
 // - 5 AM CDT (UTC-5) = 10:00 UTC (March-November, Daylight Time)
 // - 5 AM CST (UTC-6) = 11:00 UTC (November-March, Standard Time)
-const CENTRAL_TIMEZONE = 'America/Chicago';
-const DAY_BOUNDARY_LOCAL_HOUR = 5; // 5 AM local time
+export const CENTRAL_TIMEZONE = 'America/Chicago';
+export const DAY_BOUNDARY_LOCAL_HOUR = 5; // 5 AM local time
 
 /**
  * Calculates the UTC hour that corresponds to 5 AM Central Time on a given date.
  * This automatically handles DST transitions.
  */
-const getDayBoundaryUtcHour = (date: Date): number => {
+export const getDayBoundaryUtcHour = (date: Date): number => {
     // Create a date at 5 AM Central Time on the given day
     const year = date.getUTCFullYear();
     const month = date.getUTCMonth();
@@ -120,7 +120,7 @@ export interface IntelligentContextResult {
     recentMessages: Message[];
 }
 
-const startOfUtcDay = (input: Date): Date => {
+export const startOfUtcDay = (input: Date): Date => {
     const value = new Date(input);
 
     // Get the DST-aware day boundary hour for this date
@@ -138,10 +138,19 @@ const startOfUtcDay = (input: Date): Date => {
     return value;
 };
 
-const addUtcDays = (input: Date, amount: number): Date => {
+export const addUtcDays = (input: Date, amount: number): Date => {
     const value = new Date(input);
     value.setUTCDate(value.getUTCDate() + amount);
     return value;
+};
+
+/**
+ * Returns the end of the day (last millisecond before the next day's boundary).
+ * Uses the 5 AM Central Time day boundary.
+ */
+export const endOfUtcDay = (input: Date): Date => {
+    const nextDay = addUtcDays(startOfUtcDay(input), 1);
+    return new Date(nextDay.getTime() - 1);
 };
 
 const startOfUtcWeek = (input: Date): Date => {
@@ -819,8 +828,13 @@ const generateToolCallSummary = (toolCall: { name: string; arguments: string; re
 /**
  * OBJECTIVE 3: Compress stale tool calls in messages
  *
- * A tool call is "stale" if it occurred before the most recent user message.
- * For stale tool calls, we replace verbose responses with programmatic summaries.
+ * Since this function is called on the conversation history BEFORE a new user message
+ * is added, ALL tool calls in the history are "stale" (they occurred before the
+ * new user message being sent). We compress them to reduce context size.
+ *
+ * Exception: If the last message is an assistant message with tool calls, we keep
+ * the most recent tool call uncompressed to preserve immediate context.
+ *
  * This is an IN-MEMORY transformation - the original messages are never modified.
  */
 const compressStaleToolCalls = (messages: Message[]): Message[] => {
@@ -829,41 +843,23 @@ const compressStaleToolCalls = (messages: Message[]): Message[] => {
     console.log('[Compression] Starting compression check. Total messages:', messages.length);
     console.log('[Compression] Message roles:', messages.map((m, i) => `${i}:${m.role}`).join(', '));
 
-    // Find the index of the most recent user message
-    let mostRecentUserIndex = -1;
-    for (let i = messages.length - 1; i >= 0; i--) {
-        if (messages[i].role === 'user') {
-            mostRecentUserIndex = i;
-            break;
-        }
-    }
+    // Find all assistant messages with tool calls
+    const assistantMessagesWithTools = messages.filter(m => m.role === 'assistant' && m.toolCalls && m.toolCalls.length > 0);
+    console.log('[Compression] Found', assistantMessagesWithTools.length, 'assistant messages with tool calls to compress');
 
-    console.log('[Compression] Most recent user message index:', mostRecentUserIndex);
-
-    // If no user message found, or it's the first message, nothing is stale
-    if (mostRecentUserIndex <= 0) {
-        console.log('[Compression] No stale tool calls to compress (mostRecentUserIndex <= 0)');
+    if (assistantMessagesWithTools.length === 0) {
+        console.log('[Compression] No tool calls to compress');
         return messages;
     }
-
-    // Log messages that will be checked for compression
-    const messagesToCheck = messages.slice(0, mostRecentUserIndex);
-    const assistantMessagesWithTools = messagesToCheck.filter(m => m.role === 'assistant' && m.toolCalls && m.toolCalls.length > 0);
-    console.log('[Compression] Checking', messagesToCheck.length, 'messages before index', mostRecentUserIndex);
-    console.log('[Compression] Found', assistantMessagesWithTools.length, 'assistant messages with tool calls');
-    assistantMessagesWithTools.forEach((msg, idx) => {
-        console.log(`[Compression] Assistant message ${idx}: ${msg.toolCalls?.length} tool calls`);
-    });
 
     let compressedCount = 0;
     const compressionDetails: Array<{toolName: string, originalLength: number, compressedLength: number}> = [];
 
+    // Find the index of the last message (to potentially preserve immediate context)
+    const lastMessageIndex = messages.length - 1;
+
     // Create a deep copy for LLM use (don't modify original messages)
     const compressed = messages.map((msg, index) => {
-        // Only compress messages before the most recent user message
-        if (index >= mostRecentUserIndex) {
-            return msg; // Keep current turn unchanged
-        }
 
         // If this message has tool calls, compress their responses
         if (msg.role === 'assistant' && msg.toolCalls && msg.toolCalls.length > 0) {
@@ -909,12 +905,18 @@ const compressStaleToolCalls = (messages: Message[]): Message[] => {
 export const prepareIntelligentContext = async (
     options: PrepareIntelligentContextOptions
 ): Promise<IntelligentContextResult> => {
+    console.log('[IntelligentContext] prepareIntelligentContext called');
     const now = options.now ?? new Date();
     const historyChain = options.historyChain ?? [];
     const forcedRecentCount = options.forcedRecentMessages ?? 0;
 
+    console.log('[IntelligentContext] History chain length:', historyChain.length);
+    console.log('[IntelligentContext] Branch head message ID:', options.branchHeadMessageId);
+
     if (!options.branchHeadMessageId) {
+        console.log('[IntelligentContext] No branchHeadMessageId, taking early return path');
         const recentMessages = filterRecentMessages(historyChain, now, forcedRecentCount);
+        console.log('[IntelligentContext] About to compress (early path). Recent messages count:', recentMessages.length);
         return {
             systemMessages: [],
             // OBJECTIVE 3: Apply compression to recent messages for LLM
@@ -947,6 +949,9 @@ export const prepareIntelligentContext = async (
     const { systemMessages } = buildSystemMessages(summaryMap, now);
 
     const recentMessages = filterRecentMessages(historyChain, now, forcedRecentCount);
+
+    console.log('[IntelligentContext] About to compress. Recent messages count:', recentMessages.length);
+    console.log('[IntelligentContext] Recent message roles:', recentMessages.map(m => m.role).join(', '));
 
     return {
         systemMessages,

@@ -27,7 +27,8 @@ import { useToast } from '@/hooks/use-toast';
 import { GraphHistoryProvider, useGraphHistory } from '@/hooks/graphHistoryProvider';
 import { fetchLayoutBorders, persistLayoutBorders } from '@/services/layoutPersistence';
 import { cn } from '@/lib/utils';
-import { format, startOfDay as startOfDayFn, endOfDay as endOfDayFn, addDays } from 'date-fns';
+import { format, addDays } from 'date-fns';
+import { startOfUtcDay, endOfUtcDay, addUtcDays } from '@/services/intelligentContext';
 
 const DEFAULT_TOP_LAYOUT = [70, 15, 15] as const;
 const DEFAULT_MAIN_VERTICAL_LAYOUT = [65, 15, 20] as const;
@@ -70,11 +71,11 @@ const nodeTypes = {
 
 function CausalGraphContent() {
   const { now: nowRealtime } = useTodayTime(60000);
-  const todayStart = useMemo(() => startOfDayFn(nowRealtime), [nowRealtime]);
-  const [viewedDate, setViewedDate] = useState<Date>(() => startOfDayFn(new Date()));
+  const todayStart = useMemo(() => startOfUtcDay(nowRealtime), [nowRealtime]);
+  const [viewedDate, setViewedDate] = useState<Date>(() => startOfUtcDay(new Date()));
   useEffect(() => {
     setViewedDate((prev) => {
-      const prevKey = startOfDayFn(prev).getTime();
+      const prevKey = startOfUtcDay(prev).getTime();
       const todayKey = todayStart.getTime();
       if (prevKey === todayKey) {
         return todayStart;
@@ -82,8 +83,8 @@ function CausalGraphContent() {
       return prev;
     });
   }, [todayStart]);
-  const startOfDay = useMemo(() => startOfDayFn(viewedDate), [viewedDate]);
-  const endOfDay = useMemo(() => endOfDayFn(viewedDate), [viewedDate]);
+  const startOfDay = useMemo(() => startOfUtcDay(viewedDate), [viewedDate]);
+  const endOfDay = useMemo(() => endOfUtcDay(viewedDate), [viewedDate]);
   const {
     nodes: graphNodes,
     edges: graphEdges,
@@ -119,14 +120,14 @@ function CausalGraphContent() {
     setViewedDate(todayStart);
   }, [todayStart]);
   const goToPreviousDay = useCallback(() => {
-    setViewedDate(prev => startOfDayFn(addDays(prev, -1)));
+    setViewedDate(prev => addUtcDays(startOfUtcDay(prev), -1));
   }, []);
   const goToNextDay = useCallback(() => {
-    setViewedDate(prev => startOfDayFn(addDays(prev, 1)));
+    setViewedDate(prev => addUtcDays(startOfUtcDay(prev), 1));
   }, []);
   const handleSelectDate = useCallback((date: Date | undefined) => {
     if (!date) return;
-    setViewedDate(startOfDayFn(date));
+    setViewedDate(startOfUtcDay(date));
   }, []);
   const formattedViewedDate = useMemo(() => format(viewedDate, 'MMM d, yyyy'), [viewedDate]);
   const isViewingToday = startOfDay.getTime() === todayStart.getTime();
