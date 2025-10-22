@@ -909,12 +909,18 @@ const compressStaleToolCalls = (messages: Message[]): Message[] => {
 export const prepareIntelligentContext = async (
     options: PrepareIntelligentContextOptions
 ): Promise<IntelligentContextResult> => {
+    console.log('[IntelligentContext] prepareIntelligentContext called');
     const now = options.now ?? new Date();
     const historyChain = options.historyChain ?? [];
     const forcedRecentCount = options.forcedRecentMessages ?? 0;
 
+    console.log('[IntelligentContext] History chain length:', historyChain.length);
+    console.log('[IntelligentContext] Branch head message ID:', options.branchHeadMessageId);
+
     if (!options.branchHeadMessageId) {
+        console.log('[IntelligentContext] No branchHeadMessageId, taking early return path');
         const recentMessages = filterRecentMessages(historyChain, now, forcedRecentCount);
+        console.log('[IntelligentContext] About to compress (early path). Recent messages count:', recentMessages.length);
         return {
             systemMessages: [],
             // OBJECTIVE 3: Apply compression to recent messages for LLM
@@ -947,6 +953,9 @@ export const prepareIntelligentContext = async (
     const { systemMessages } = buildSystemMessages(summaryMap, now);
 
     const recentMessages = filterRecentMessages(historyChain, now, forcedRecentCount);
+
+    console.log('[IntelligentContext] About to compress. Recent messages count:', recentMessages.length);
+    console.log('[IntelligentContext] Recent message roles:', recentMessages.map(m => m.role).join(', '));
 
     return {
         systemMessages,

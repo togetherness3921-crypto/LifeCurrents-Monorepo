@@ -545,6 +545,8 @@ const ChatPane = () => {
         const userMessageTimestamp = userMessage.createdAt;
         let timestampedContent = content;
         if (userMessageTimestamp) {
+            console.log('[ChatPane] User message createdAt:', userMessageTimestamp.toISOString());
+            console.log('[ChatPane] User message createdAt (local):', userMessageTimestamp.toString());
             const timeStr = userMessageTimestamp.toLocaleTimeString(undefined, {
                 hour: '2-digit',
                 minute: '2-digit',
@@ -554,6 +556,7 @@ const ChatPane = () => {
                 month: 'short',
                 day: 'numeric',
             });
+            console.log('[ChatPane] Formatted timestamp for API:', `[${timeStr} | ${dateStr}]`);
             timestampedContent = `[${timeStr} | ${dateStr}] ${content}`;
         }
 
