@@ -15,9 +15,10 @@ const TIME_FORMAT = new Intl.DateTimeFormat(undefined, { timeZone: 'UTC', hour: 
 
 // TIMEZONE FIX: Day boundary configuration
 // Day starts at 5 AM Central Time instead of midnight UTC
-// 5 AM CST (UTC-6) = 11:00 UTC
-// Note: This doesn't account for DST transitions (CDT would be 10:00 UTC)
-const DAY_BOUNDARY_UTC_HOUR = 11;
+// 5 AM CDT (UTC-5) = 10:00 UTC (March-November, Daylight Time)
+// 5 AM CST (UTC-6) = 11:00 UTC (November-March, Standard Time)
+// Using 10 for CDT since most of the year is in Daylight Time
+const DAY_BOUNDARY_UTC_HOUR = 10;
 
 type SummaryMap = Record<SummaryLevel, Map<string, ConversationSummaryRecord>>;
 
