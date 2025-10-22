@@ -826,6 +826,9 @@ const generateToolCallSummary = (toolCall: { name: string; arguments: string; re
 const compressStaleToolCalls = (messages: Message[]): Message[] => {
     if (messages.length === 0) return messages;
 
+    console.log('[Compression] Starting compression check. Total messages:', messages.length);
+    console.log('[Compression] Message roles:', messages.map((m, i) => `${i}:${m.role}`).join(', '));
+
     // Find the index of the most recent user message
     let mostRecentUserIndex = -1;
     for (let i = messages.length - 1; i >= 0; i--) {
@@ -835,11 +838,22 @@ const compressStaleToolCalls = (messages: Message[]): Message[] => {
         }
     }
 
+    console.log('[Compression] Most recent user message index:', mostRecentUserIndex);
+
     // If no user message found, or it's the first message, nothing is stale
     if (mostRecentUserIndex <= 0) {
-        console.log('[Compression] No stale tool calls to compress');
+        console.log('[Compression] No stale tool calls to compress (mostRecentUserIndex <= 0)');
         return messages;
     }
+
+    // Log messages that will be checked for compression
+    const messagesToCheck = messages.slice(0, mostRecentUserIndex);
+    const assistantMessagesWithTools = messagesToCheck.filter(m => m.role === 'assistant' && m.toolCalls && m.toolCalls.length > 0);
+    console.log('[Compression] Checking', messagesToCheck.length, 'messages before index', mostRecentUserIndex);
+    console.log('[Compression] Found', assistantMessagesWithTools.length, 'assistant messages with tool calls');
+    assistantMessagesWithTools.forEach((msg, idx) => {
+        console.log(`[Compression] Assistant message ${idx}: ${msg.toolCalls?.length} tool calls`);
+    });
 
     let compressedCount = 0;
     const compressionDetails: Array<{toolName: string, originalLength: number, compressedLength: number}> = [];

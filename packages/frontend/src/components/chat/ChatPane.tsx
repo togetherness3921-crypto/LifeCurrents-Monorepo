@@ -541,17 +541,21 @@ const ChatPane = () => {
         }
 
         // FEATURE 6: Prepend timestamp to current user message for consistency with history
-        const now = new Date();
-        const timeStr = now.toLocaleTimeString(undefined, {
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: false,
-        });
-        const dateStr = now.toLocaleDateString(undefined, {
-            month: 'short',
-            day: 'numeric',
-        });
-        const timestampedContent = `[${timeStr} | ${dateStr}] ${content}`;
+        // Use the user message's actual createdAt timestamp, not a new Date()
+        const userMessageTimestamp = userMessage.createdAt;
+        let timestampedContent = content;
+        if (userMessageTimestamp) {
+            const timeStr = userMessageTimestamp.toLocaleTimeString(undefined, {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false,
+            });
+            const dateStr = userMessageTimestamp.toLocaleDateString(undefined, {
+                month: 'short',
+                day: 'numeric',
+            });
+            timestampedContent = `[${timeStr} | ${dateStr}] ${content}`;
+        }
 
         const conversationMessages: ApiMessage[] = [
             ...(systemPrompt ? [{ role: 'system' as const, content: systemPrompt }] : []),
