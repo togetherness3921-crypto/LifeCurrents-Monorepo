@@ -147,9 +147,12 @@ const serialiseMessageHistoryForApi = (history: Message[]): ApiMessage[] => {
             });
 
             // FEATURE 6: Prepend timestamp to assistant message content
+            // For assistant messages with tool calls but no content, keep content empty
+            // to avoid confusing the model with timestamp-only content
+            const hasContent = message.content && message.content.trim().length > 0;
             const assistantMessage: ApiMessage = {
                 role: 'assistant',
-                content: prependTimestamp(message.content ?? '', message.createdAt),
+                content: hasContent ? prependTimestamp(message.content, message.createdAt) : (message.content ?? ''),
                 ...(toolCalls.length > 0 ? { tool_calls: toolCalls } : {}),
             };
 
@@ -537,11 +540,24 @@ const ChatPane = () => {
             console.warn('[ChatPane] Failed to fetch daily context, continuing without it.', contextError);
         }
 
+        // FEATURE 6: Prepend timestamp to current user message for consistency with history
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString(undefined, {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false,
+        });
+        const dateStr = now.toLocaleDateString(undefined, {
+            month: 'short',
+            day: 'numeric',
+        });
+        const timestampedContent = `[${timeStr} | ${dateStr}] ${content}`;
+
         const conversationMessages: ApiMessage[] = [
             ...(systemPrompt ? [{ role: 'system' as const, content: systemPrompt }] : []),
             ...(dailyContextMessage ? [dailyContextMessage] : []),
             ...historyMessagesForApi,
-            { role: 'user' as const, content },
+            { role: 'user' as const, content: timestampedContent },
         ];
 
         const toolDefinitions: ApiToolDefinition[] = availableTools.map((tool) => ({

@@ -835,8 +835,8 @@ const compressStaleToolCalls = (messages: Message[]): Message[] => {
         }
     }
 
-    // If no user message found, or it's the last message, nothing is stale
-    if (mostRecentUserIndex === -1 || mostRecentUserIndex === messages.length - 1) {
+    // If no user message found, or it's the first message, nothing is stale
+    if (mostRecentUserIndex <= 0) {
         console.log('[Compression] No stale tool calls to compress');
         return messages;
     }
