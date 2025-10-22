@@ -575,7 +575,7 @@ const ChatPane = () => {
         systemMessagesFromHistory.forEach(msg => systemContents.push(msg.content));
 
         const conversationMessages: ApiMessage[] = [
-            ...(systemContents.length > 0 ? [{ role: 'system' as const, content: systemContents.join('\n\n') }] : []),
+            ...(systemContents.length > 0 ? [{ role: 'system' as const, content: systemContents.join('\n\n---\n\n') }] : []),
             ...nonSystemMessagesFromHistory,
             { role: 'user' as const, content: timestampedContent },
         ];
