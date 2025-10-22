@@ -59,7 +59,7 @@ export const ConversationContextProvider = ({ children }: { children: ReactNode 
     const setForcedRecentMessages = useCallback(
         (count: number) => {
             if (!activeThreadId) return;
-            const clamped = Math.min(6, Math.max(0, Math.round(count)));
+            const clamped = Math.min(100, Math.max(0, Math.round(count)));
             updateThreadSettings(activeThreadId, {
                 contextConfig: {
                     ...contextConfig,

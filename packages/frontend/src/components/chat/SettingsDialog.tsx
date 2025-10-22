@@ -621,7 +621,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onOpenChange, pre
                                                     <Slider
                                                         value={[forcedRecentMessages]}
                                                         min={0}
-                                                        max={6}
+                                                        max={100}
                                                         step={1}
                                                         onValueChange={(values) => setForcedRecentMessages(values[0] ?? 0)}
                                                     />
@@ -636,13 +636,13 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onOpenChange, pre
                                                             value={forcedRecentMessages}
                                                             onChange={(event) => setForcedRecentMessages(Number(event.target.value) || 0)}
                                                             min={0}
-                                                            max={6}
+                                                            max={100}
                                                             className="w-20"
                                                         />
                                                     </div>
                                                 </div>
                                                 <p className="text-xs text-muted-foreground">
-                                                    In addition to today's messages, force the last {forcedRecentMessages} message{forcedRecentMessages === 1 ? '' : 's'} from history to be included (0-6). Default: 0.
+                                                    In addition to today's messages, force the last {forcedRecentMessages} message{forcedRecentMessages === 1 ? '' : 's'} from history to be included (0-100). Default: 0.
                                                 </p>
                                             </div>
                                         </div>

@@ -8,5 +8,5 @@ export const DEFAULT_CONTEXT_CONFIG: ConversationContextConfig = {
     mode: 'all-middle-out',
     customMessageCount: 20,
     summaryPrompt: DEFAULT_SUMMARY_PROMPT,
-    forcedRecentMessages: 20, // Keep last 20 messages regardless of date for compression
+    forcedRecentMessages: 0,
 };
