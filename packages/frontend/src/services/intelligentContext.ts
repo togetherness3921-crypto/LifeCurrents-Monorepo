@@ -771,8 +771,12 @@ const compressStaleToolCalls = (messages: Message[]): Message[] => {
 
     // If no user message found, or it's the last message, nothing is stale
     if (mostRecentUserIndex === -1 || mostRecentUserIndex === messages.length - 1) {
+        console.log('[Compression] No stale tool calls to compress');
         return messages;
     }
+
+    let compressedCount = 0;
+    const compressionDetails: Array<{toolName: string, originalLength: number, compressedLength: number}> = [];
 
     // Create a deep copy for LLM use (don't modify original messages)
     const compressed = messages.map((msg, index) => {
@@ -783,11 +787,25 @@ const compressStaleToolCalls = (messages: Message[]): Message[] => {
 
         // If this message has tool calls, compress their responses
         if (msg.role === 'assistant' && msg.toolCalls && msg.toolCalls.length > 0) {
-            const compressedToolCalls = msg.toolCalls.map(toolCall => ({
-                ...toolCall,
-                // Replace verbose response with programmatic summary
-                response: toolCall.response ? generateToolCallSummary(toolCall) : toolCall.response
-            }));
+            const compressedToolCalls = msg.toolCalls.map(toolCall => {
+                const originalResponse = toolCall.response || '';
+                const compressedResponse = toolCall.response ? generateToolCallSummary(toolCall) : toolCall.response;
+
+                if (originalResponse !== compressedResponse) {
+                    compressedCount++;
+                    compressionDetails.push({
+                        toolName: toolCall.name || 'unknown',
+                        originalLength: String(originalResponse).length,
+                        compressedLength: String(compressedResponse).length
+                    });
+                }
+
+                return {
+                    ...toolCall,
+                    // Replace verbose response with programmatic summary
+                    response: compressedResponse
+                };
+            });
 
             return {
                 ...msg,
@@ -797,6 +815,13 @@ const compressStaleToolCalls = (messages: Message[]): Message[] => {
 
         return msg;
     });
+
+    if (compressedCount > 0) {
+        console.log(`[Compression] ✅ Compressed ${compressedCount} stale tool call(s):`, compressionDetails);
+        console.log(`[Compression] Total tokens saved: ~${compressionDetails.reduce((sum, d) => sum + (d.originalLength - d.compressedLength), 0)} characters`);
+    } else {
+        console.log('[Compression] No tool call responses needed compression');
+    }
 
     return compressed;
 };

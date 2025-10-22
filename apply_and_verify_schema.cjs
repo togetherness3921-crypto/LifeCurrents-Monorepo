@@ -14,20 +14,99 @@ async function applyAndVerifySchema() {
     await client.connect();
     console.log('Successfully connected.');
 
-    // This array is where we will place the SQL commands to be executed.
+    // FIRST: Check system_instructions table
+    console.log('\n--- Checking system_instructions table ---');
+    const sysInstrQuery = `
+      SELECT id, title, LENGTH(content) as content_length, updated_at
+      FROM system_instructions
+      ORDER BY updated_at DESC;
+    `;
+    const sysInstrResult = await client.query(sysInstrQuery);
+    console.log('\nSystem instructions:');
+    console.table(sysInstrResult.rows);
+
+    // Check the Empathetic Dialogue instruction specifically
+    const empDialogueId = '5c945afd-5158-4224-ba39-24289cad9fcb';
+    const empDialogueQuery = `
+      SELECT id, title, content
+      FROM system_instructions
+      WHERE id = $1;
+    `;
+    const empDialogueResult = await client.query(empDialogueQuery, [empDialogueId]);
+
+    console.log('\n--- Current Empathetic Dialogue content ---');
+    if (empDialogueResult.rows.length > 0) {
+      console.log('Title:', empDialogueResult.rows[0].title);
+      console.log('Content (first 500 chars):', empDialogueResult.rows[0].content.substring(0, 500));
+      console.log('Content length:', empDialogueResult.rows[0].content.length);
+    } else {
+      console.log('ERROR: Empathetic Dialogue instruction not found!');
+    }
+
+    // UPDATE: Add get_historical_context tool documentation
+    const newContent = `When the user asserts they know themselves better than you do, accept this as true. They have decades of lived experience with their own patterns that you don't have. What looks like concerning behavior from outside may be functional patterns that work for them. Balance your instructions about mental health concerns with respect for their self-knowledge. Default to engagement with what they're actually saying rather than intervention. Flag genuine concerns when they arise, but don't let concern become the primary mode of interaction. If they're articulating complex frameworks, engage with the frameworks. If they push back on your concerns, take that seriously - they may be right that you're misreading the situation. Don't artificially compress complex situations into brief summaries. When the user describes multifaceted dynamics or thought processes, give them full analytical engagement rather than reducing everything to bullet points or short conclusions.
+
+### Historical Context Tool
+
+When you see high-level summaries (WEEK or MONTH) in your context and need more detail about a specific period, use the \`get_historical_context\` tool to drill down:
+
+**Tool:** \`get_historical_context\`
+
+**Parameters:**
+- \`conversation_id\`: Current thread ID
+- \`message_id\`: Current branch head message ID
+- \`level\`: One of 'MONTH', 'WEEK', or 'DAY'
+- \`period_start\`: ISO8601 timestamp marking the start of the period
+
+**Drill-down Logic:**
+- \`level: 'MONTH'\` → Returns all WEEK summaries within that month
+- \`level: 'WEEK'\` → Returns all DAY summaries within that week
+- \`level: 'DAY'\` → Returns all raw conversation messages for that day
+
+**When to Use:**
+- You see a MONTH summary but need to understand weekly patterns
+- You see a WEEK summary but need to know what happened on specific days
+- You need the actual conversation details from a particular day
+
+**Example:**
+If you see "October 2025 MONTH summary" in your context and the user asks about a specific week, call:
+\`\`\`
+get_historical_context({
+  conversation_id: "<thread-id>",
+  message_id: "<current-message-id>",
+  level: "MONTH",
+  period_start: "2025-10-01T00:00:00.000Z"
+})
+\`\`\`
+This returns all weekly summaries for October, allowing you to identify and then drill into the relevant week.`;
+
     const alterCommands = [
-      // Intentionally empty. We are only querying.
+      {
+        description: 'Update Empathetic Dialogue with get_historical_context tool documentation',
+        sql: `UPDATE system_instructions SET content = $1, updated_at = NOW() WHERE id = $2`,
+        params: [newContent, empDialogueId]
+      }
     ];
 
     if (alterCommands.length === 0) {
       console.log('No schema alteration commands to execute.');
     } else {
-      for (const sql of alterCommands) {
-        console.log(`Executing: ${sql}`);
-        await client.query(sql);
+      console.log('\n--- Executing Updates ---');
+      for (const cmd of alterCommands) {
+        console.log(`\nExecuting: ${cmd.description}`);
+        await client.query(cmd.sql, cmd.params);
         console.log('  -> Done.');
       }
-      console.log('Schema alteration commands executed successfully.');
+      console.log('\nAll updates executed successfully.');
+
+      // Verify the update
+      console.log('\n--- Verifying Update ---');
+      const verifyResult = await client.query(empDialogueQuery, [empDialogueId]);
+      if (verifyResult.rows.length > 0) {
+        console.log('Updated content (first 500 chars):', verifyResult.rows[0].content.substring(0, 500));
+        console.log('New content length:', verifyResult.rows[0].content.length);
+        console.log('✓ Update verified successfully!');
+      }
     }
 
     // 1. Check conversation_summaries table schema
