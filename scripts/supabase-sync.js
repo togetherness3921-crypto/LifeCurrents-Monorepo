@@ -120,7 +120,8 @@ function serializeInstruction({ id, title, content }) {
 function parseInstructionFile(raw) {
     const idMatch = raw.match(/id:\s*['\"]([^'\"]+)['\"]/);
     const titleMatch = raw.match(/title:\s*`([\s\S]*?)`/);
-    const contentMatch = raw.match(/content:\s*`([\s\S]*?)`/);
+    // Match content from 'content: `' to the last backtick before '};'
+    const contentMatch = raw.match(/content:\s*`([\s\S]*)`\s*};?\s*$/);
 
     if (!titleMatch || !contentMatch) {
         return null;
