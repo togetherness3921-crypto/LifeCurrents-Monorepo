@@ -18,14 +18,14 @@ const TIME_FORMAT = new Intl.DateTimeFormat(undefined, { timeZone: 'UTC', hour: 
 // This is DST-aware and automatically adjusts for timezone changes:
 // - 5 AM CDT (UTC-5) = 10:00 UTC (March-November, Daylight Time)
 // - 5 AM CST (UTC-6) = 11:00 UTC (November-March, Standard Time)
-const CENTRAL_TIMEZONE = 'America/Chicago';
-const DAY_BOUNDARY_LOCAL_HOUR = 5; // 5 AM local time
+export const CENTRAL_TIMEZONE = 'America/Chicago';
+export const DAY_BOUNDARY_LOCAL_HOUR = 5; // 5 AM local time
 
 /**
  * Calculates the UTC hour that corresponds to 5 AM Central Time on a given date.
  * This automatically handles DST transitions.
  */
-const getDayBoundaryUtcHour = (date: Date): number => {
+export const getDayBoundaryUtcHour = (date: Date): number => {
     // Create a date at 5 AM Central Time on the given day
     const year = date.getUTCFullYear();
     const month = date.getUTCMonth();
@@ -120,7 +120,7 @@ export interface IntelligentContextResult {
     recentMessages: Message[];
 }
 
-const startOfUtcDay = (input: Date): Date => {
+export const startOfUtcDay = (input: Date): Date => {
     const value = new Date(input);
 
     // Get the DST-aware day boundary hour for this date
@@ -138,10 +138,19 @@ const startOfUtcDay = (input: Date): Date => {
     return value;
 };
 
-const addUtcDays = (input: Date, amount: number): Date => {
+export const addUtcDays = (input: Date, amount: number): Date => {
     const value = new Date(input);
     value.setUTCDate(value.getUTCDate() + amount);
     return value;
+};
+
+/**
+ * Returns the end of the day (last millisecond before the next day's boundary).
+ * Uses the 5 AM Central Time day boundary.
+ */
+export const endOfUtcDay = (input: Date): Date => {
+    const nextDay = addUtcDays(startOfUtcDay(input), 1);
+    return new Date(nextDay.getTime() - 1);
 };
 
 const startOfUtcWeek = (input: Date): Date => {
