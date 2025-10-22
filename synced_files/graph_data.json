@@ -23,7 +23,7 @@
       "scheduled_end": "2025-10-20T00:05:00Z",
       "scheduled_start": "2025-10-20T00:00:00Z",
       "percentage_of_parent": 100,
-      "true_percentage_of_total": 0.17647058823529413
+      "true_percentage_of_total": 0.1470588235294118
     },
     "health_development": {
       "type": "objectiveNode",
@@ -65,7 +65,7 @@
       "scheduled_end": "2025-10-16T23:35:00Z",
       "scheduled_start": "2025-10-16T22:50:00Z",
       "percentage_of_parent": 5.882352941176471,
-      "true_percentage_of_total": 0.17647058823529413
+      "true_percentage_of_total": 0.1470588235294118
     },
     "wake_2025_10_18_1000": {
       "type": "objectiveNode",
@@ -80,7 +80,7 @@
       "scheduled_end": "2025-10-18T15:40:00Z",
       "scheduled_start": "2025-10-18T15:00:00Z",
       "percentage_of_parent": 5.882352941176471,
-      "true_percentage_of_total": 0.17647058823529413
+      "true_percentage_of_total": 0.1470588235294118
     },
     "wake_2025_10_19_0745": {
       "type": "objectiveNode",
@@ -95,7 +95,7 @@
       "scheduled_end": "2025-10-19T13:15:00Z",
       "scheduled_start": "2025-10-19T12:45:00Z",
       "percentage_of_parent": 5.882352941176471,
-      "true_percentage_of_total": 0.17647058823529413
+      "true_percentage_of_total": 0.1470588235294118
     },
     "work_2025_10_18_1530": {
       "type": "objectiveNode",
@@ -111,7 +111,7 @@
       "scheduled_end": "2025-10-18T22:30:00Z",
       "scheduled_start": "2025-10-18T20:30:00Z",
       "percentage_of_parent": 16.666666666666668,
-      "true_percentage_of_total": 1.0588235294117647
+      "true_percentage_of_total": 2.9166666666666674
     },
     "yoga_2025_10_17_0830": {
       "type": "objectiveNode",
@@ -126,7 +126,7 @@
       "scheduled_end": "2025-10-17T14:15:00Z",
       "scheduled_start": "2025-10-17T13:30:00Z",
       "percentage_of_parent": 5.882352941176471,
-      "true_percentage_of_total": 0.17647058823529413
+      "true_percentage_of_total": 0.1470588235294118
     },
     "yoga_2025_10_19_0830": {
       "type": "objectiveNode",
@@ -141,7 +141,7 @@
       "scheduled_end": "2025-10-19T14:30:00Z",
       "scheduled_start": "2025-10-19T13:30:00Z",
       "percentage_of_parent": 5.882352941176471,
-      "true_percentage_of_total": 0.17647058823529413
+      "true_percentage_of_total": 0.1470588235294118
     },
     "lunch_2025_10_18_1400": {
       "type": "objectiveNode",
@@ -156,7 +156,7 @@
       "scheduled_end": "2025-10-18T20:30:00Z",
       "scheduled_start": "2025-10-18T19:00:00Z",
       "percentage_of_parent": 5.882352941176471,
-      "true_percentage_of_total": 0.17647058823529413
+      "true_percentage_of_total": 0.1470588235294118
     },
     "mirna_2025_10_16_2230": {
       "type": "objectiveNode",
@@ -171,7 +171,7 @@
       "scheduled_end": "2025-10-17T05:00:00Z",
       "scheduled_start": "2025-10-17T03:30:00Z",
       "percentage_of_parent": 5.882352941176471,
-      "true_percentage_of_total": 0.17647058823529413
+      "true_percentage_of_total": 0.1470588235294118
     },
     "mirna_2025_10_18_2300": {
       "type": "objectiveNode",
@@ -186,7 +186,7 @@
       "scheduled_end": "2025-10-19T05:30:00Z",
       "scheduled_start": "2025-10-19T04:00:00Z",
       "percentage_of_parent": 5.882352941176471,
-      "true_percentage_of_total": 0.17647058823529413
+      "true_percentage_of_total": 0.1470588235294118
     },
     "mirna_2025_10_19_1900": {
       "type": "objectiveNode",
@@ -201,7 +201,7 @@
       "scheduled_end": "2025-10-20T03:30:00Z",
       "scheduled_start": "2025-10-20T00:00:00Z",
       "percentage_of_parent": 5.882352941176471,
-      "true_percentage_of_total": 0.17647058823529413
+      "true_percentage_of_total": 0.1470588235294118
     },
     "rally_2025_10_18_1040": {
       "type": "objectiveNode",
@@ -216,7 +216,7 @@
       "scheduled_end": "2025-10-18T19:00:00Z",
       "scheduled_start": "2025-10-18T15:40:00Z",
       "percentage_of_parent": 5.882352941176471,
-      "true_percentage_of_total": 0.17647058823529413
+      "true_percentage_of_total": 0.1470588235294118
     },
     "sleep_2025_10_17_0030": {
       "type": "objectiveNode",
@@ -231,7 +231,7 @@
       "scheduled_end": "2025-10-17T12:45:00Z",
       "scheduled_start": "2025-10-17T05:30:00Z",
       "percentage_of_parent": 5.882352941176471,
-      "true_percentage_of_total": 0.17647058823529413
+      "true_percentage_of_total": 0.1470588235294118
     },
     "sleep_2025_10_19_0100": {
       "type": "objectiveNode",
@@ -246,7 +246,7 @@
       "scheduled_end": "2025-10-19T12:45:00Z",
       "scheduled_start": "2025-10-19T06:00:00Z",
       "percentage_of_parent": 5.882352941176471,
-      "true_percentage_of_total": 0.17647058823529413
+      "true_percentage_of_total": 0.1470588235294118
     },
     "sleep_2025_10_19_2330": {
       "type": "objectiveNode",
@@ -261,7 +261,7 @@
       "scheduled_end": "2025-10-20T05:30:00Z",
       "scheduled_start": "2025-10-20T04:30:00Z",
       "percentage_of_parent": 16.666666666666668,
-      "true_percentage_of_total": 3
+      "true_percentage_of_total": 2.5000000000000004
     },
     "dinner_2025_10_19_1800": {
       "type": "objectiveNode",
@@ -276,7 +276,7 @@
       "scheduled_end": "2025-10-20T00:00:00Z",
       "scheduled_start": "2025-10-19T23:00:00Z",
       "percentage_of_parent": 5.882352941176471,
-      "true_percentage_of_total": 0.17647058823529413
+      "true_percentage_of_total": 0.1470588235294118
     },
     "wildfire_2025_10_18_1900": {
       "type": "objectiveNode",
@@ -291,7 +291,7 @@
       "scheduled_end": "2025-10-19T02:30:00Z",
       "scheduled_start": "2025-10-19T00:00:00Z",
       "percentage_of_parent": 5.882352941176471,
-      "true_percentage_of_total": 0.17647058823529413
+      "true_percentage_of_total": 0.1470588235294118
     },
     "deep_work_2025_10_16_1305": {
       "type": "objectiveNode",
@@ -306,7 +306,7 @@
       "scheduled_end": "2025-10-16T22:45:00Z",
       "scheduled_start": "2025-10-16T18:05:00Z",
       "percentage_of_parent": 16.666666666666668,
-      "true_percentage_of_total": 3
+      "true_percentage_of_total": 2.5000000000000004
     },
     "deep_work_2025_10_17_1030": {
       "type": "objectiveNode",
@@ -321,7 +321,7 @@
       "scheduled_end": "2025-10-18T02:00:00Z",
       "scheduled_start": "2025-10-17T15:30:00Z",
       "percentage_of_parent": 16.666666666666668,
-      "true_percentage_of_total": 3
+      "true_percentage_of_total": 2.5000000000000004
     },
     "deep_work_2025_10_19_1015": {
       "type": "objectiveNode",
@@ -336,7 +336,7 @@
       "scheduled_end": "2025-10-19T23:00:00Z",
       "scheduled_start": "2025-10-19T15:15:00Z",
       "percentage_of_parent": 16.666666666666668,
-      "true_percentage_of_total": 3
+      "true_percentage_of_total": 2.5000000000000004
     },
     "fri_mirna_2025_10_17_2230": {
       "type": "objectiveNode",
@@ -351,7 +351,7 @@
       "scheduled_end": "2025-10-18T06:00:00Z",
       "scheduled_start": "2025-10-18T03:30:00Z",
       "percentage_of_parent": 5.882352941176471,
-      "true_percentage_of_total": 0.17647058823529413
+      "true_percentage_of_total": 0.1470588235294118
     },
     "fri_sleep_2025_10_18_0130": {
       "type": "objectiveNode",
@@ -366,7 +366,7 @@
       "scheduled_end": "2025-10-18T15:00:00Z",
       "scheduled_start": "2025-10-18T06:00:00Z",
       "percentage_of_parent": 5.882352941176471,
-      "true_percentage_of_total": 0.17647058823529413
+      "true_percentage_of_total": 0.1470588235294118
     },
     "wait_uber_2025_10_16_1755": {
       "type": "objectiveNode",
@@ -381,7 +381,7 @@
       "scheduled_end": "2025-10-16T23:05:00Z",
       "scheduled_start": "2025-10-16T22:55:00Z",
       "percentage_of_parent": 5.882352941176471,
-      "true_percentage_of_total": 0.17647058823529413
+      "true_percentage_of_total": 0.1470588235294118
     },
     "wake_meds_2025_10_17_0745": {
       "type": "objectiveNode",
@@ -396,7 +396,7 @@
       "scheduled_end": "2025-10-17T13:15:00Z",
       "scheduled_start": "2025-10-17T12:45:00Z",
       "percentage_of_parent": 5.882352941176471,
-      "true_percentage_of_total": 0.17647058823529413
+      "true_percentage_of_total": 0.1470588235294118
     },
     "walk_home_2025_10_16_1745": {
       "type": "objectiveNode",
@@ -411,7 +411,7 @@
       "scheduled_end": "2025-10-16T22:55:00Z",
       "scheduled_start": "2025-10-16T22:45:00Z",
       "percentage_of_parent": 5.882352941176471,
-      "true_percentage_of_total": 0.17647058823529413
+      "true_percentage_of_total": 0.1470588235294118
     },
     "wind_down_2025_10_16_2400": {
       "type": "objectiveNode",
@@ -426,7 +426,7 @@
       "scheduled_end": "2025-10-17T05:30:00Z",
       "scheduled_start": "2025-10-17T05:00:00Z",
       "percentage_of_parent": 5.882352941176471,
-      "true_percentage_of_total": 0.17647058823529413
+      "true_percentage_of_total": 0.1470588235294118
     },
     "decompress_2025_10_16_2100": {
       "type": "objectiveNode",
@@ -441,7 +441,7 @@
       "scheduled_end": "2025-10-17T03:30:00Z",
       "scheduled_start": "2025-10-17T02:00:00Z",
       "percentage_of_parent": 5.882352941176471,
-      "true_percentage_of_total": 0.17647058823529413
+      "true_percentage_of_total": 0.1470588235294118
     },
     "decompress_2025_10_18_2200": {
       "type": "objectiveNode",
@@ -456,7 +456,7 @@
       "scheduled_end": "2025-10-19T04:00:00Z",
       "scheduled_start": "2025-10-19T03:00:00Z",
       "percentage_of_parent": 5.882352941176471,
-      "true_percentage_of_total": 0.17647058823529413
+      "true_percentage_of_total": 0.1470588235294118
     },
     "mens_group_2025_10_16_1900": {
       "type": "objectiveNode",
@@ -471,7 +471,7 @@
       "scheduled_end": "2025-10-17T01:30:00Z",
       "scheduled_start": "2025-10-17T00:00:00Z",
       "percentage_of_parent": 5.882352941176471,
-      "true_percentage_of_total": 0.17647058823529413
+      "true_percentage_of_total": 0.1470588235294118
     },
     "test_task_a_20251022011900": {
       "type": "objectiveNode",
@@ -486,7 +486,7 @@
       "scheduled_end": "2025-10-22T01:48:50.843Z",
       "scheduled_start": "2025-10-22T01:18:50.843Z",
       "percentage_of_parent": 16.666666666666668,
-      "true_percentage_of_total": 0.15
+      "true_percentage_of_total": 2.5000000000000004
     },
     "transition_2025_10_17_0915": {
       "type": "objectiveNode",
@@ -501,7 +501,7 @@
       "scheduled_end": "2025-10-17T15:00:00Z",
       "scheduled_start": "2025-10-17T14:15:00Z",
       "percentage_of_parent": 5.882352941176471,
-      "true_percentage_of_total": 0.17647058823529413
+      "true_percentage_of_total": 0.1470588235294118
     },
     "transition_2025_10_19_0930": {
       "type": "objectiveNode",
@@ -516,7 +516,7 @@
       "scheduled_end": "2025-10-19T15:15:00Z",
       "scheduled_start": "2025-10-19T14:30:00Z",
       "percentage_of_parent": 5.882352941176471,
-      "true_percentage_of_total": 0.17647058823529413
+      "true_percentage_of_total": 0.1470588235294118
     },
     "dinner_azaz_2025_10_18_1700": {
       "type": "objectiveNode",
@@ -531,7 +531,7 @@
       "scheduled_end": "2025-10-18T23:15:00Z",
       "scheduled_start": "2025-10-18T22:00:00Z",
       "percentage_of_parent": 5.882352941176471,
-      "true_percentage_of_total": 0.17647058823529413
+      "true_percentage_of_total": 0.1470588235294118
     },
     "fri_downtime_2025_10_17_2100": {
       "type": "objectiveNode",
@@ -546,7 +546,7 @@
       "scheduled_end": "2025-10-18T03:30:00Z",
       "scheduled_start": "2025-10-18T02:00:00Z",
       "percentage_of_parent": 5.882352941176471,
-      "true_percentage_of_total": 0.17647058823529413
+      "true_percentage_of_total": 0.1470588235294118
     },
     "transit_home_2025_10_16_2030": {
       "type": "objectiveNode",
@@ -561,7 +561,7 @@
       "scheduled_end": "2025-10-17T02:00:00Z",
       "scheduled_start": "2025-10-17T01:30:00Z",
       "percentage_of_parent": 5.882352941176471,
-      "true_percentage_of_total": 0.17647058823529413
+      "true_percentage_of_total": 0.1470588235294118
     },
     "transit_home_2025_10_18_2130": {
       "type": "objectiveNode",
@@ -576,7 +576,7 @@
       "scheduled_end": "2025-10-19T03:00:00Z",
       "scheduled_start": "2025-10-19T02:30:00Z",
       "percentage_of_parent": 5.882352941176471,
-      "true_percentage_of_total": 0.17647058823529413
+      "true_percentage_of_total": 0.1470588235294118
     },
     "uber_to_mens_2025_10_16_1805": {
       "type": "objectiveNode",
@@ -591,7 +591,7 @@
       "scheduled_end": "2025-10-16T23:35:00Z",
       "scheduled_start": "2025-10-16T23:05:00Z",
       "percentage_of_parent": 5.882352941176471,
-      "true_percentage_of_total": 0.17647058823529413
+      "true_percentage_of_total": 0.1470588235294118
     },
     "arrive_buffer_2025_10_16_1835": {
       "type": "objectiveNode",
@@ -606,7 +606,7 @@
       "scheduled_end": "2025-10-17T00:00:00Z",
       "scheduled_start": "2025-10-16T23:35:00Z",
       "percentage_of_parent": 5.882352941176471,
-      "true_percentage_of_total": 0.17647058823529413
+      "true_percentage_of_total": 0.1470588235294118
     },
     "transit_coffee_2025_10_17_1000": {
       "type": "objectiveNode",
@@ -621,7 +621,7 @@
       "scheduled_end": "2025-10-17T15:30:00Z",
       "scheduled_start": "2025-10-17T15:00:00Z",
       "percentage_of_parent": 5.882352941176471,
-      "true_percentage_of_total": 0.17647058823529413
+      "true_percentage_of_total": 0.1470588235294118
     },
     "transit_wildfire_2025_10_18_1815": {
       "type": "objectiveNode",
@@ -636,7 +636,7 @@
       "scheduled_end": "2025-10-19T00:00:00Z",
       "scheduled_start": "2025-10-18T23:15:00Z",
       "percentage_of_parent": 5.882352941176471,
-      "true_percentage_of_total": 0.17647058823529413
+      "true_percentage_of_total": 0.1470588235294118
     }
   },
   "viewport": {
@@ -646,6 +646,20 @@
   },
   "active_node": "get_cuvitru",
   "historical_progress": {},
+  "test_task_a_202510222034": {
+    "type": "objectiveNode",
+    "color": "#c7f9cc",
+    "graph": "main",
+    "label": "Test Task A",
+    "status": "in-progress",
+    "parents": [
+      "build_life_currents"
+    ],
+    "createdAt": "2025-10-22T20:34:09.894Z",
+    "scheduled_end": "2025-10-22T21:04:09.894Z",
+    "scheduled_start": "2025-10-22T20:34:09.894Z",
+    "percentage_of_parent": 16.666666666666668
+  },
   "test_task_a_2025_10_22_0057": {
     "type": "objectiveNode",
     "graph": "main",

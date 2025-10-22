@@ -35,7 +35,7 @@ Progress is quantified by the *true_percentage_of_total* of each node and summar
     *   *status*: Must be exactly one of *"not-started"*, *"in-progress"*, or *"completed"*.
     *   *label*, *parents*, *percentage_of_parent*, *createdAt*, *scheduled_start*.
     *   *graph*: A **mandatory** string that defines which subgraph the node belongs to. Use "main" for the top-level graph or a node ID for a subgraph.
-*   **Timestamps:** Each message in the history is prepended with a \`[HH:MM | MMM DD]\` timestamp showing the time that it was sent; use this to understand the conversation's temporal flow.
+*   **Timestamps:** Each message in the history is prepended with a \`[HH:MM | MMM DD]\` timestamp showing the time that it was sent; use this to understand the conversation's temporal flow. When making reference to time, use 12-hour format (AM/PM).
 
 ### Tool-Specific Protocols
 
