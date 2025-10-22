@@ -252,12 +252,26 @@ const parseMessageRows = (rows: SupabaseMessageRow[], summaries?: SupabaseSummar
 
   // BUG FIX 1: Build a map of summaries by created_by_message_id for efficient lookup
   const summariesByMessageId = new Map<string, SupabaseSummaryRow[]>();
+  const messageRoleMap = new Map(rows.map(row => [row.id, row.role]));
+
   if (summaries) {
     summaries.forEach((summary) => {
       if (!summariesByMessageId.has(summary.created_by_message_id)) {
         summariesByMessageId.set(summary.created_by_message_id, []);
       }
       summariesByMessageId.get(summary.created_by_message_id)!.push(summary);
+
+      // VALIDATION: Warn if summary is attached to a non-assistant message
+      const messageRole = messageRoleMap.get(summary.created_by_message_id);
+      if (messageRole && messageRole !== 'assistant') {
+        console.warn('[ChatProvider] WARNING: Summary has created_by_message_id pointing to a non-assistant message!', {
+          summaryId: summary.id,
+          summaryLevel: summary.summary_level,
+          createdByMessageId: summary.created_by_message_id,
+          messageRole,
+          expectedRole: 'assistant',
+        });
+      }
     });
   }
 
@@ -265,16 +279,27 @@ const parseMessageRows = (rows: SupabaseMessageRow[], summaries?: SupabaseSummar
     const createdAt = row.created_at ? new Date(row.created_at) : undefined;
     const updatedAt = row.updated_at ? new Date(row.updated_at) : createdAt;
 
-    // BUG FIX 1: Attach persisted summaries to the message that created them
-    const persistedSummaries = summariesByMessageId.get(row.id)?.map(summary => ({
-      id: summary.id,
-      thread_id: summary.thread_id,
-      summary_level: summary.summary_level,
-      summary_period_start: summary.summary_period_start,
-      content: summary.content,
-      created_by_message_id: summary.created_by_message_id,
-      created_at: summary.created_at ?? undefined,
-    }));
+    // BUG FIX 1: Attach persisted summaries ONLY to assistant messages that created them
+    // This prevents summaries from appearing on user messages even if database has stale data
+    const persistedSummaries = (row.role === 'assistant' && summariesByMessageId.has(row.id))
+      ? summariesByMessageId.get(row.id)!.map(summary => {
+          console.log('[ChatProvider] Attaching summary to assistant message:', {
+            messageId: row.id,
+            summaryId: summary.id,
+            summaryLevel: summary.summary_level,
+            periodStart: summary.summary_period_start,
+          });
+          return {
+            id: summary.id,
+            thread_id: summary.thread_id,
+            summary_level: summary.summary_level,
+            summary_period_start: summary.summary_period_start,
+            content: summary.content,
+            created_by_message_id: summary.created_by_message_id,
+            created_at: summary.created_at ?? undefined,
+          };
+        })
+      : undefined;
 
     const baseMessage: Message = {
       id: row.id,

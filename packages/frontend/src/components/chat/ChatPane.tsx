@@ -491,6 +491,10 @@ const ChatPane = () => {
         });
         setStreamingMessageId(assistantMessage.id);
 
+        // BUG FIX: Small delay to ensure messages are persisted to database before creating summaries
+        // This prevents race conditions where summary creation fails because message doesn't exist yet
+        await new Promise(resolve => setTimeout(resolve, 100));
+
         const registerSummarizeAction = ({
             summaryLevel,
             periodStart,
@@ -539,6 +543,10 @@ const ChatPane = () => {
 
         if (mode === 'intelligent') {
             try {
+                console.log('[ChatPane] Preparing intelligent context with assistantMessage.id:', assistantMessage.id);
+                console.log('[ChatPane] User message:', { id: userMessage.id, role: 'user' });
+                console.log('[ChatPane] Assistant message:', { id: assistantMessage.id, role: 'assistant', parentId: assistantMessage.parentId });
+
                 const intelligentContext = await prepareIntelligentContext({
                     conversationId: threadId,
                     branchHeadMessageId: parentId,
