@@ -13,6 +13,60 @@ const WEEK_RANGE_FORMAT = new Intl.DateTimeFormat(undefined, { timeZone: 'UTC', 
 const MONTH_YEAR_FORMAT = new Intl.DateTimeFormat(undefined, { timeZone: 'UTC', month: 'long', year: 'numeric' });
 const TIME_FORMAT = new Intl.DateTimeFormat(undefined, { timeZone: 'UTC', hour: '2-digit', minute: '2-digit' });
 
+// TIMEZONE FIX: Day boundary configuration
+// Day starts at 5 AM Central Time instead of midnight UTC
+// This is DST-aware and automatically adjusts for timezone changes:
+// - 5 AM CDT (UTC-5) = 10:00 UTC (March-November, Daylight Time)
+// - 5 AM CST (UTC-6) = 11:00 UTC (November-March, Standard Time)
+const CENTRAL_TIMEZONE = 'America/Chicago';
+const DAY_BOUNDARY_LOCAL_HOUR = 5; // 5 AM local time
+
+/**
+ * Calculates the UTC hour that corresponds to 5 AM Central Time on a given date.
+ * This automatically handles DST transitions.
+ */
+const getDayBoundaryUtcHour = (date: Date): number => {
+    // Create a date at 5 AM Central Time on the given day
+    const year = date.getUTCFullYear();
+    const month = date.getUTCMonth();
+    const day = date.getUTCDate();
+
+    // Parse as a string in Central timezone to get 5 AM Central
+    const centralDateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(DAY_BOUNDARY_LOCAL_HOUR).padStart(2, '0')}:00:00`;
+
+    // Get the UTC offset for Central Time on this date
+    // We'll create a formatter and use it to determine the offset
+    const testDate = new Date(date.getTime());
+    testDate.setUTCHours(12, 0, 0, 0); // Use noon to avoid edge cases
+
+    // Format the date in Central Time
+    const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: CENTRAL_TIMEZONE,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+    });
+
+    const parts = formatter.formatToParts(testDate);
+    const centralHour = parseInt(parts.find(p => p.type === 'hour')?.value || '0', 10);
+    const utcHour = testDate.getUTCHours();
+
+    // Calculate offset: how many hours ahead is UTC from Central
+    let offset = utcHour - centralHour;
+
+    // Handle day wraparound
+    if (offset < -12) offset += 24;
+    if (offset > 12) offset -= 24;
+
+    // 5 AM Central + offset = UTC hour
+    const boundaryHour = (DAY_BOUNDARY_LOCAL_HOUR + offset) % 24;
+    return boundaryHour;
+};
+
 type SummaryMap = Record<SummaryLevel, Map<string, ConversationSummaryRecord>>;
 
 type ActionStatus = 'pending' | 'running' | 'success' | 'error';
@@ -68,7 +122,19 @@ export interface IntelligentContextResult {
 
 const startOfUtcDay = (input: Date): Date => {
     const value = new Date(input);
+
+    // Get the DST-aware day boundary hour for this date
+    const boundaryHour = getDayBoundaryUtcHour(value);
+
+    // Subtract the day boundary offset to find which "day" we're in from Central Time perspective
+    // For example, if it's 09:00 UTC (4 AM Central in CDT), that's before the 10:00 boundary,
+    // so we're still in "yesterday" from the user's perspective
+    value.setUTCHours(value.getUTCHours() - boundaryHour);
+    // Set to start of that UTC day (midnight)
     value.setUTCHours(0, 0, 0, 0);
+    // Add the offset back to get to the actual day boundary hour
+    // This gives us the "start of day" at 5 AM Central (10 AM UTC in CDT, 11 AM UTC in CST)
+    value.setUTCHours(value.getUTCHours() + boundaryHour);
     return value;
 };
 
