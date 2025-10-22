@@ -194,34 +194,73 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
                 )}
                 {message.persistedSummaries && message.persistedSummaries.length > 0 && (
                     <div className="space-y-3 mb-3" data-graph-interactive="true">
-                        {message.persistedSummaries.map((summary) => (
-                            <Accordion type="single" collapsible key={summary.id} className="w-full">
-                                <AccordionItem
-                                    value={`persisted-summary-${summary.id}`}
-                                    className="rounded-md border border-muted-foreground/20 bg-background/80"
-                                >
-                                    <AccordionTrigger className="px-3 py-2 font-medium">
-                                        <div className="flex w-full flex-col gap-1 text-left sm:flex-row sm:items-center sm:justify-between sm:gap-2">
-                                            <div className="flex items-center gap-2">
-                                                <Badge variant="secondary" className="uppercase tracking-wide text-[0.75em]">
-                                                    {summary.summary_level} Summary
-                                                </Badge>
-                                                <span className="text-muted-foreground text-[0.875em]">
-                                                    {new Date(summary.summary_period_start).toLocaleDateString(undefined, {
-                                                        year: 'numeric',
-                                                        month: 'short',
-                                                        day: 'numeric',
-                                                    })}
-                                                </span>
+                        {message.persistedSummaries.map((summary) => {
+                            const startDate = new Date(summary.summary_period_start);
+                            let dateDisplay: string;
+
+                            if (summary.summary_level === 'DAY') {
+                                // DAY: Just show the single date
+                                dateDisplay = startDate.toLocaleDateString(undefined, {
+                                    year: 'numeric',
+                                    month: 'short',
+                                    day: 'numeric',
+                                });
+                            } else if (summary.summary_level === 'WEEK') {
+                                // WEEK: Show start date - end date (7 days later)
+                                const endDate = new Date(startDate);
+                                endDate.setUTCDate(endDate.getUTCDate() + 6); // Last day of the week
+                                const startStr = startDate.toLocaleDateString(undefined, {
+                                    month: 'short',
+                                    day: 'numeric',
+                                });
+                                const endStr = endDate.toLocaleDateString(undefined, {
+                                    month: 'short',
+                                    day: 'numeric',
+                                    year: 'numeric',
+                                });
+                                dateDisplay = `${startStr} – ${endStr}`;
+                            } else {
+                                // MONTH: Show start date - end date (last day of month)
+                                const endDate = new Date(startDate);
+                                endDate.setUTCMonth(endDate.getUTCMonth() + 1);
+                                endDate.setUTCDate(endDate.getUTCDate() - 1); // Last day of the month
+                                const startStr = startDate.toLocaleDateString(undefined, {
+                                    month: 'short',
+                                    day: 'numeric',
+                                });
+                                const endStr = endDate.toLocaleDateString(undefined, {
+                                    month: 'short',
+                                    day: 'numeric',
+                                    year: 'numeric',
+                                });
+                                dateDisplay = `${startStr} – ${endStr}`;
+                            }
+
+                            return (
+                                <Accordion type="single" collapsible key={summary.id} className="w-full">
+                                    <AccordionItem
+                                        value={`persisted-summary-${summary.id}`}
+                                        className="rounded-md border border-muted-foreground/20 bg-background/80"
+                                    >
+                                        <AccordionTrigger className="px-3 py-2 font-medium">
+                                            <div className="flex w-full flex-col gap-1 text-left sm:flex-row sm:items-center sm:justify-between sm:gap-2">
+                                                <div className="flex items-center gap-2">
+                                                    <Badge variant="secondary" className="uppercase tracking-wide text-[0.75em]">
+                                                        {summary.summary_level}
+                                                    </Badge>
+                                                    <span className="text-muted-foreground text-[0.875em]">
+                                                        {dateDisplay}
+                                                    </span>
+                                                </div>
                                             </div>
-                                        </div>
-                                    </AccordionTrigger>
-                                    <AccordionContent className="px-3 pb-3 text-[0.875em] whitespace-pre-wrap">
-                                        {summary.content}
-                                    </AccordionContent>
-                                </AccordionItem>
-                            </Accordion>
-                        ))}
+                                        </AccordionTrigger>
+                                        <AccordionContent className="px-3 pb-3 text-[0.875em] whitespace-pre-wrap">
+                                            {summary.content}
+                                        </AccordionContent>
+                                    </AccordionItem>
+                                </Accordion>
+                            );
+                        })}
                     </div>
                 )}
                 {message.toolCalls && message.toolCalls.length > 0 && (
