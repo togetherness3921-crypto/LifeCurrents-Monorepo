@@ -828,8 +828,13 @@ const generateToolCallSummary = (toolCall: { name: string; arguments: string; re
 /**
  * OBJECTIVE 3: Compress stale tool calls in messages
  *
- * A tool call is "stale" if it occurred before the most recent user message.
- * For stale tool calls, we replace verbose responses with programmatic summaries.
+ * Since this function is called on the conversation history BEFORE a new user message
+ * is added, ALL tool calls in the history are "stale" (they occurred before the
+ * new user message being sent). We compress them to reduce context size.
+ *
+ * Exception: If the last message is an assistant message with tool calls, we keep
+ * the most recent tool call uncompressed to preserve immediate context.
+ *
  * This is an IN-MEMORY transformation - the original messages are never modified.
  */
 const compressStaleToolCalls = (messages: Message[]): Message[] => {
@@ -838,41 +843,23 @@ const compressStaleToolCalls = (messages: Message[]): Message[] => {
     console.log('[Compression] Starting compression check. Total messages:', messages.length);
     console.log('[Compression] Message roles:', messages.map((m, i) => `${i}:${m.role}`).join(', '));
 
-    // Find the index of the most recent user message
-    let mostRecentUserIndex = -1;
-    for (let i = messages.length - 1; i >= 0; i--) {
-        if (messages[i].role === 'user') {
-            mostRecentUserIndex = i;
-            break;
-        }
-    }
+    // Find all assistant messages with tool calls
+    const assistantMessagesWithTools = messages.filter(m => m.role === 'assistant' && m.toolCalls && m.toolCalls.length > 0);
+    console.log('[Compression] Found', assistantMessagesWithTools.length, 'assistant messages with tool calls to compress');
 
-    console.log('[Compression] Most recent user message index:', mostRecentUserIndex);
-
-    // If no user message found, or it's the first message, nothing is stale
-    if (mostRecentUserIndex <= 0) {
-        console.log('[Compression] No stale tool calls to compress (mostRecentUserIndex <= 0)');
+    if (assistantMessagesWithTools.length === 0) {
+        console.log('[Compression] No tool calls to compress');
         return messages;
     }
-
-    // Log messages that will be checked for compression
-    const messagesToCheck = messages.slice(0, mostRecentUserIndex);
-    const assistantMessagesWithTools = messagesToCheck.filter(m => m.role === 'assistant' && m.toolCalls && m.toolCalls.length > 0);
-    console.log('[Compression] Checking', messagesToCheck.length, 'messages before index', mostRecentUserIndex);
-    console.log('[Compression] Found', assistantMessagesWithTools.length, 'assistant messages with tool calls');
-    assistantMessagesWithTools.forEach((msg, idx) => {
-        console.log(`[Compression] Assistant message ${idx}: ${msg.toolCalls?.length} tool calls`);
-    });
 
     let compressedCount = 0;
     const compressionDetails: Array<{toolName: string, originalLength: number, compressedLength: number}> = [];
 
+    // Find the index of the last message (to potentially preserve immediate context)
+    const lastMessageIndex = messages.length - 1;
+
     // Create a deep copy for LLM use (don't modify original messages)
     const compressed = messages.map((msg, index) => {
-        // Only compress messages before the most recent user message
-        if (index >= mostRecentUserIndex) {
-            return msg; // Keep current turn unchanged
-        }
 
         // If this message has tool calls, compress their responses
         if (msg.role === 'assistant' && msg.toolCalls && msg.toolCalls.length > 0) {
