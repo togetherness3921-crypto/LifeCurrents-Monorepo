@@ -110,7 +110,7 @@
       "createdAt": "2025-10-16T22:55:00Z",
       "scheduled_end": "2025-10-18T22:30:00Z",
       "scheduled_start": "2025-10-18T20:30:00Z",
-      "percentage_of_parent": 16.666666666666668,
+      "percentage_of_parent": 14.285714285714286,
       "true_percentage_of_total": 2.9166666666666674
     },
     "yoga_2025_10_17_0830": {
@@ -260,7 +260,7 @@
       "createdAt": "2025-10-16T22:55:00Z",
       "scheduled_end": "2025-10-20T05:30:00Z",
       "scheduled_start": "2025-10-20T04:30:00Z",
-      "percentage_of_parent": 16.666666666666668,
+      "percentage_of_parent": 14.285714285714286,
       "true_percentage_of_total": 2.5000000000000004
     },
     "dinner_2025_10_19_1800": {
@@ -277,6 +277,21 @@
       "scheduled_start": "2025-10-19T23:00:00Z",
       "percentage_of_parent": 5.882352941176471,
       "true_percentage_of_total": 0.1470588235294118
+    },
+    "test_task_a_202510221622": {
+      "type": "objectiveNode",
+      "color": "#bde0fe",
+      "graph": "main",
+      "label": "Test Task A",
+      "status": "in-progress",
+      "parents": [
+        "build_life_currents"
+      ],
+      "createdAt": "2025-10-22T21:23:31.067Z",
+      "scheduled_end": "2025-10-22T21:53:31.067Z",
+      "scheduled_start": "2025-10-22T21:23:31.067Z",
+      "percentage_of_parent": 14.285714285714286,
+      "true_percentage_of_total": 1.5
     },
     "wildfire_2025_10_18_1900": {
       "type": "objectiveNode",
@@ -305,7 +320,7 @@
       "createdAt": "2025-10-16T22:55:00Z",
       "scheduled_end": "2025-10-16T22:45:00Z",
       "scheduled_start": "2025-10-16T18:05:00Z",
-      "percentage_of_parent": 16.666666666666668,
+      "percentage_of_parent": 14.285714285714286,
       "true_percentage_of_total": 2.5000000000000004
     },
     "deep_work_2025_10_17_1030": {
@@ -320,7 +335,7 @@
       "createdAt": "2025-10-16T22:55:00Z",
       "scheduled_end": "2025-10-18T02:00:00Z",
       "scheduled_start": "2025-10-17T15:30:00Z",
-      "percentage_of_parent": 16.666666666666668,
+      "percentage_of_parent": 14.285714285714286,
       "true_percentage_of_total": 2.5000000000000004
     },
     "deep_work_2025_10_19_1015": {
@@ -335,7 +350,7 @@
       "createdAt": "2025-10-16T22:55:00Z",
       "scheduled_end": "2025-10-19T23:00:00Z",
       "scheduled_start": "2025-10-19T15:15:00Z",
-      "percentage_of_parent": 16.666666666666668,
+      "percentage_of_parent": 14.285714285714286,
       "true_percentage_of_total": 2.5000000000000004
     },
     "fri_mirna_2025_10_17_2230": {
@@ -485,7 +500,7 @@
       "createdAt": "2025-10-22T01:18:50.843Z",
       "scheduled_end": "2025-10-22T01:48:50.843Z",
       "scheduled_start": "2025-10-22T01:18:50.843Z",
-      "percentage_of_parent": 16.666666666666668,
+      "percentage_of_parent": 14.285714285714286,
       "true_percentage_of_total": 2.5000000000000004
     },
     "transition_2025_10_17_0915": {
