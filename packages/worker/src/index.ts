@@ -1676,6 +1676,138 @@ export class MyMCP extends McpAgent {
     }
 }
 
+async function handleDispatchJob(request: Request, env: Env): Promise<Response> {
+    if (request.method !== 'POST') {
+        return new Response('Method Not Allowed', { status: 405, headers: CORS_HEADERS });
+    }
+
+    try {
+        const { title, prompt, verification_steps } = await request.json();
+
+        if (!title || !prompt) {
+            return new Response('Missing title or prompt', { status: 400, headers: CORS_HEADERS });
+        }
+
+        const GITHUB_OWNER = env.GITHUB_OWNER;
+        const GITHUB_REPO = env.GITHUB_REPO;
+        const GITHUB_PAT = env.GITHUB_PAT;
+
+        if (!GITHUB_OWNER || !GITHUB_REPO || !GITHUB_PAT) {
+            return new Response('GitHub environment variables not configured', { status: 500, headers: CORS_HEADERS });
+        }
+
+        // 1. Get the latest commit SHA from the main branch
+        const githubApiUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/branches/main`;
+        const ghResponse = await fetch(githubApiUrl, {
+            headers: {
+                'Accept': 'application/vnd.github+json',
+                'Authorization': `Bearer ${GITHUB_PAT}`,
+                'User-Agent': 'LifeCurrents-Worker'
+            }
+        });
+
+        if (!ghResponse.ok) {
+            throw new Error(`Failed to fetch main branch info: ${await ghResponse.text()}`);
+        }
+        const branchInfo = await ghResponse.json();
+        const latestSha = branchInfo.commit.sha;
+        const base_version = `main@${latestSha}`;
+        
+        // 2. Create a new job record in Supabase
+        const { data: newJob, error: insertError } = await supabase
+            .from('jobs')
+            .insert({
+                title,
+                prompt,
+                verification_steps,
+                base_version,
+                status: 'active', // Set to active as it's being dispatched
+            })
+            .select('id')
+            .single();
+
+        if (insertError) {
+            throw new Error(`Failed to create job in database: ${insertError.message}`);
+        }
+
+        const jobId = newJob.id;
+
+        // 3. Trigger the GitHub Actions workflow
+        await fetch(`https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/dispatches`, {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/vnd.github+json',
+                'Authorization': `Bearer ${GITHUB_PAT}`,
+                'User-Agent': 'LifeCurrents-Worker'
+            },
+            body: JSON.stringify({
+                event_type: 'claude-job',
+                client_payload: {
+                    job_id: jobId,
+                    title,
+                    prompt
+                }
+            })
+        });
+        
+        return withCors(new Response(JSON.stringify({
+            jobId: jobId,
+            status: 'active'
+        }), {
+            status: 202,
+            headers: { 'Content-Type': 'application/json' }
+        }));
+
+    } catch (error) {
+        console.error("Error in handleDispatchJob:", error);
+        return withCors(new Response(JSON.stringify({ error: error.message }), {
+            status: 500,
+            headers: { 'Content-Type': 'application/json' }
+        }));
+    }
+}
+
+async function handleJobResult(request: Request, env: Env): Promise<Response> {
+    if (request.method !== 'POST') {
+        return new Response('Method Not Allowed', { status: 405, headers: CORS_HEADERS });
+    }
+
+    try {
+        const { job_id, pr_number, preview_url } = await request.json();
+
+        if (!job_id || !pr_number || !preview_url) {
+            return new Response('Missing job_id, pr_number, or preview_url', { status: 400, headers: CORS_HEADERS });
+        }
+        
+        const { error } = await supabase
+            .from('jobs')
+            .update({
+                status: 'completed',
+                pr_number: pr_number,
+                preview_url: preview_url,
+                updated_at: new Date().toISOString(),
+            })
+            .eq('id', job_id);
+
+        if (error) {
+            throw new Error(`Failed to update job in database: ${error.message}`);
+        }
+
+        return withCors(new Response(JSON.stringify({ success: true, job_id }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' }
+        }));
+
+    } catch (error) {
+        console.error("Error in handleJobResult:", error);
+        return withCors(new Response(JSON.stringify({ error: error.message }), {
+            status: 500,
+            headers: { 'Content-Type': 'application/json' }
+        }));
+    }
+}
+
+
 const CORS_HEADERS = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
@@ -1745,6 +1877,14 @@ export default {
 
         if (url.pathname === '/api/transcribe') {
             return handleTranscription(request, env);
+        }
+
+        if (url.pathname === '/api/dispatch-job') {
+            return handleDispatchJob(request, env);
+        }
+
+        if (url.pathname === '/api/job-result') {
+            return handleJobResult(request, env);
         }
 
         let response: Response;

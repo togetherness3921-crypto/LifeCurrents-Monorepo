@@ -1,0 +1,21 @@
+{
+    "name": "job-dispatcher-mcp",
+    "version": "1.0.0",
+    "type": "module",
+    "private": true,
+    "bin": {
+        "job-dispatcher": "./build/index.js"
+    },
+    "scripts": {
+        "build": "tsc",
+        "watch": "tsc --watch"
+    },
+    "dependencies": {
+        "@modelcontextprotocol/sdk": "^1.0.0",
+        "zod": "^3.22.0"
+    },
+    "devDependencies": {
+        "@types/node": "^20.0.0",
+        "typescript": "^5.3.0"
+    }
+}

@@ -1,7 +1,42 @@
 ---
-description:
-globs:
+description: Core development protocols and workflow guidelines for the LifeCurrents project.
 alwaysApply: true
 ---
 
+# LifeCurrents Project Development Rules
+
+## Modifying System Instructions
 - To modify system instructions, edit the corresponding file in the `synced_files/system_instructions/` directory. These changes are automatically synced with the Supabase database via the `auto-sync` script.
+
+## Database Schema and Data Migrations
+- To modify the Supabase schema or perform data migrations, do **not** run raw SQL queries directly.
+- Instead, modify the `alterCommands` array in `apply_and_verify_schema.cjs` with the required SQL DDL or DML commands.
+- Run the script using `node apply_and_verify_schema.cjs`.
+- After successful execution, **revert the changes** to the script.
+
+## Console Logging for Usability
+- When implementing or modifying any functionality (either locally or through a dispatched job), ensure that appropriate console logs are included to facilitate easier troubleshooting. All logs should be tagged with a descriptive, bracketed identifier.
+- **Example:** `console.log('[Auth] User login successful:', userId);`
+
+## Standard Development Workflow: Dispatching Agentic Tasks
+
+Our primary method for making changes to the codebase is a collaborative, semi-automated process. This workflow allows us to dispatch tasks to an AI agent and track them through to completion and integration.
+
+The typical steps are as follows:
+
+1.  **Task Identification:** During our conversation, we will identify a specific development task, bug fix, or feature to be implemented.
+2.  **Collaborative Prompting:** We will work together to craft a clear, detailed, and effective prompt that outlines the requirements for the task.
+3.  **Job Dispatch:** Once the prompt is finalized, you will use the `dispatch_job` tool to send the task to the automated system. This creates a job record that appears in the local Dashboard UI.
+4.  **Automated Execution:** The system will then trigger a GitHub Action that uses the Claude agent to perform the coding task, commit the result to a new branch, and create a pull request.
+5.  **Preview and Verification:** A preview deployment is automatically generated for the pull request. The user will use the link in the Dashboard UI to access the preview and verify that the changes meet the requirements, using the provided verification steps.
+6.  **Approval:** Using the Dashboard UI, the user will mark the verified jobs as "Ready for Integration."
+7.  **Final Reconciliation:** When ready, the user will give you an instruction to integrate the approved changes. You will then execute the Job Reconciliation Workflow noted below to merge the code into the main branch.
+
+## Job Reconciliation Workflow
+When instructed to **reconcile, integrate, or commit** completed jobs, the following protected action must be taken:
+
+1.  **Query for Ready Jobs:** Connect to the Supabase database and query the `jobs` table for all records where the `ready_for_integration` flag is set to `true` and the status is `completed`.
+2.  **Fetch Diffs:** For each ready job, retrieve the associated Pull Request number and construct the `.diff` URL for that PR. Fetch the raw diff content for each approved change.
+3.  **Perform Local Integration:** Carefully analyze and apply the fetched diffs to the local workspace. You must intelligently merge all changes, resolving any conflicts that may arise between different jobs that modify the same files.
+4.  **Update Job Status:** After the merge is successfully completed, update the status of the integrated jobs in the Supabase `jobs` table from `completed` to `integrated`.
+5.  **Final Commit and Push:** Execute a one-shot commit and push of the integrated changes to the `main` branch using the `auto-sync.cjs` script's underlying commit logic. This should not be a looping watch command.

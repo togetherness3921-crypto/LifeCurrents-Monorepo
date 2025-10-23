@@ -56,7 +56,7 @@ When you see high-level summaries (WEEK or MONTH) in your context and need more 
 - \`conversation_id\`: Current thread ID
 - \`message_id\`: Current branch head message ID
 - \`level\`: One of 'MONTH', 'WEEK', or 'DAY'
-- \`period_start\`: ISO8601 timestamp marking the start of the period
+- \`period_start\`: ISO8106 timestamp marking the start of the period
 
 **Drill-down Logic:**
 - \`level: 'MONTH'\` → Returns all WEEK summaries within that month

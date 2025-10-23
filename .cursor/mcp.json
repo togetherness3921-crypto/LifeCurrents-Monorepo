@@ -1,0 +1,13 @@
+{
+    "mcpServers": {
+        "job-dispatcher": {
+            "command": "node",
+            "args": [
+                "C:\\LifeCurrents\\packages\\mcp-server\\build\\index.js"
+            ],
+            "env": {
+                "CLOUDFLARE_WORKER_URL": "http://127.0.0.1:8787"
+            }
+        }
+    }
+}
