@@ -84,15 +84,3 @@ jobs:
         run: |
           job_id=$(echo "${{ github.event.pull_request.body }}" | grep 'Job ID:' | sed -n 's/.*`\(.*\)`/\\1/p')
           echo "job_id=$job_id" >> $GITHUB_OUTPUT
-
-      - name: Notify Orchestrator of Result
-        if: steps.extract_job_id.outputs.job_id
-        env:
-          JOB_ID: ${{ steps.extract_job_id.outputs.job_id }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          PREVIEW_URL: ${{ steps.deploy_frontend.outputs.url }}
-          WORKER_URL: ${{ secrets.WORKER_BASE_URL }}
-        run: |
-          curl -X POST "${WORKER_URL}/api/job-result" \
-            -H "Content-Type: application/json" \
-            -d "$(jq -n --arg job_id "$JOB_ID" --arg pr_number "$PR_NUMBER" --arg preview_url "$PREVIEW_URL" '{job_id: $job_id, pr_number: ($pr_number | tonumber), preview_url: $preview_url}')"
