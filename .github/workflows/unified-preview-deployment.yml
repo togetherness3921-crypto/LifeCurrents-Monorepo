@@ -10,7 +10,7 @@ jobs:
     name: Deploy Full Stack Preview
     permissions:
       deployments: write
-      pull-requests: write
+      pull-requests: write 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
