@@ -87,5 +87,4 @@ jobs:
 
       - name: Notify Orchestrator of Result
         if: steps.extract_job_id.outputs.job_id
-        run: |
-          curl -X POST -H "Content-Type: application/json" -d '{"job_id": "${{ steps.extract_job_id.outputs.job_id }}", "pr_number": ${{ github.event.pull_request.number }}, "preview_url": "${{ steps.deploy_frontend.outputs.url }}"}' ${{ secrets.WORKER_BASE_URL }}/api/job-result
+        run: curl -X POST -H "Content-Type: application/json" -d '{"job_id": "${{ steps.extract_job_id.outputs.job_id }}", "pr_number": ${{ github.event.pull_request.number }}, "preview_url": "${{ steps.deploy_frontend.outputs.url }}"}' ${{ secrets.WORKER_BASE_URL }}/api/job-result
