@@ -1,0 +1,93 @@
+name: Unified Preview Deployment
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  deploy-preview:
+    runs-on: ubuntu-latest
+    name: Deploy Full Stack Preview
+    permissions:
+      deployments: write
+      pull-requests: write 
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Deploy Preview Worker
+        id: deploy_worker
+        run: |
+          npm install -g wrangler
+          WORKER_NAME="pr-${{ github.event.pull_request.number }}-lifecurrents-worker"
+          # Deploy the worker. The project and compatibility date are determined by wrangler.toml
+          OUTPUT=$(wrangler deploy packages/worker/src/index.ts --name $WORKER_NAME)
+          URL=$(echo "$OUTPUT" | grep -o 'https://[^ ]*lifecurrents-worker[^ ]*')
+          echo "url=$URL" >> $GITHUB_OUTPUT
+          echo "Deployed Worker to $URL"
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+
+      - name: Build Frontend
+        run: cd packages/frontend && npm run build
+        env:
+          VITE_WORKER_BASE_URL: ${{ steps.deploy_worker.outputs.url }}
+        
+      - name: Deploy Frontend Preview
+        id: deploy_frontend
+        uses: cloudflare/pages-action@v1
+        with:
+          apiToken: ${{ secrets.CF_API_TOKEN }}
+          accountId: ${{ secrets.CF_ACCOUNT_ID }}
+          projectName: 'life-currents'
+          directory: 'packages/frontend/dist'
+          gitHubToken: ${{ secrets.GH_TOKEN }}
+          
+      - name: Comment on PR
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const pr_number = context.issue.number;
+            const frontend_url = "${{ steps.deploy_frontend.outputs.url }}";
+            const worker_url = "${{ steps.deploy_worker.outputs.url }}";
+
+            const body = `
+            ## ✨ Full Stack Preview Deployed! ✨
+
+            - **Frontend Preview:** [${frontend_url}](${frontend_url})
+            - **Backend Worker:** \`${worker_url}\`
+
+            *This preview is automatically updated on each new commit.*
+            `;
+
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: pr_number,
+              body,
+            });
+
+      - name: Extract Job ID from PR Body
+        id: extract_job_id
+        if: contains(github.event.pull_request.body, 'Job ID:')
+        run: |
+          job_id=$(echo "${{ github.event.pull_request.body }}" | grep 'Job ID:' | sed -n 's/.*`\(.*\)`/\\1/p')
+          echo "job_id=$job_id" >> $GITHUB_OUTPUT
+
+      - name: Notify Orchestrator of Result
+        if: steps.extract_job_id.outputs.job_id
+        run: |
+          curl -X POST "${{ secrets.WORKER_BASE_URL }}/api/job-result" \
+            -H "Content-Type: application/json" \
+            -d "{\"job_id\": \"${{ steps.extract_job_id.outputs.job_id }}\", \"pr_number\": ${{ github.event.pull_request.number }}, \"preview_url\": \"${{ steps.deploy_frontend.outputs.url }}\"}"
