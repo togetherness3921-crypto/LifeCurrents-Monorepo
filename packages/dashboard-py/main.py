@@ -8,6 +8,7 @@ import asyncio
 import subprocess
 import atexit
 from collections import defaultdict
+from typing import Optional
 
 # --- Global process list to ensure cleanup ---
 running_processes = []
@@ -25,56 +26,20 @@ def cleanup_processes():
 
 atexit.register(cleanup_processes)
 
-class AsyncioThread(threading.Thread):
-    def __init__(self, app):
-        super().__init__(daemon=True)
-        self.app = app
-        self.loop = asyncio.new_event_loop()
-
-    def run(self):
-        asyncio.set_event_loop(self.loop)
-        url = "https://cvzgxnspmmxxxwnxiydk.supabase.co"
-        key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN2emd4bnNwbW14eHh3bnhpeWRrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4NzczNTgsImV4cCI6MjA3MjQ1MzM1OH0.2syXitu78TLVBu8hD7DfAC7h6CYvgyP-ZWcw9wY3xhU"
-        self.manager = SupabaseManager(url, key)
-        self.loop.run_until_complete(self.main())
-
-    async def main(self):
-        try:
-            await self.manager.initialize()
-            initial_jobs = await self.manager.fetch_initial_jobs()
-            self.app.after(0, self.app.handle_initial_data, initial_jobs)
-            
-            await self.manager.setup_realtime_subscription(self.handle_realtime_event)
-            
-            # Keep the loop running to process commands
-            while not self.app.is_closing:
-                await asyncio.sleep(0.1)
-
-        except Exception as e:
-            print(f"[Async] A critical error occurred in the main async loop: {e}")
-        finally:
-            await self.manager.cleanup()
-
-    def handle_realtime_event(self, payload):
-        self.app.after(0, self.app.handle_realtime_update, payload)
-
-    def stop(self):
-        print("[Async] Stopping asyncio loop...")
-        self.loop.call_soon_threadsafe(self.loop.stop)
-
-    def delete_job(self, job_id):
-        asyncio.run_coroutine_threadsafe(self.manager.delete_job(job_id), self.loop)
-
-    def mark_as_ready(self, job_ids):
-        asyncio.run_coroutine_threadsafe(self.manager.mark_jobs_as_ready(job_ids), self.loop)
-
 class App(ctk.CTk):
     def __init__(self):
         super().__init__()
-        self.is_closing = False
+        ctk.set_appearance_mode("dark")
+        ctk.set_default_color_theme("blue")
+
         self.jobs = {}
         self.job_widgets = {}
         self.selected_jobs = set()
+        
+        self.queue: queue.Queue = queue.Queue()
+        self.loop: Optional[asyncio.AbstractEventLoop] = None
+        self.shutdown_event: Optional[asyncio.Event] = None
+        self.async_thread: Optional[threading.Thread] = None
         
         self.title("LifeCurrents Job Dashboard")
         self.geometry("1200x900")
@@ -86,6 +51,7 @@ class App(ctk.CTk):
         self.start_subprocesses()
         
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
+        self.start_async_loop()
 
     def start_subprocesses(self):
         print("Starting background services...")
@@ -102,298 +68,134 @@ class App(ctk.CTk):
         if process.stdout:
             for line in iter(process.stdout.readline, ''):
                 print(f"[{name}] {line.strip()}")
-        if process.stderr:
-            for line in iter(process.stderr.readline, ''):
-                print(f"[{name} ERROR] {line.strip()}")
-
-    def create_form(self):
-        self.form_frame = ctk.CTkFrame(self)
-        self.form_frame.grid(row=0, column=0, padx=20, pady=20, sticky="ew")
-        self.form_frame.grid_columnconfigure(0, weight=1)
-
-        ctk.CTkLabel(self.form_frame, text="Dispatch New Job", font=ctk.CTkFont(size=16, weight="bold")).grid(row=0, column=0, columnspan=2, pady=(10, 15))
-
-        self.title_entry = ctk.CTkEntry(self.form_frame, placeholder_text="Job Title")
-        self.title_entry.grid(row=1, column=0, columnspan=2, padx=10, pady=5, sticky="ew")
-
-        self.prompt_text = ctk.CTkTextbox(self.form_frame, height=120)
-        self.prompt_text.insert("1.0", "Development Prompt...")
-        self.prompt_text.grid(row=2, column=0, columnspan=2, padx=10, pady=5, sticky="ew")
-
-        self.verification_text = ctk.CTkTextbox(self.form_frame, height=60)
-        self.verification_text.insert("1.0", "Verification Steps (one per line)...")
-        self.verification_text.grid(row=3, column=0, columnspan=2, padx=10, pady=5, sticky="ew")
-
-        self.dispatch_button = ctk.CTkButton(self.form_frame, text="Dispatch Job", command=self.dispatch_job)
-        self.dispatch_button.grid(row=4, column=0, padx=10, pady=10, sticky="w")
-        
-        self.form_status_label = ctk.CTkLabel(self.form_frame, text="")
-        self.form_status_label.grid(row=4, column=1, padx=10, pady=10, sticky="ew")
 
     def create_job_list(self):
         self.list_container = ctk.CTkFrame(self)
         self.list_container.grid(row=0, column=0, padx=20, pady=20, sticky="nsew")
         self.list_container.grid_columnconfigure(0, weight=1)
         self.list_container.grid_rowconfigure(1, weight=1)
-
         header_frame = ctk.CTkFrame(self.list_container)
         header_frame.grid(row=0, column=0, padx=10, pady=10, sticky="ew")
         header_frame.grid_columnconfigure(0, weight=1)
-
         ctk.CTkLabel(header_frame, text="Job Queue", font=ctk.CTkFont(size=16, weight="bold")).grid(row=0, column=0, sticky="w")
-        
-        self.reconciliation_button = ctk.CTkButton(header_frame, text="Mark 0 as Ready for Integration", command=self.mark_as_ready, state="disabled")
+        self.reconciliation_button = ctk.CTkButton(header_frame, text="Mark 0 as Ready", command=self.mark_as_ready, state="disabled")
         self.reconciliation_button.grid(row=0, column=1, sticky="e")
-
         self.scrollable_frame = ctk.CTkScrollableFrame(self.list_container, fg_color="transparent")
         self.scrollable_frame.grid(row=1, column=0, padx=0, pady=(0, 10), sticky="nsew")
         self.scrollable_frame.grid_columnconfigure(0, weight=1)
 
-    def dispatch_job(self):
-        title = self.title_entry.get()
-        prompt = self.prompt_text.get("1.0", "end-1c")
-        verification = self.verification_text.get("1.0", "end-1c")
+    def start_async_loop(self):
+        self.async_thread = threading.Thread(target=self._run_async_loop, daemon=True)
+        self.async_thread.start()
+        self.process_queue()
 
-        if not title or not prompt:
-            self.form_status_label.configure(text="Title and Prompt are required.", text_color="red")
-            return
+    def _run_async_loop(self):
+        self.loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self.loop)
+        self.shutdown_event = asyncio.Event()
+        
+        url = "https://cvzgxnspmmxxxwnxiydk.supabase.co"
+        key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN2emd4bnNwbW14eHh3bnhpeWRrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4NzczNTgsImV4cCI6MjA3MjQ1MzM1OH0.2syXitu78TLVBu8hD7DfAC7h6CYvgyP-ZWcw9wY3xhU"
+        self.supabase_manager = SupabaseManager(url, key)
 
-        self.dispatch_button.configure(state="disabled", text="Dispatching...")
-        self.form_status_label.configure(text="")
-        
-        worker_url = 'http://127.0.0.1:8787'
-        verification_steps = [step.strip() for step in verification.split('\n') if step.strip()]
-        
-        payload = {
-            "title": title,
-            "prompt": prompt,
-            "verification_steps": {"steps": verification_steps}
-        }
-        
-        def do_dispatch():
-            try:
-                response = requests.post(f"{worker_url}/api/dispatch-job", json=payload, timeout=10)
-                if response.status_code == 202:
-                    self.form_status_label.configure(text="Job dispatched successfully!", text_color="green")
-                    self.title_entry.delete(0, "end")
-                    self.prompt_text.delete("1.0", "end")
-                    self.verification_text.delete("1.0", "end")
-                else:
-                    self.form_status_label.configure(text=f"Error: {response.text}", text_color="red")
-            except Exception as e:
-                self.form_status_label.configure(text=f"Error: {str(e)}", text_color="red")
-            finally:
-                self.dispatch_button.configure(state="normal", text="Dispatch Job")
+        try:
+            self.loop.run_until_complete(self.async_worker())
+        finally:
+            self.loop.close()
 
-        threading.Thread(target=do_dispatch, daemon=True).start()
+    async def async_worker(self):
+        await self.supabase_manager.initialize()
+        initial_jobs = await self.supabase_manager.fetch_initial_jobs()
+        self.queue.put({'type': 'INITIAL', 'payload': initial_jobs})
+
+        await self.supabase_manager.setup_realtime_subscription(
+            lambda payload: self.queue.put({'type': 'REALTIME', 'payload': payload})
+        )
+        await self.shutdown_event.wait()
+        await self.supabase_manager.cleanup()
 
     def process_queue(self):
         try:
-            while not self.update_queue.empty():
-                update = self.update_queue.get_nowait()
-                if update['type'] == 'INITIAL':
-                    self.handle_initial_data(update['payload'])
-                elif update['type'] == 'REALTIME':
-                    self.handle_realtime_update(update['payload'])
+            while True:
+                message = self.queue.get_nowait()
+                if message['type'] == 'INITIAL':
+                    self.handle_initial_data(message['payload'])
+                elif message['type'] == 'REALTIME':
+                    self.handle_realtime_update(message['payload'])
         except queue.Empty:
             pass
-        finally:
+        if self.winfo_exists():
             self.after(100, self.process_queue)
-            
+
     def handle_initial_data(self, jobs):
         self.jobs = {job['id']: job for job in jobs}
         self.render_all_jobs()
 
     def handle_realtime_update(self, payload):
         event_type = payload.get('type')
-        record = payload.get('record', payload.get('old_record', {})) if event_type != 'DELETE' else payload.get('old_record', {})
+        record = payload.get('record', {}) if event_type != 'DELETE' else payload.get('old_record', {})
         job_id = record.get('id')
-
-        print(f"[UI] Realtime event: {event_type} for job {job_id}")
-
-        if not job_id: 
-            print("[UI] Received an event with no job ID, skipping.")
-            return
+        if not job_id: return
         
-        if event_type == 'INSERT':
+        if event_type == 'INSERT' or event_type == 'UPDATE':
             self.jobs[job_id] = record
-            print(f"[UI] INSERTED job {job_id}. Total jobs: {len(self.jobs)}")
-        elif event_type == 'UPDATE':
-            if job_id in self.jobs:
-                self.jobs[job_id] = {**self.jobs[job_id], **record}
-                print(f"[UI] UPDATED job {job_id}.")
-            else:
-                self.jobs[job_id] = record # Handle case where an update comes before initial fetch
-                print(f"[UI] INSERTED job {job_id} from an UPDATE event.")
         elif event_type == 'DELETE':
-            if job_id in self.jobs:
-                del self.jobs[job_id]
-                print(f"[UI] DELETED job {job_id}. Total jobs: {len(self.jobs)}")
+            if job_id in self.jobs: del self.jobs[job_id]
         
         self.render_all_jobs()
         
     def on_toggle_ready(self, job_id, is_selected):
-        if is_selected:
-            self.selected_jobs.add(job_id)
-        else:
-            self.selected_jobs.discard(job_id)
-        
+        if is_selected: self.selected_jobs.add(job_id)
+        else: self.selected_jobs.discard(job_id)
         count = len(self.selected_jobs)
-        self.reconciliation_button.configure(
-            text=f"Mark {count} as Ready for Integration",
-            state="normal" if count > 0 else "disabled"
-        )
+        self.reconciliation_button.configure(text=f"Mark {count} as Ready", state="normal" if count > 0 else "disabled")
         
     def mark_as_ready(self):
         job_ids = list(self.selected_jobs)
-        if not job_ids:
-            return
-            
+        if not job_ids or not self.loop: return
         self.reconciliation_button.configure(state="disabled", text="Marking...")
-        
-        command = {
-            "type": "MARK_AS_READY",
-            "payload": {"job_ids": job_ids}
-        }
-        self.command_queue_put(command)
-
-        # The UI will update via realtime subscription, but we can reset the button state
-        # after a short delay to provide feedback, or wait for a confirmation message.
-        # For now, let's just optimistically reset it.
+        asyncio.run_coroutine_threadsafe(self.supabase_manager.mark_jobs_as_ready(job_ids), self.loop)
         self.selected_jobs.clear()
-        self.reconciliation_button.configure(
-            text="Mark 0 as Ready for Integration",
-            state="disabled"
-        )
+        self.after(1000, lambda: self.reconciliation_button.configure(text="Mark 0 as Ready", state="disabled"))
 
     def delete_job(self, job_id):
-        # Optimistic UI Update: remove the job from the local state immediately
         if job_id in self.jobs:
             del self.jobs[job_id]
             self.render_all_jobs()
-            print(f"[UI] Optimistically removed job {job_id}.")
-
-        # Send the command to the background thread to delete from the database
-        command = {
-            "type": "DELETE_JOB",
-            "payload": {"job_id": job_id}
-        }
-        self.command_queue_put(command)
+        if self.loop:
+            asyncio.run_coroutine_threadsafe(self.supabase_manager.delete_job(job_id), self.loop)
 
     def render_all_jobs(self):
-        # Clear existing widgets first to prevent memory leaks
-        for child in self.scrollable_frame.winfo_children():
-            child.destroy()
+        for child in self.scrollable_frame.winfo_children(): child.destroy()
         self.job_widgets = {}
-
-        # Group jobs by base_version
         grouped_jobs = defaultdict(list)
-        for job in self.jobs.values():
-            grouped_jobs[job.get('base_version', 'Unknown')].append(job)
-
-        # Sort groups by the most recent job within them
+        for job in self.jobs.values(): grouped_jobs[job.get('base_version', 'Unknown')].append(job)
         sorted_groups = sorted(grouped_jobs.items(), key=lambda item: max(j['created_at'] for j in item[1]), reverse=True)
-
         for i, (base_version, jobs_in_group) in enumerate(sorted_groups):
             group_frame = ctk.CTkFrame(self.scrollable_frame)
             group_frame.grid(row=i, column=0, padx=10, pady=(10, 5), sticky="ew")
             group_frame.grid_columnconfigure(0, weight=1)
-
-            # --- Group Header ---
             header = ctk.CTkLabel(group_frame, text=f"Base Version: {base_version}", font=ctk.CTkFont(weight="bold"))
             header.pack(fill="x", padx=10, pady=5)
-            
-            # Sort jobs within the group
             sorted_jobs = sorted(jobs_in_group, key=lambda j: j['created_at'], reverse=True)
-            
             for job in sorted_jobs:
                 job_id = job['id']
-                job_widget = JobListItem(
-                    group_frame, 
-                    job, 
-                    on_toggle_ready=self.on_toggle_ready, 
-                    on_delete=self.delete_job
-                )
+                job_widget = JobListItem(group_frame, job, on_toggle_ready=self.on_toggle_ready, on_delete=self.delete_job)
                 job_widget.pack(fill="x", padx=10, pady=5)
                 self.job_widgets[job_id] = job_widget
     
     def on_closing(self):
-        print("Closing application and subprocesses...")
-        if self.command_queue_put:
-            self.command_queue_put({"type": "CLOSE"})
+        print("Initiating graceful shutdown...")
+        if self.shutdown_event and self.loop:
+            self.loop.call_soon_threadsafe(self.shutdown_event.set)
         
-        # The atexit handler will take care of the subprocesses,
-        # but we can also be explicit here.
+        if self.async_thread and self.async_thread.is_alive():
+            self.async_thread.join(timeout=2.0)
+            
         cleanup_processes()
-        
         self.destroy()
-
-async def process_commands(q, manager):
-    while True:
-        try:
-            command = await q.get()
-            if command['type'] == 'MARK_AS_READY':
-                job_ids = command['payload']['job_ids']
-                print(f"[UI->Async] Received command to mark jobs as ready: {job_ids}")
-                await manager.mark_jobs_as_ready(job_ids)
-            elif command['type'] == 'DELETE_JOB':
-                job_id = command['payload']['job_id']
-                print(f"[UI->Async] Received command to delete job: {job_id}")
-                await manager.delete_job(job_id)
-            elif command['type'] == 'CLOSE':
-                print("[UI->Async] Received close command.")
-                break
-        except Exception as e:
-            print(f"[Async] Error processing command: {e}")
-
-def run_asyncio_loop(loop, update_q, command_q_async):
-    asyncio.set_event_loop(loop)
-    
-    url = "https://cvzgxnspmmxxxwnxiydk.supabase.co"
-    key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN2emd4bnNwbW14eHh3bnhpeWRrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4NzczNTgsImV4cCI6MjA3MjQ1MzM1OH0.2syXitu78TLVBu8hD7DfAC7h6CYvgyP-ZWcw9wY3xhU"
-    manager = SupabaseManager(url, key)
-
-    async def main():
-        command_task = None
-        try:
-            await manager.initialize()
-            
-            initial_jobs = await manager.fetch_initial_jobs()
-            update_q.put({'type': 'INITIAL', 'payload': initial_jobs})
-            
-            command_task = asyncio.create_task(process_commands(command_q_async, manager))
-            
-            await manager.setup_realtime_subscription(
-                lambda payload: update_q.put({'type': 'REALTIME', 'payload': payload})
-            )
-
-            await command_task
-
-        except Exception as e:
-            print(f"[Async] A critical error occurred in the main async loop: {e}")
-        finally:
-            if command_task and not command_task.done():
-                command_task.cancel()
-            await manager.cleanup()
-
-    loop.run_until_complete(main())
+        print("Shutdown complete.")
 
 if __name__ == "__main__":
-    # Use an asyncio queue for thread-safe async communication
-    command_queue = asyncio.Queue()
-
-    # The UI needs a way to put items onto the asyncio queue from a different thread
-    def thread_safe_put(q_async, item, loop):
-        asyncio.run_coroutine_threadsafe(q_async.put(item), loop)
-
-    # Run asyncio loop in a background thread
-    async_loop = asyncio.new_event_loop()
-    
-    # Create the app instance, passing it a function it can use to safely queue commands
     app = App()
-
-    async_thread = AsyncioThread(app)
-    async_thread.start()
-
-    app.protocol("WM_DELETE_WINDOW", app.on_closing)
     app.mainloop()
