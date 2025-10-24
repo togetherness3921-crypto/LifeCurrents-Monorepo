@@ -88,7 +88,7 @@ jobs:
       - name: Notify Orchestrator of Result
         if: steps.extract_job_id.outputs.job_id
         env:
-          JOB_ID: ${{ steps.extract_job_id.outputs.job_id }}
+          JOB_ID: ${{ steps.extract_job_id.outputs.job_id }} 
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PREVIEW_URL: ${{ steps.deploy_frontend.outputs.url }}
           WORKER_URL: ${{ secrets.WORKER_BASE_URL }}
