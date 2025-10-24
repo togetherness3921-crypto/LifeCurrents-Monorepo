@@ -131,16 +131,29 @@ class App(ctk.CTk):
 
     def handle_realtime_update(self, payload):
         event_type = payload.get('type')
-        record = payload.get('record', payload.get('old_record', {}))
+        record = payload.get('record', payload.get('old_record', {})) if event_type != 'DELETE' else payload.get('old_record', {})
         job_id = record.get('id')
 
-        if not job_id: return
+        print(f"[UI] Realtime event: {event_type} for job {job_id}")
+
+        if not job_id: 
+            print("[UI] Received an event with no job ID, skipping.")
+            return
         
-        if event_type == 'INSERT' or event_type == 'UPDATE':
+        if event_type == 'INSERT':
             self.jobs[job_id] = record
+            print(f"[UI] INSERTED job {job_id}. Total jobs: {len(self.jobs)}")
+        elif event_type == 'UPDATE':
+            if job_id in self.jobs:
+                self.jobs[job_id] = {**self.jobs[job_id], **record}
+                print(f"[UI] UPDATED job {job_id}.")
+            else:
+                self.jobs[job_id] = record # Handle case where an update comes before initial fetch
+                print(f"[UI] INSERTED job {job_id} from an UPDATE event.")
         elif event_type == 'DELETE':
             if job_id in self.jobs:
                 del self.jobs[job_id]
+                print(f"[UI] DELETED job {job_id}. Total jobs: {len(self.jobs)}")
         
         self.render_all_jobs()
         
@@ -197,7 +210,9 @@ class App(ctk.CTk):
         print("Closing application...")
         if self.command_queue_put:
             self.command_queue_put({"type": "CLOSE"})
-        self.destroy()
+        # This will now correctly trigger the cleanup in the async thread
+        # We need to give it a moment to process the close command
+        self.after(200, self.destroy)
 
 async def process_commands(q, manager):
     while True:

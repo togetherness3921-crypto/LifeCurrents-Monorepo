@@ -10,7 +10,7 @@ jobs:
     name: Deploy Full Stack Preview
     permissions:
       deployments: write
-      pull-requests: write
+      pull-requests: write 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -79,9 +79,15 @@ jobs:
             });
 
       - name: Extract Job ID from PR Body
-        id: extract_job_id 
-        if: "contains(github.event.pull_request.body, 'Job ID:')"
+        id: extract_job_id
+        if: contains(github.event.pull_request.body, 'Job ID:')
         run: |
           job_id=$(echo "${{ github.event.pull_request.body }}" | grep 'Job ID:' | sed -n 's/.*`\(.*\)`/\\1/p')
           echo "job_id=$job_id" >> $GITHUB_OUTPUT
 
+      - name: Notify Orchestrator of Result
+        if: steps.extract_job_id.outputs.job_id
+        run: |
+          curl -X POST "${{ secrets.WORKER_BASE_URL }}/api/job-result" \
+            -H "Content-Type: application/json" \
+            -d "{\"job_id\": \"${{ steps.extract_job_id.outputs.job_id }}\", \"pr_number\": ${{ github.event.pull_request.number }}, \"preview_url\": \"${{ steps.deploy_frontend.outputs.url }}\"}"

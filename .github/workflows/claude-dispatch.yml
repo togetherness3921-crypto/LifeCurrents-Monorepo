@@ -9,6 +9,8 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+      # This permission is required for the Claude action to authenticate via OIDC
+      id-token: write
     
     steps:
       - name: Checkout repository
