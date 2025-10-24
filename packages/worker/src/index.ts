@@ -16,7 +16,7 @@ const ALLOWED_STATUSES: Array<Node['status']> = ['not-started', 'in-progress', '
 const ALLOWED_STATUS_SET = new Set(ALLOWED_STATUSES);
 const DEFAULT_STATUS: Node['status'] = 'not-started';
 const ALLOWED_NODE_TYPE = 'objectiveNode';
-
+// Fuck this
 const GRAPH_CONTRACT_SECTION_HEADING = "### Graph Contract v1.0 – Containment vs. Causality";
 const GRAPH_CONTRACT_INSTRUCTIONS = `${GRAPH_CONTRACT_SECTION_HEADING}
 - \`graph\` is the single source of truth for containment. Every node MUST include this property.
