@@ -5,6 +5,22 @@ import threading
 import queue
 import requests
 import asyncio
+import subprocess
+import atexit
+
+# --- Global process list to ensure cleanup ---
+running_processes = []
+
+def cleanup_processes():
+    print("Cleaning up running subprocesses...")
+    for p in running_processes:
+        if p.poll() is None: # Check if process is still running
+            p.terminate()
+            p.wait()
+    print("Subprocesses cleaned up.")
+
+atexit.register(cleanup_processes)
+# ---
 
 class App(ctk.CTk):
     def __init__(self, command_queue_put_func):
@@ -30,6 +46,34 @@ class App(ctk.CTk):
 
         self.update_queue = queue.Queue()
         self.after(100, self.process_queue)
+
+        self.start_subprocesses()
+
+    def start_subprocesses(self):
+        print("Starting background services...")
+        # Start Cloudflare Worker with UTF-8 encoding
+        worker_command = "npm run dev --workspace=packages/worker -- --port 8787"
+        worker_process = subprocess.Popen(worker_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding='utf-8')
+        running_processes.append(worker_process)
+        print(f"Started Cloudflare Worker with PID: {worker_process.pid}")
+
+        # Start MCP Server with UTF-8 encoding
+        mcp_command = "node packages/mcp-server/build/index.js"
+        mcp_process = subprocess.Popen(mcp_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding='utf-8')
+        running_processes.append(mcp_process)
+        print(f"Started MCP Server with PID: {mcp_process.pid}")
+
+        # It's good practice to monitor the output of these processes
+        threading.Thread(target=self.log_subprocess_output, args=(worker_process, "Worker"), daemon=True).start()
+        threading.Thread(target=self.log_subprocess_output, args=(mcp_process, "MCP"), daemon=True).start()
+
+    def log_subprocess_output(self, process, name):
+        if process.stdout:
+            for line in iter(process.stdout.readline, ''):
+                print(f"[{name}] {line.strip()}")
+        if process.stderr:
+            for line in iter(process.stderr.readline, ''):
+                print(f"[{name} ERROR] {line.strip()}")
 
     def create_form(self):
         self.form_frame = ctk.CTkFrame(self)
@@ -207,12 +251,15 @@ class App(ctk.CTk):
             self.job_widgets[job_id] = job_widget
     
     def on_closing(self):
-        print("Closing application...")
+        print("Closing application and subprocesses...")
         if self.command_queue_put:
             self.command_queue_put({"type": "CLOSE"})
-        # This will now correctly trigger the cleanup in the async thread
-        # We need to give it a moment to process the close command
-        self.after(200, self.destroy)
+        
+        # The atexit handler will take care of the subprocesses,
+        # but we can also be explicit here.
+        cleanup_processes()
+        
+        self.destroy()
 
 async def process_commands(q, manager):
     while True:
