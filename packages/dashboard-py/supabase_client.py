@@ -72,6 +72,18 @@ class SupabaseManager:
             print(f"[Supabase] Error updating jobs to ready: {e}")
             raise
 
+    async def delete_job(self, job_id: str):
+        """Deletes a job record from the database."""
+        if not self.client:
+            raise RuntimeError("Client not initialized.")
+        
+        print(f"[Supabase] Deleting job: {job_id}")
+        try:
+            await self.client.table('jobs').delete().eq('id', job_id).execute()
+        except Exception as e:
+            print(f"[Supabase] Error deleting job: {e}")
+            raise
+
     async def cleanup(self):
         """Properly cleans up resources before shutting down."""
         print("[Supabase] Cleaning up resources...")

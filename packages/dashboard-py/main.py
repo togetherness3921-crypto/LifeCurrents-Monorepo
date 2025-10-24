@@ -7,6 +7,7 @@ import requests
 import asyncio
 import subprocess
 import atexit
+from collections import defaultdict
 
 # --- Global process list to ensure cleanup ---
 running_processes = []
@@ -36,10 +37,7 @@ class App(ctk.CTk):
         self.geometry("1200x900")
 
         self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(1, weight=1)
-
-        # --- New Job Form ---
-        self.create_form()
+        self.grid_rowconfigure(0, weight=1) # Changed to give list more space
 
         # --- Job List ---
         self.create_job_list()
@@ -51,15 +49,15 @@ class App(ctk.CTk):
 
     def start_subprocesses(self):
         print("Starting background services...")
-        # Start Cloudflare Worker with UTF-8 encoding
+        # Start Cloudflare Worker with UTF-8 encoding and error handling
         worker_command = "npm run dev --workspace=packages/worker -- --port 8787"
-        worker_process = subprocess.Popen(worker_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding='utf-8')
+        worker_process = subprocess.Popen(worker_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding='utf-8', errors='ignore')
         running_processes.append(worker_process)
         print(f"Started Cloudflare Worker with PID: {worker_process.pid}")
 
-        # Start MCP Server with UTF-8 encoding
+        # Start MCP Server with UTF-8 encoding and error handling
         mcp_command = "node packages/mcp-server/build/index.js"
-        mcp_process = subprocess.Popen(mcp_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding='utf-8')
+        mcp_process = subprocess.Popen(mcp_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding='utf-8', errors='ignore')
         running_processes.append(mcp_process)
         print(f"Started MCP Server with PID: {mcp_process.pid}")
 
@@ -101,7 +99,7 @@ class App(ctk.CTk):
 
     def create_job_list(self):
         self.list_container = ctk.CTkFrame(self)
-        self.list_container.grid(row=1, column=0, padx=20, pady=(0, 20), sticky="nsew")
+        self.list_container.grid(row=0, column=0, padx=20, pady=20, sticky="nsew")
         self.list_container.grid_columnconfigure(0, weight=1)
         self.list_container.grid_rowconfigure(1, weight=1)
 
@@ -114,8 +112,8 @@ class App(ctk.CTk):
         self.reconciliation_button = ctk.CTkButton(header_frame, text="Mark 0 as Ready for Integration", command=self.mark_as_ready, state="disabled")
         self.reconciliation_button.grid(row=0, column=1, sticky="e")
 
-        self.scrollable_frame = ctk.CTkScrollableFrame(self.list_container)
-        self.scrollable_frame.grid(row=1, column=0, padx=10, pady=(0, 10), sticky="nsew")
+        self.scrollable_frame = ctk.CTkScrollableFrame(self.list_container, fg_color="transparent")
+        self.scrollable_frame.grid(row=1, column=0, padx=0, pady=(0, 10), sticky="nsew")
         self.scrollable_frame.grid_columnconfigure(0, weight=1)
 
     def dispatch_job(self):
@@ -235,20 +233,49 @@ class App(ctk.CTk):
             state="disabled"
         )
 
+    def delete_job(self, job_id):
+        command = {
+            "type": "DELETE_JOB",
+            "payload": {"job_id": job_id}
+        }
+        self.command_queue_put(command)
 
     def render_all_jobs(self):
-        # Clear existing widgets
-        for widget in self.job_widgets.values():
-            widget.destroy()
+        # Clear existing widgets first to prevent memory leaks
+        for child in self.scrollable_frame.winfo_children():
+            child.destroy()
         self.job_widgets = {}
+
+        # Group jobs by base_version
+        grouped_jobs = defaultdict(list)
+        for job in self.jobs.values():
+            grouped_jobs[job.get('base_version', 'Unknown')].append(job)
+
+        # Sort groups by the most recent job within them
+        sorted_groups = sorted(grouped_jobs.items(), key=lambda item: max(j['created_at'] for j in item[1]), reverse=True)
+
+        for i, (base_version, jobs_in_group) in enumerate(sorted_groups):
+            group_frame = ctk.CTkFrame(self.scrollable_frame)
+            group_frame.grid(row=i, column=0, padx=10, pady=(10, 5), sticky="ew")
+            group_frame.grid_columnconfigure(0, weight=1)
+
+            # --- Group Header ---
+            header = ctk.CTkLabel(group_frame, text=f"Base Version: {base_version}", font=ctk.CTkFont(weight="bold"))
+            header.pack(fill="x", padx=10, pady=5)
             
-        sorted_jobs = sorted(self.jobs.values(), key=lambda j: j['created_at'], reverse=True)
-        
-        for i, job in enumerate(sorted_jobs):
-            job_id = job['id']
-            job_widget = JobListItem(self.scrollable_frame, job, on_toggle_ready=self.on_toggle_ready)
-            job_widget.grid(row=i, column=0, padx=10, pady=5, sticky="ew")
-            self.job_widgets[job_id] = job_widget
+            # Sort jobs within the group
+            sorted_jobs = sorted(jobs_in_group, key=lambda j: j['created_at'], reverse=True)
+            
+            for job in sorted_jobs:
+                job_id = job['id']
+                job_widget = JobListItem(
+                    group_frame, 
+                    job, 
+                    on_toggle_ready=self.on_toggle_ready, 
+                    on_delete=self.delete_job
+                )
+                job_widget.pack(fill="x", padx=10, pady=5)
+                self.job_widgets[job_id] = job_widget
     
     def on_closing(self):
         print("Closing application and subprocesses...")
@@ -269,6 +296,10 @@ async def process_commands(q, manager):
                 job_ids = command['payload']['job_ids']
                 print(f"[UI->Async] Received command to mark jobs as ready: {job_ids}")
                 await manager.mark_jobs_as_ready(job_ids)
+            elif command['type'] == 'DELETE_JOB':
+                job_id = command['payload']['job_id']
+                print(f"[UI->Async] Received command to delete job: {job_id}")
+                await manager.delete_job(job_id)
             elif command['type'] == 'CLOSE':
                 print("[UI->Async] Received close command.")
                 break
