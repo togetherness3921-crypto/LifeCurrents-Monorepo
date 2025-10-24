@@ -234,6 +234,13 @@ class App(ctk.CTk):
         )
 
     def delete_job(self, job_id):
+        # Optimistic UI Update: remove the job from the local state immediately
+        if job_id in self.jobs:
+            del self.jobs[job_id]
+            self.render_all_jobs()
+            print(f"[UI] Optimistically removed job {job_id}.")
+
+        # Send the command to the background thread to delete from the database
         command = {
             "type": "DELETE_JOB",
             "payload": {"job_id": job_id}
