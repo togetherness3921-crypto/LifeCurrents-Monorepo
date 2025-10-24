@@ -27,7 +27,6 @@ jobs:
         id: create-pr
         uses: peter-evans/create-pull-request@v6
         with:
-          token: ${{ secrets.CLAUDE_ACTION_PAT }}
           commit-message: "feat: Claude development for job ${{ github.event.client_payload.job_id }}"
           branch: "claude/job-${{ github.event.client_payload.job_id }}"
           base: ${{ github.ref_name }}

@@ -15,20 +15,63 @@ running_processes = []
 def cleanup_processes():
     print("Cleaning up running subprocesses...")
     for p in running_processes:
-        if p.poll() is None: # Check if process is still running
+        if p.poll() is None:
             p.terminate()
-            p.wait()
+            try:
+                p.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                p.kill()
     print("Subprocesses cleaned up.")
 
 atexit.register(cleanup_processes)
-# ---
+
+class AsyncioThread(threading.Thread):
+    def __init__(self, app):
+        super().__init__(daemon=True)
+        self.app = app
+        self.loop = asyncio.new_event_loop()
+
+    def run(self):
+        asyncio.set_event_loop(self.loop)
+        url = "https://cvzgxnspmmxxxwnxiydk.supabase.co"
+        key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN2emd4bnNwbW14eHh3bnhpeWRrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4NzczNTgsImV4cCI6MjA3MjQ1MzM1OH0.2syXitu78TLVBu8hD7DfAC7h6CYvgyP-ZWcw9wY3xhU"
+        self.manager = SupabaseManager(url, key)
+        self.loop.run_until_complete(self.main())
+
+    async def main(self):
+        try:
+            await self.manager.initialize()
+            initial_jobs = await self.manager.fetch_initial_jobs()
+            self.app.after(0, self.app.handle_initial_data, initial_jobs)
+            
+            await self.manager.setup_realtime_subscription(self.handle_realtime_event)
+            
+            # Keep the loop running to process commands
+            while not self.app.is_closing:
+                await asyncio.sleep(0.1)
+
+        except Exception as e:
+            print(f"[Async] A critical error occurred in the main async loop: {e}")
+        finally:
+            await self.manager.cleanup()
+
+    def handle_realtime_event(self, payload):
+        self.app.after(0, self.app.handle_realtime_update, payload)
+
+    def stop(self):
+        print("[Async] Stopping asyncio loop...")
+        self.loop.call_soon_threadsafe(self.loop.stop)
+
+    def delete_job(self, job_id):
+        asyncio.run_coroutine_threadsafe(self.manager.delete_job(job_id), self.loop)
+
+    def mark_as_ready(self, job_ids):
+        asyncio.run_coroutine_threadsafe(self.manager.mark_jobs_as_ready(job_ids), self.loop)
 
 class App(ctk.CTk):
-    def __init__(self, command_queue_put_func):
+    def __init__(self):
         super().__init__()
-
-        self.supabase_client = None # Will be set later
-        self.command_queue_put = command_queue_put_func
+        self.is_closing = False
         self.jobs = {}
         self.job_widgets = {}
         self.selected_jobs = set()
@@ -37,31 +80,21 @@ class App(ctk.CTk):
         self.geometry("1200x900")
 
         self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(0, weight=1) # Changed to give list more space
+        self.grid_rowconfigure(0, weight=1)
 
-        # --- Job List ---
         self.create_job_list()
-
-        self.update_queue = queue.Queue()
-        self.after(100, self.process_queue)
-
         self.start_subprocesses()
+        
+        self.protocol("WM_DELETE_WINDOW", self.on_closing)
 
     def start_subprocesses(self):
         print("Starting background services...")
-        # Start Cloudflare Worker with UTF-8 encoding and error handling
         worker_command = "npm run dev --workspace=packages/worker -- --port 8787"
         worker_process = subprocess.Popen(worker_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding='utf-8', errors='ignore')
         running_processes.append(worker_process)
-        print(f"Started Cloudflare Worker with PID: {worker_process.pid}")
-
-        # Start MCP Server with UTF-8 encoding and error handling
         mcp_command = "node packages/mcp-server/build/index.js"
         mcp_process = subprocess.Popen(mcp_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding='utf-8', errors='ignore')
         running_processes.append(mcp_process)
-        print(f"Started MCP Server with PID: {mcp_process.pid}")
-
-        # It's good practice to monitor the output of these processes
         threading.Thread(target=self.log_subprocess_output, args=(worker_process, "Worker"), daemon=True).start()
         threading.Thread(target=self.log_subprocess_output, args=(mcp_process, "MCP"), daemon=True).start()
 
@@ -357,13 +390,9 @@ if __name__ == "__main__":
     async_loop = asyncio.new_event_loop()
     
     # Create the app instance, passing it a function it can use to safely queue commands
-    app = App(lambda item: thread_safe_put(command_queue, item, async_loop))
+    app = App()
 
-    async_thread = threading.Thread(
-        target=run_asyncio_loop, 
-        args=(async_loop, app.update_queue, command_queue), 
-        daemon=True
-    )
+    async_thread = AsyncioThread(app)
     async_thread.start()
 
     app.protocol("WM_DELETE_WINDOW", app.on_closing)
