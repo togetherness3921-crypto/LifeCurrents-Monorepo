@@ -31,7 +31,8 @@ class JobListItem(ctk.CTkFrame):
         self.title_label.pack(fill="x")
         
         # --- Verification Steps (collapsible) ---
-        verification_steps = job.get('verification_steps', {}).get('steps', [])
+        verification_data = job.get('verification_steps')
+        verification_steps = verification_data.get('steps', []) if isinstance(verification_data, dict) else []
         if verification_steps:
             self.verification_frame = ctk.CTkFrame(self.details_frame, fg_color="transparent")
             self.verification_frame.pack(fill="x", pady=(5, 0))
