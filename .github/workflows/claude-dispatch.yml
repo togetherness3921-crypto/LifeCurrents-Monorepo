@@ -9,7 +9,6 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-      # This permission is required for the Claude action to authenticate via OIDC
       id-token: write
     
     steps:
@@ -21,7 +20,6 @@ jobs:
         id: claude
         with:
           prompt: ${{ github.event.client_payload.prompt }}
-          # Let the create-pull-request action handle branch creation
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ secrets.CLAUDE_ACTION_PAT }}
 
@@ -31,7 +29,6 @@ jobs:
         with:
           token: ${{ secrets.CLAUDE_ACTION_PAT }}
           commit-message: "feat: Claude development for job ${{ github.event.client_payload.job_id }}"
-          # The action will create this branch from the changes on the base branch
           branch: "claude/job-${{ github.event.client_payload.job_id }}"
           base: ${{ github.ref_name }}
           delete-branch: true
