@@ -81,9 +81,12 @@ jobs:
       - name: Extract Job ID from PR Body
         id: extract_job_id
         if: contains(github.event.pull_request.body, 'Job ID:')
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
         run: |
-          job_id=$(echo "${{ github.event.pull_request.body }}" | grep 'Job ID:' | sed -n 's/.*`\(.*\)`/\\1/p')
+          job_id=$(echo "$PR_BODY" | grep 'Job ID:' | sed -n 's/.*`\(.*\)`/\1/p')
           echo "job_id=$job_id" >> $GITHUB_OUTPUT
+          echo "Extracted Job ID: $job_id"
 
       - name: Notify Orchestrator of Result
         if: steps.extract_job_id.outputs.job_id
