@@ -1,7 +1,7 @@
 name: Claude Dispatch Job
 on:
   repository_dispatch:
-    types: [claude-job]
+    types: [claude-job-v2]
 
 jobs:
   claude-development:
@@ -12,6 +12,13 @@ jobs:
       id-token: write
     
     steps:
+      - name: Log Workflow Version
+        run: |
+          echo "🔧 Workflow Version: 2024-10-25-v2 (No PAT, uses GITHUB_TOKEN)"
+          echo "📋 Job ID: ${{ github.event.client_payload.job_id }}"
+          echo "📝 Title: ${{ github.event.client_payload.title }}"
+          echo "⏰ Triggered at: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+      
       - name: Checkout repository
         uses: actions/checkout@v4
       

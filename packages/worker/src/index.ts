@@ -1741,7 +1741,7 @@ async function handleDispatchJob(request: Request, env: Env): Promise<Response> 
                 'User-Agent': 'LifeCurrents-Worker'
             },
             body: JSON.stringify({
-                event_type: 'claude-job',
+                event_type: 'claude-job-v2',
                 client_payload: {
                     job_id: jobId,
                     title,
