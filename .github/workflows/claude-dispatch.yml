@@ -21,13 +21,12 @@ jobs:
         with:
           prompt: ${{ github.event.client_payload.prompt }}
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          github_token: ${{ secrets.CLAUDE_ACTION_PAT }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create Pull Request
         id: create-pr
         uses: peter-evans/create-pull-request@v6
         with:
-          token: ${{ secrets.CLAUDE_ACTION_PAT }}
           commit-message: "feat: Claude development for job ${{ github.event.client_payload.job_id }}"
           branch: "claude/job-${{ github.event.client_payload.job_id }}"
           base: ${{ github.ref_name }}
