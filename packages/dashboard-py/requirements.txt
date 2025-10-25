@@ -1,3 +1,4 @@
 customtkinter
 supabase[async]
 requests
+pygame

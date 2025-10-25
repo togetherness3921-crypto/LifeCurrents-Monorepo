@@ -92,3 +92,30 @@ class JobListItem(ctk.CTkFrame):
         }
         color = status_colors.get(status, '#777777')
         self.status_indicator.configure(fg_color=color)
+    
+    def update_job_data(self, new_job):
+        """Update the widget with new job data without recreating it."""
+        old_status = self.job.get('status')
+        new_status = new_job.get('status')
+        
+        # Update internal job reference
+        self.job = new_job
+        
+        # Update title if changed
+        new_title = new_job.get('title', 'No Title')
+        if self.title_label.cget('text') != new_title:
+            self.title_label.configure(text=new_title)
+        
+        # Update status label if changed
+        new_status_text = new_status.replace('active', 'in-progress').upper()
+        if self.status_label.cget('text') != new_status_text:
+            self.status_label.configure(text=new_status_text)
+        
+        # Update status indicator color if status changed
+        if old_status != new_status:
+            self.update_status_color()
+        
+        # Update ready_for_integration checkbox state if changed
+        new_ready_state = new_job.get('ready_for_integration', False)
+        if self.is_selected.get() != new_ready_state:
+            self.is_selected.set(new_ready_state)

@@ -7,6 +7,8 @@ import asyncio
 import subprocess
 import atexit
 from collections import defaultdict
+import pygame
+import os
 
 # --- Global process list to ensure cleanup ---
 running_processes = []
@@ -67,14 +69,9 @@ class AsyncioThread(threading.Thread):
             self.update_queue.put({'type': 'INITIAL', 'payload': initial_jobs})
             print(f"[Async→Queue] Initial jobs added. Queue size: {self.update_queue.qsize()}")
             
-            # Setup realtime subscription
-            print("[Async] Setting up realtime subscription...")
-            await self.manager.setup_realtime_subscription(self.handle_realtime_event)
-            print("[Async] Realtime subscription active. Waiting for events...")
-            
-            # Keep loop running until shutdown
-            while not self.shutdown_event.is_set():
-                await asyncio.sleep(0.1)
+            # Start polling for updates
+            print("[Async] Starting polling for job updates...")
+            await self.manager.start_polling(self.handle_polling_update, interval_seconds=5)
 
         except Exception as e:
             print(f"[Async] Error in main loop: {e}")
@@ -84,12 +81,11 @@ class AsyncioThread(threading.Thread):
             print("[Async] Cleaning up...")
             await self.manager.cleanup()
 
-    def handle_realtime_event(self, payload):
-        """Callback for realtime events - send to UI via queue."""
-        print(f"[Async→Queue] Realtime event received: {payload.get('eventType', 'UNKNOWN')}")
-        print(f"[Async→Queue] Payload: {payload}")
-        self.update_queue.put({'type': 'REALTIME', 'payload': payload})
-        print(f"[Async→Queue] Event added to queue. Queue size: {self.update_queue.qsize()}")
+    def handle_polling_update(self, jobs):
+        """Callback for polling updates - send full job list to UI via queue."""
+        print(f"[Async→Queue] Poll update: {len(jobs)} jobs")
+        self.update_queue.put({'type': 'POLL', 'payload': jobs})
+        print(f"[Async→Queue] Poll data added to queue. Queue size: {self.update_queue.qsize()}")
 
     def delete_job(self, job_id):
         """Thread-safe method to delete a job from UI thread."""
@@ -118,12 +114,29 @@ class App(ctk.CTk):
         self.jobs = {}
         self.job_widgets = {}
         self.selected_jobs = set()
+        self.previous_job_states = {}  # Track job states to detect new completions
         
         # Thread-safe queue for asyncio → UI communication (canonical pattern)
         self.update_queue = queue.Queue()
         
         # Asyncio thread reference
         self.async_thread = None
+        
+        # Initialize sound notifications
+        try:
+            pygame.mixer.init()
+            completion_sound_path = os.path.join(os.path.dirname(__file__), "microwave-ding-104123.mp3")
+            new_job_sound_path = os.path.join(os.path.dirname(__file__), "ui-sounds-pack-2-sound-1-358893.mp3")
+            
+            self.completion_sound = pygame.mixer.Sound(completion_sound_path)
+            self.new_job_sound = pygame.mixer.Sound(new_job_sound_path)
+            
+            print(f"[Sound] Completion sound loaded from: {completion_sound_path}")
+            print(f"[Sound] New job sound loaded from: {new_job_sound_path}")
+        except Exception as e:
+            print(f"[Sound] Warning: Could not initialize sounds: {e}")
+            self.completion_sound = None
+            self.new_job_sound = None
         
         # UI Setup
         self.title("LifeCurrents Job Dashboard")
@@ -239,7 +252,10 @@ class App(ctk.CTk):
                 
                 if update['type'] == 'INITIAL':
                     print(f"[Queue→UI] Handling INITIAL data with {len(update['payload'])} jobs")
-                    self.handle_initial_data(update['payload'])
+                    self.handle_initial_data(update['payload'], is_initial=True)
+                elif update['type'] == 'POLL':
+                    print(f"[Queue→UI] Handling POLL update with {len(update['payload'])} jobs")
+                    self.handle_initial_data(update['payload'], is_initial=False)
                 elif update['type'] == 'REALTIME':
                     print(f"[Queue→UI] Handling REALTIME update")
                     self.handle_realtime_update(update['payload'])
@@ -254,13 +270,67 @@ class App(ctk.CTk):
         if self.winfo_exists() and not self.is_closing:
             self.after(100, self.process_queue)
             
-    def handle_initial_data(self, jobs):
-        print(f"[UI] handle_initial_data called with {len(jobs)} jobs")
-        self.jobs = {job['id']: job for job in jobs}
-        print(f"[UI] Jobs dictionary updated. Total jobs: {len(self.jobs)}")
-        print(f"[UI] Calling render_all_jobs()...")
-        self.render_all_jobs()
-        print(f"[UI] render_all_jobs() completed")
+    def handle_initial_data(self, jobs, is_initial=True):
+        print(f"[UI] handle_initial_data called with {len(jobs)} jobs (is_initial={is_initial})")
+        
+        new_jobs = {job['id']: job for job in jobs}
+        
+        # Detect newly completed jobs
+        newly_completed = []
+        for job in jobs:
+            job_id = job['id']
+            current_status = job.get('status')
+            previous_status = self.previous_job_states.get(job_id)
+            
+            # Check if job just became completed
+            if current_status == 'completed' and previous_status != 'completed':
+                newly_completed.append(job)
+                print(f"[UI] 🎉 Job {job_id} just completed!")
+        
+        # Play notification if there are new completions and window not focused
+        if newly_completed and not self.is_window_focused():
+            self.play_completion_sound()
+            print(f"[Sound] Played completion sound for {len(newly_completed)} newly completed job(s)")
+        
+        # On initial load, just render everything
+        if is_initial or not self.jobs:
+            self.jobs = new_jobs
+            self.previous_job_states = {job['id']: job.get('status') for job in jobs}
+            print(f"[UI] Initial render with {len(self.jobs)} jobs")
+            self.render_all_jobs()
+            return
+        
+        # Smart update: only touch what changed
+        old_job_ids = set(self.jobs.keys())
+        new_job_ids = set(new_jobs.keys())
+        
+        # Find changes
+        added_ids = new_job_ids - old_job_ids
+        removed_ids = old_job_ids - new_job_ids
+        potential_updates = new_job_ids & old_job_ids
+        
+        # Filter to only jobs that actually changed
+        changed_ids = []
+        for job_id in potential_updates:
+            if self.jobs[job_id] != new_jobs[job_id]:
+                changed_ids.append(job_id)
+        
+        # Update internal state
+        self.jobs = new_jobs
+        self.previous_job_states = {job['id']: job.get('status') for job in jobs}
+        
+        # If there are any changes, update UI selectively
+        if added_ids or removed_ids or changed_ids:
+            print(f"[UI] Smart update: {len(added_ids)} added, {len(removed_ids)} removed, {len(changed_ids)} changed")
+            
+            # Play sound for newly added jobs if window not focused
+            if added_ids and not self.is_window_focused():
+                self.play_new_job_sound()
+                print(f"[Sound] Played new job sound for {len(added_ids)} new job(s)")
+            
+            self.update_jobs_incrementally(added_ids, removed_ids, changed_ids)
+        else:
+            print(f"[UI] No changes detected, skipping UI update")
 
     def handle_realtime_update(self, payload):
         print(f"[UI] handle_realtime_update called")
@@ -311,6 +381,59 @@ class App(ctk.CTk):
         print(f"[UI] Calling render_all_jobs()...")
         self.render_all_jobs()
         print(f"[UI] render_all_jobs() completed")
+    
+    def update_jobs_incrementally(self, added_ids, removed_ids, changed_ids):
+        """
+        Update only the jobs that changed, without destroying the entire UI.
+        This prevents disruption during user interaction.
+        """
+        # Remove deleted jobs
+        for job_id in removed_ids:
+            if job_id in self.job_widgets:
+                widget = self.job_widgets[job_id]
+                widget.destroy()
+                del self.job_widgets[job_id]
+                print(f"[UI] Removed widget for job {job_id}")
+        
+        # Update changed jobs
+        for job_id in changed_ids:
+            if job_id in self.job_widgets:
+                # Update the existing widget with new data
+                widget = self.job_widgets[job_id]
+                widget.update_job_data(self.jobs[job_id])
+                print(f"[UI] Updated widget for job {job_id}")
+        
+        # If we added or removed jobs, we need to re-render (to handle grouping)
+        # But only if the structure changed significantly
+        if added_ids or removed_ids:
+            print(f"[UI] Jobs added/removed, doing full re-render to maintain grouping")
+            self.render_all_jobs()
+    
+    def is_window_focused(self):
+        """Check if the dashboard window is currently focused."""
+        try:
+            # In Tkinter, focus_get() returns the widget with focus, or None
+            return self.focus_get() is not None
+        except:
+            return False
+    
+    def play_completion_sound(self):
+        """Play the job completion sound."""
+        if self.completion_sound:
+            try:
+                self.completion_sound.play()
+                print("[Sound] 🔔 Completion sound played")
+            except Exception as e:
+                print(f"[Sound] Error playing completion sound: {e}")
+    
+    def play_new_job_sound(self):
+        """Play the new job dispatched sound."""
+        if self.new_job_sound:
+            try:
+                self.new_job_sound.play()
+                print("[Sound] 🔊 New job sound played")
+            except Exception as e:
+                print(f"[Sound] Error playing new job sound: {e}")
         
     def on_toggle_ready(self, job_id, is_selected):
         if is_selected:
@@ -414,7 +537,14 @@ class App(ctk.CTk):
         print("[Shutdown] Terminating background processes...")
         cleanup_processes()
         
-        # 3. Destroy the tkinter window
+        # 3. Cleanup pygame
+        try:
+            pygame.mixer.quit()
+            print("[Shutdown] Pygame mixer cleaned up.")
+        except:
+            pass
+        
+        # 4. Destroy the tkinter window
         print("[Shutdown] Closing application window...")
         self.destroy()
         print("[Shutdown] Shutdown complete.")

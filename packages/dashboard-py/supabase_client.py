@@ -5,13 +5,12 @@ from supabase import acreate_client, AsyncClient
 class SupabaseManager:
     """
     Manager class for handling the async Supabase client lifecycle
-    and realtime subscriptions, based on official patterns.
+    and polling for job updates.
     """
     def __init__(self, url: str, key: str):
         self.url = url
         self.key = key
         self.client: Optional[AsyncClient] = None
-        self.channel = None
 
     async def initialize(self):
         """Creates and initializes the asynchronous Supabase client."""
@@ -33,32 +32,30 @@ class SupabaseManager:
             print(f"[Supabase] Error fetching initial jobs: {e}")
             raise
 
-    async def setup_realtime_subscription(self, callback):
-        """Subscribes to real-time database changes on the 'jobs' table."""
+    async def fetch_all_jobs(self):
+        """Fetches all jobs from the database (used for polling)."""
         if not self.client:
             raise RuntimeError("Client not initialized.")
-
-        print("[Supabase] Setting up realtime subscription...")
-
-        def handle_change(payload):
-            # This is the generic callback that will be called for any change
-            print(f"[Supabase] Realtime event received: {payload['eventType']}")
-            callback(payload)
-
-        channel_name = "jobs_changes"
-        self.channel = self.client.channel(channel_name)
         
-        await (
-            self.channel
-            .on_postgres_changes(
-                event="*",
-                schema="public",
-                table="jobs",
-                callback=handle_change
-            )
-            .subscribe()
-        )
-        print("[Supabase] Realtime listener is now active.")
+        try:
+            response = await self.client.table('jobs').select('*').order('created_at', desc=True).execute()
+            return response.data
+        except Exception as e:
+            print(f"[Supabase] Error fetching jobs: {e}")
+            return []
+    
+    async def start_polling(self, callback, interval_seconds=5):
+        """Polls the database at regular intervals and calls callback with the data."""
+        print(f"[Supabase] Starting polling every {interval_seconds} seconds...")
+        
+        while True:
+            try:
+                jobs = await self.fetch_all_jobs()
+                callback(jobs)
+            except Exception as e:
+                print(f"[Supabase] Error during polling: {e}")
+            
+            await asyncio.sleep(interval_seconds)
 
     async def mark_jobs_as_ready(self, job_ids):
         """Updates the 'ready_for_integration' flag for the given job IDs."""
@@ -87,12 +84,6 @@ class SupabaseManager:
     async def cleanup(self):
         """Properly cleans up resources before shutting down."""
         print("[Supabase] Cleaning up resources...")
-        if self.channel and self.client:
-            try:
-                await self.client.remove_channel(self.channel)
-                print("[Supabase] Channel removed.")
-            except Exception as e:
-                print(f"[Supabase] Error removing channel: {e}")
         
         if self.client:
             try:
