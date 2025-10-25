@@ -12,6 +12,13 @@ jobs:
       deployments: write
       pull-requests: write 
     steps:
+      - name: Log Workflow Version
+        run: |
+          echo "🔧 Workflow: Unified Preview Deployment"
+          echo "📅 Version: 2024-10-25-v1 (Fixed job ID extraction with env var)"
+          echo "📋 PR Number: ${{ github.event.pull_request.number }}"
+          echo "⏰ Triggered at: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+      
       - name: Checkout Code
         uses: actions/checkout@v4
 
