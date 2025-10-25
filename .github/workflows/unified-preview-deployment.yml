@@ -15,7 +15,7 @@ jobs:
       - name: Log Workflow Version
         run: |
           echo "🔧 Workflow: Unified Preview Deployment"
-          echo "📅 Version: 2024-10-25-v1 (Fixed job ID extraction with env var)"
+          echo "📅 Version: 2024-10-25-v2 (Fixed worker URL hardcoded)"
           echo "📋 PR Number: ${{ github.event.pull_request.number }}"
           echo "⏰ Triggered at: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
       
@@ -98,6 +98,6 @@ jobs:
       - name: Notify Orchestrator of Result
         if: steps.extract_job_id.outputs.job_id
         run: |
-          curl -X POST "${{ secrets.WORKER_BASE_URL }}/api/job-result" \
+          curl -X POST "https://lifecurrents-worker.harveymushman394.workers.dev/api/job-result" \
             -H "Content-Type: application/json" \
             -d "{\"job_id\": \"${{ steps.extract_job_id.outputs.job_id }}\", \"pr_number\": ${{ github.event.pull_request.number }}, \"preview_url\": \"${{ steps.deploy_frontend.outputs.url }}\"}"
