@@ -15,7 +15,7 @@ jobs:
       - name: Log Workflow Version
         run: |
           echo "🔧 Workflow: Deploy Main Worker"
-          echo "📅 Version: 2025-10-25-v1 (Auto-deploy worker on main push)"
+          echo "📅 Version: 2025-10-25-v2 (Fixed secret names to CF_API_TOKEN and CF_ACCOUNT_ID)"
           echo "⏰ Triggered at: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
       
       - name: Checkout Code
