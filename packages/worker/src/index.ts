@@ -10,7 +10,7 @@ const SUPABASE_URL = "https://cvzgxnspmmxxxwnxiydk.supabase.co";
 const SUPABASE_SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN2emd4bnNwbW14eHh3bnhpeWRrIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1Njg3NzM1OCwiZXhwIjoyMDcyNDUzMzU4fQ.ZDl4Y3OQOeEeZ_QajGB6iRr0Xk3_Z7TMlI92yFmerzI";
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
-console.log('[Worker] Initializing LifeCurrents Worker - Testing deploy-main-worker workflow');
+console.log('[Worker] Initializing LifeCurrents Worker - Deployed to remote-mcp-server-authless');
 
 type JSONPatch = Operation[];
 
