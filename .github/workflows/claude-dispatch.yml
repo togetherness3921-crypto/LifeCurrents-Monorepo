@@ -14,7 +14,7 @@ jobs:
     steps:
       - name: Log Workflow Version
         run: |
-          echo "🔧 Workflow Version: 2024-10-25-v2 (No PAT, uses GITHUB_TOKEN)"
+          echo "🔧 Workflow Version: 2024-10-25-v3 (Uses PAT to trigger preview deployment)"
           echo "📋 Job ID: ${{ github.event.client_payload.job_id }}"
           echo "📝 Title: ${{ github.event.client_payload.title }}"
           echo "⏰ Triggered at: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
@@ -34,6 +34,7 @@ jobs:
         id: create-pr
         uses: peter-evans/create-pull-request@v6
         with:
+          token: ${{ secrets.CLAUDE_ACTION_PAT }}
           commit-message: "feat: Claude development for job ${{ github.event.client_payload.job_id }}"
           branch: "claude/job-${{ github.event.client_payload.job_id }}"
           base: ${{ github.ref_name }}

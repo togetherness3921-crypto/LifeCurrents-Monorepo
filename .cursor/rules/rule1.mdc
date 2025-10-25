@@ -5,6 +5,40 @@ alwaysApply: true
 
 # LifeCurrents Project Development Rules
 
+## Maintaining Cursor Rules
+
+### File Structure
+- Rules are stored in `.cursor/rules/` directory as `.mdc` files
+- Each `.mdc` file uses YAML frontmatter followed by Markdown content
+- Use kebab-case for filenames (e.g., `api-standards.mdc`)
+
+### YAML Frontmatter Properties
+```yaml
+---
+description: Brief description for AI to decide relevance
+globs: pattern/to/match/**/*  # Optional: auto-attach to matching files
+alwaysApply: true/false        # Optional: always include in context
+---
+```
+
+### Rule Types
+- **Always Applied**: `alwaysApply: true` - Always included in AI context
+- **Auto-Attached**: Has `globs` defined - Included when matching files are referenced
+- **Agent Requested**: Has `description` only - AI decides whether to use it
+- **Manual**: Empty frontmatter - Only used when explicitly invoked with `@ruleName`
+
+### Best Practices
+- Keep rules concise and focused (under 25 lines when possible)
+- Use clear, actionable descriptions
+- Include both positive and negative examples
+- Don't combine `globs` and `description` in the same rule
+- Use `@filename` syntax to reference template files for additional context
+
+### Updating Rules
+1. Edit the `.mdc` file directly in `.cursor/rules/`
+2. Changes take effect immediately in new AI conversations
+3. Use numbered prefixes (e.g., `001-`, `100-`, `200-`) to control priority when using multiple rule files
+
 ## Modifying System Instructions
 - To modify system instructions, edit the corresponding file in the `synced_files/system_instructions/` directory. These changes are automatically synced with the Supabase database via the `auto-sync` script.
 
@@ -31,6 +65,69 @@ The typical steps are as follows:
 5.  **Preview and Verification:** A preview deployment is automatically generated for the pull request. The user will use the link in the Dashboard UI to access the preview and verify that the changes meet the requirements, using the provided verification steps.
 6.  **Approval:** Using the Dashboard UI, the user will mark the verified jobs as "Ready for Integration."
 7.  **Final Reconciliation:** When ready, the user will give you an instruction to integrate the approved changes. You will then execute the Job Reconciliation Workflow noted below to merge the code into the main branch.
+
+## GitHub Workflow Development Guidelines
+
+### Critical Workflow File Behavior
+- GitHub Actions **always uses workflow files from the default branch (main)** when workflows are triggered
+- This applies to ALL trigger types: `repository_dispatch`, `workflow_dispatch`, `push`, `pull_request`, etc.
+- This is by design for security - prevents execution of arbitrary workflow code from non-default branches
+- There is **no setting or configuration** to change this behavior
+- **Consequence:** Changes to workflow files in feature branches will NOT be used until merged to `main`
+
+### Standard Development Process for ALL Workflows
+1. **Always commit workflow changes to `main` first** before testing
+   - Workflow files in `.github/workflows/` are infrastructure code
+   - They should be committed directly to `main`, not developed in feature branches
+2. **Wait 10-30 seconds** after pushing for GitHub to register the change
+   - GitHub caches workflow definitions and needs time to refresh
+3. **Trigger the workflow** using its configured trigger (manual dispatch, API call, push, etc.)
+4. **Check the logs immediately** to verify the correct version is running
+   - Look for the version identifier in the first step of the workflow
+
+### Version Tracking (Required for All Workflows)
+Every workflow file should include a version logging step as the **first step**:
+
+```yaml
+steps:
+  - name: Log Workflow Version
+    run: |
+      echo "🔧 Workflow: [workflow-name]"
+      echo "📅 Version: YYYY-MM-DD-vN (Brief description of changes)"
+      echo "⏰ Triggered at: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+```
+
+**When to update the version:**
+- Every time you modify the workflow file
+- Use format: `YYYY-MM-DD-vN` where N increments for same-day changes
+- Include a brief description of what changed
+
+**Why this matters:**
+- Immediately confirms which version is running in GitHub Actions logs
+- Prevents confusion when testing workflow changes
+- Provides audit trail of workflow evolution
+
+### Best Practices for Workflow Development
+- **Treat workflows as infrastructure code** - commit to `main` immediately, not feature branches
+- **Always include version logging** - first step in every workflow
+- **Use descriptive version descriptions** - explain what changed
+- **Wait for propagation** - if logs show old version, wait 30 seconds and retry
+- **Never assume changes are live** - always verify version in logs before debugging
+- **Document trigger changes** - if changing event types (e.g., `claude-job` → `claude-job-v2`), update both workflow and any code that triggers it
+- **Test incrementally** - make small changes, commit, test, repeat
+
+### Troubleshooting Workflow Changes
+**Problem:** Workflow runs but uses old version  
+**Solution:** Wait 30-60 seconds after commit, then trigger again
+
+**Problem:** Changes not appearing after several minutes  
+**Solution:** Verify commit is on `main` branch, not a fork or feature branch
+
+**Problem:** Workflow fails with new changes  
+**Solution:** Check version log to confirm new version is running; if old version, wait longer
+
+**Problem:** Need to test workflow changes before committing to `main`  
+**Solution:** There is no safe way to do this with GitHub Actions. Workflows must be on `main` to run. Consider using local testing tools or accept that workflow changes require `main` commits.
 
 ## Job Reconciliation Workflow
 When instructed to **reconcile, integrate, or commit** completed jobs, the following protected action must be taken:
