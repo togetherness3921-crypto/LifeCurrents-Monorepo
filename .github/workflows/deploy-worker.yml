@@ -1,0 +1,42 @@
+name: Deploy Production Worker
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'packages/worker/**'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    name: Deploy Worker to Production
+    steps:
+      - name: Log Workflow Version
+        run: |
+          echo "🔧 Workflow: Deploy Production Worker"
+          echo "📅 Version: 2025-10-25-v1 (Initial deployment automation)"
+          echo "⏰ Triggered at: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+      
+      - name: Checkout Code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install Dependencies
+        run: |
+          cd packages/worker
+          npm install
+      
+      - name: Deploy Worker
+        run: |
+          cd packages/worker
+          npx wrangler deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+

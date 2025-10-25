@@ -98,6 +98,6 @@ jobs:
       - name: Notify Orchestrator of Result
         if: steps.extract_job_id.outputs.job_id
         run: |
-          curl -X POST "https://lifecurrents-worker.harveymushman394.workers.dev/api/job-result" \
+          curl -X POST "https://monorepo-remote-mcp-server-authless.harveymushman394.workers.dev/api/job-result" \
             -H "Content-Type: application/json" \
             -d "{\"job_id\": \"${{ steps.extract_job_id.outputs.job_id }}\", \"pr_number\": ${{ github.event.pull_request.number }}, \"preview_url\": \"${{ steps.deploy_frontend.outputs.url }}\"}"

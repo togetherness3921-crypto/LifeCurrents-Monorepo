@@ -1,7 +1,7 @@
 name = "monorepo-remote-mcp-server-authless"
 main = "src/index.ts"
 compatibility_date = "2024-09-24"
-account_id = "YOUR_ACCOUNT_ID" # <-- You will need to replace this
+account_id = "1bc7cb077d8e12606d26d0afb422056d"
 
 [vars]
 # Add any environment variables your worker needs here
