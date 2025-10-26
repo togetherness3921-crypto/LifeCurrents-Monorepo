@@ -57,3 +57,6 @@ playwright-user-profile/
 # Wrangler
 .wrangler/
 .dev.vars
+
+# Chat files with potential secrets
+chats/search/
