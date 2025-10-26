@@ -275,22 +275,23 @@ class App(ctk.CTk):
         
         new_jobs = {job['id']: job for job in jobs}
         
-        # Detect newly completed jobs
+        # Detect newly completed jobs (but not on initial load)
         newly_completed = []
-        for job in jobs:
-            job_id = job['id']
-            current_status = job.get('status')
-            previous_status = self.previous_job_states.get(job_id)
+        if not is_initial:  # Only check for changes on subsequent polls
+            for job in jobs:
+                job_id = job['id']
+                current_status = job.get('status')
+                previous_status = self.previous_job_states.get(job_id)
+                
+                # Check if job just became completed
+                if current_status == 'completed' and previous_status != 'completed':
+                    newly_completed.append(job)
+                    print(f"[UI] 🎉 Job {job_id} just completed!")
             
-            # Check if job just became completed
-            if current_status == 'completed' and previous_status != 'completed':
-                newly_completed.append(job)
-                print(f"[UI] 🎉 Job {job_id} just completed!")
-        
-        # Play notification if there are new completions and window not focused
-        if newly_completed and not self.is_window_focused():
-            self.play_completion_sound()
-            print(f"[Sound] Played completion sound for {len(newly_completed)} newly completed job(s)")
+            # Play notification for new completions (always play, regardless of focus)
+            if newly_completed:
+                self.play_completion_sound()
+                print(f"[Sound] Played completion sound for {len(newly_completed)} newly completed job(s)")
         
         # On initial load, just render everything
         if is_initial or not self.jobs:
@@ -323,8 +324,9 @@ class App(ctk.CTk):
         if added_ids or removed_ids or changed_ids:
             print(f"[UI] Smart update: {len(added_ids)} added, {len(removed_ids)} removed, {len(changed_ids)} changed")
             
-            # Play sound for newly added jobs if window not focused
-            if added_ids and not self.is_window_focused():
+            # Play sound for newly added jobs (only on subsequent polls, not initial load)
+            # Note: is_initial is False here since we're in the smart update path
+            if added_ids:
                 self.play_new_job_sound()
                 print(f"[Sound] Played new job sound for {len(added_ids)} new job(s)")
             
@@ -387,6 +389,8 @@ class App(ctk.CTk):
         Update only the jobs that changed, without destroying the entire UI.
         This prevents disruption during user interaction.
         """
+        needs_full_rerender = False
+        
         # Remove deleted jobs
         for job_id in removed_ids:
             if job_id in self.job_widgets:
@@ -398,15 +402,28 @@ class App(ctk.CTk):
         # Update changed jobs
         for job_id in changed_ids:
             if job_id in self.job_widgets:
-                # Update the existing widget with new data
-                widget = self.job_widgets[job_id]
-                widget.update_job_data(self.jobs[job_id])
-                print(f"[UI] Updated widget for job {job_id}")
+                old_job = self.job_widgets[job_id].job
+                new_job = self.jobs[job_id]
+                
+                # Check if structural changes occurred that require widget rebuild
+                old_has_preview = bool(old_job.get('preview_url'))
+                new_has_preview = bool(new_job.get('preview_url'))
+                old_can_select = old_job.get('status') == 'completed' and old_has_preview
+                new_can_select = new_job.get('status') == 'completed' and new_has_preview
+                
+                if old_has_preview != new_has_preview or old_can_select != new_can_select:
+                    # Structural change - need full re-render for this job's group
+                    print(f"[UI] Job {job_id} has structural changes (preview/checkbox), flagging for re-render")
+                    needs_full_rerender = True
+                else:
+                    # Just text/color changes
+                    widget = self.job_widgets[job_id]
+                    widget.update_job_data(new_job)
+                    print(f"[UI] Updated widget for job {job_id}")
         
-        # If we added or removed jobs, we need to re-render (to handle grouping)
-        # But only if the structure changed significantly
-        if added_ids or removed_ids:
-            print(f"[UI] Jobs added/removed, doing full re-render to maintain grouping")
+        # If we added/removed jobs or had structural changes, do full re-render
+        if added_ids or removed_ids or needs_full_rerender:
+            print(f"[UI] Doing full re-render (added={len(added_ids)}, removed={len(removed_ids)}, structural_changes={needs_full_rerender})")
             self.render_all_jobs()
     
     def is_window_focused(self):

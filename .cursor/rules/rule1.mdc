@@ -66,12 +66,46 @@ The typical steps are as follows:
 6.  **Approval:** Using the Dashboard UI, the user will mark the verified jobs as "Ready for Integration."
 7.  **Final Reconciliation:** When ready, the user will give you an instruction to integrate the approved changes. You will then execute the Job Reconciliation Workflow noted below to merge the code into the main branch.
 
+## Job Dispatch Format
+
+When calling `dispatch_job`, provide three required fields:
+
+**1. title:** Brief job name
+
+**2. prompt:** Full implementation instructions with code examples, file locations, and:
+```
+**Verification Steps:**
+1. Visual: [fastest checks first]
+2. Interaction: [user actions to test]
+3. Deployment: [PR/preview checks]
+```
+
+**3. integration_summary:** Comprehensive reconciliation context
+- What is changing and why (no length limit)
+- Key details (colors, elements, values)
+- Original intent and purpose
+- Used when merging multiple jobs that modify same files
+- Omit implementation details (how)
+
+**Example integration_summary:**
+"Add blue (#2B5B84) background to Job Queue header frame (header_frame in create_job_list method). Purpose: Visual hierarchy - distinguish header from content area. Complements text styling changes to same element."
 
 ## Job Reconciliation Workflow
-When instructed to **reconcile, integrate, or commit** completed jobs, the following protected action must be taken:
 
-1.  **Query for Ready Jobs:** Connect to the Supabase database and query the `jobs` table for all records where the `ready_for_integration` flag is set to `true` and the status is `completed`.
-2.  **Fetch Diffs:** For each ready job, retrieve the associated Pull Request number and construct the `.diff` URL for that PR. Fetch the raw diff content for each approved change.
-3.  **Perform Local Integration:** Carefully analyze and apply the fetched diffs to the local workspace. You must intelligently merge all changes, resolving any conflicts that may arise between different jobs that modify the same files.
-4.  **Update Job Status:** After the merge is successfully completed, update the status of the integrated jobs in the Supabase `jobs` table from `completed` to `integrated`.
-5.  **Final Commit and Push:** Execute a one-shot commit and push of the integrated changes to the `main` branch using the `auto-sync.cjs` script's underlying commit logic. This should not be a looping watch command.
+When instructed to **reconcile, integrate, or commit** completed jobs:
+
+1. Call `get_ready_jobs` MCP tool → Returns jobs with diffs and integration_summary
+2. List all changes from diffs
+3. Apply changes one at a time using `search_replace`/`write` tools per Integration Protocol below
+4. Run: `node integrate-jobs.cjs "title1" "title2" ...`
+5. Call `mark_jobs_integrated` MCP tool with job IDs
+
+### Integration Protocol
+
+**THIS IS INTEGRATION, NOT REIMPLEMENTATION.**
+
+- Apply each diff change exactly as written unless it conflicts
+- Where conflicts exist, use integration_summary context to resolve intelligently
+- Favor reusing existing work over rewriting
+- Evaluate each change individually before applying
+- After all changes applied, report any conflicts encountered

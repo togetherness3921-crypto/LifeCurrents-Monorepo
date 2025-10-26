@@ -1684,10 +1684,10 @@ async function handleDispatchJob(request: Request, env: Env): Promise<Response> 
     }
 
     try {
-        const { title, prompt, verification_steps } = await request.json();
+        const { title, prompt, integration_summary, verification_steps } = await request.json();
 
-        if (!title || !prompt) {
-            return new Response('Missing title or prompt', { status: 400, headers: CORS_HEADERS });
+        if (!title || !prompt || !integration_summary) {
+            return new Response('Missing title, prompt, or integration_summary', { status: 400, headers: CORS_HEADERS });
         }
 
         const GITHUB_OWNER = env.GITHUB_OWNER;
@@ -1721,6 +1721,7 @@ async function handleDispatchJob(request: Request, env: Env): Promise<Response> 
             .insert({
                 title,
                 prompt,
+                integration_summary,
                 verification_steps,
                 base_version,
                 status: 'active', // Set to active as it's being dispatched
@@ -1809,6 +1810,123 @@ async function handleJobResult(request: Request, env: Env): Promise<Response> {
     }
 }
 
+async function handleGetReadyJobs(request: Request, env: Env): Promise<Response> {
+    if (request.method !== 'GET') {
+        return new Response('Method Not Allowed', { status: 405, headers: CORS_HEADERS });
+    }
+
+    try {
+        // Query Supabase for ready jobs
+        const { data: jobs, error: queryError } = await supabase
+            .from('jobs')
+            .select('id, title, pr_number, branch_name, base_version, integration_summary')
+            .eq('ready_for_integration', true)
+            .eq('status', 'completed');
+
+        if (queryError) {
+            throw new Error(`Failed to query jobs: ${queryError.message}`);
+        }
+
+        // Fetch diffs for each job
+        const GITHUB_OWNER = env.GITHUB_OWNER;
+        const GITHUB_REPO = env.GITHUB_REPO;
+        const GITHUB_PAT = env.GITHUB_PAT;
+
+        const jobsWithDiffs = await Promise.all(jobs.map(async (job) => {
+            if (!job.pr_number) {
+                return { ...job, diff_url: null, diff_content: null };
+            }
+
+            const diffUrl = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/pull/${job.pr_number}.diff`;
+            
+            try {
+                const diffResponse = await fetch(diffUrl, {
+                    headers: {
+                        'Accept': 'application/vnd.github.v3.diff',
+                        'Authorization': `Bearer ${GITHUB_PAT}`,
+                        'User-Agent': 'LifeCurrents-Worker'
+                    }
+                });
+
+                const diffContent = diffResponse.ok ? await diffResponse.text() : null;
+                
+                return {
+                    job_id: job.id,
+                    title: job.title,
+                    pr_number: job.pr_number,
+                    branch_name: job.branch_name,
+                    base_version: job.base_version,
+                    integration_summary: job.integration_summary,
+                    diff_url: diffUrl,
+                    diff_content: diffContent
+                };
+            } catch (error) {
+                console.error(`Failed to fetch diff for job ${job.id}:`, error);
+                return {
+                    job_id: job.id,
+                    title: job.title,
+                    pr_number: job.pr_number,
+                    branch_name: job.branch_name,
+                    base_version: job.base_version,
+                    integration_summary: job.integration_summary,
+                    diff_url: diffUrl,
+                    diff_content: null
+                };
+            }
+        }));
+
+        return withCors(new Response(JSON.stringify({ jobs: jobsWithDiffs }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' }
+        }));
+
+    } catch (error) {
+        console.error("Error in handleGetReadyJobs:", error);
+        return withCors(new Response(JSON.stringify({ error: error.message }), {
+            status: 500,
+            headers: { 'Content-Type': 'application/json' }
+        }));
+    }
+}
+
+async function handleMarkJobsIntegrated(request: Request, env: Env): Promise<Response> {
+    if (request.method !== 'POST') {
+        return new Response('Method Not Allowed', { status: 405, headers: CORS_HEADERS });
+    }
+
+    try {
+        const { job_ids } = await request.json();
+
+        if (!job_ids || !Array.isArray(job_ids) || job_ids.length === 0) {
+            return new Response('Missing or invalid job_ids array', { status: 400, headers: CORS_HEADERS });
+        }
+
+        const { error: updateError } = await supabase
+            .from('jobs')
+            .update({ status: 'integrated', updated_at: new Date().toISOString() })
+            .in('id', job_ids);
+
+        if (updateError) {
+            throw new Error(`Failed to update jobs: ${updateError.message}`);
+        }
+
+        return withCors(new Response(JSON.stringify({ 
+            success: true, 
+            updated_count: job_ids.length 
+        }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' }
+        }));
+
+    } catch (error) {
+        console.error("Error in handleMarkJobsIntegrated:", error);
+        return withCors(new Response(JSON.stringify({ error: error.message }), {
+            status: 500,
+            headers: { 'Content-Type': 'application/json' }
+        }));
+    }
+}
+
 
 const CORS_HEADERS = {
     'Access-Control-Allow-Origin': '*',
@@ -1887,6 +2005,14 @@ export default {
 
         if (url.pathname === '/api/job-result') {
             return handleJobResult(request, env);
+        }
+
+        if (url.pathname === '/api/get-ready-jobs') {
+            return handleGetReadyJobs(request, env);
+        }
+
+        if (url.pathname === '/api/mark-jobs-integrated') {
+            return handleMarkJobsIntegrated(request, env);
         }
 
         let response: Response;
