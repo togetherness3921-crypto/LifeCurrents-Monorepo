@@ -578,11 +578,11 @@ class ModernApp(ctk.CTk):
         for i, (base_version, jobs_in_group) in enumerate(sorted_groups):
             # Modern group header
             group_header = ModernGroupHeader(self.scrollable_frame, base_version, len(jobs_in_group))
-            group_header.grid(row=i*2, column=0, padx=20, pady=(20 if i == 0 else 15, 0), sticky="ew")
+            group_header.grid(row=i*2, column=0, padx=20, pady=(16 if i == 0 else 12, 0), sticky="ew")
             
             # Group container for jobs
             group_container = ctk.CTkFrame(self.scrollable_frame, fg_color="transparent")
-            group_container.grid(row=i*2+1, column=0, padx=20, pady=(10, 0), sticky="ew")
+            group_container.grid(row=i*2+1, column=0, padx=20, pady=(8, 0), sticky="ew")
             group_container.grid_columnconfigure(0, weight=1)
             
             # Sort jobs within the group
@@ -596,7 +596,7 @@ class ModernApp(ctk.CTk):
                     on_toggle_ready=self.on_toggle_ready, 
                     on_delete=self.delete_job
                 )
-                job_card.grid(row=j, column=0, pady=(0, 15), sticky="ew")
+                job_card.grid(row=j, column=0, pady=(0, 10), sticky="ew")
                 self.job_widgets[job_id] = job_card
     
     def on_closing(self):

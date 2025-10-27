@@ -40,7 +40,7 @@ class ModernJobCard(ctk.CTkFrame):
             fg_color=self.COLORS['card_bg'],
             border_width=1,
             border_color=self.COLORS['border'],
-            corner_radius=12
+            corner_radius=8
         )
         
         self.job = job
@@ -70,7 +70,7 @@ class ModernJobCard(ctk.CTkFrame):
     def _create_status_section(self):
         """Create the status badge on the left."""
         status_container = ctk.CTkFrame(self, fg_color="transparent")
-        status_container.grid(row=0, column=0, padx=(20, 15), pady=20, sticky="n")
+        status_container.grid(row=0, column=0, padx=(16, 12), pady=15, sticky="n")
         
         # Status badge with text
         status = self.job.get('status', 'unknown')
@@ -81,17 +81,17 @@ class ModernJobCard(ctk.CTkFrame):
             text=status_text,
             fg_color=status_color,
             text_color=self.COLORS['text_primary'],
-            corner_radius=6,
-            padx=14,
-            pady=7,
-            font=ctk.CTkFont(size=11, weight="bold")
+            corner_radius=5,
+            padx=12,
+            pady=5,
+            font=ctk.CTkFont(size=10, weight="bold")
         )
         self.status_badge.pack()
     
     def _create_content_section(self):
         """Create the main content area with title and verification steps."""
         content_frame = ctk.CTkFrame(self, fg_color="transparent")
-        content_frame.grid(row=0, column=1, padx=15, pady=20, sticky="nsew")
+        content_frame.grid(row=0, column=1, padx=12, pady=15, sticky="nsew")
         
         # Title
         title_text = self.job.get('title', 'No Title')
@@ -99,10 +99,10 @@ class ModernJobCard(ctk.CTkFrame):
             content_frame,
             text=title_text,
             anchor="w",
-            font=ctk.CTkFont(size=16, weight="bold"),
+            font=ctk.CTkFont(size=14, weight="bold"),
             text_color=self.COLORS['text_primary']
         )
-        self.title_label.pack(fill="x", pady=(0, 10))
+        self.title_label.pack(fill="x", pady=(0, 6))
         
         # Metadata row (created time, PR number, etc.)
         self._create_metadata_row(content_frame)
@@ -113,7 +113,7 @@ class ModernJobCard(ctk.CTkFrame):
     def _create_metadata_row(self, parent):
         """Create metadata row with job info."""
         metadata_frame = ctk.CTkFrame(parent, fg_color="transparent")
-        metadata_frame.pack(fill="x", pady=(0, 8))
+        metadata_frame.pack(fill="x", pady=(0, 6))
         
         # Created time (relative or formatted)
         created_at = self.job.get('created_at', '')
@@ -121,10 +121,10 @@ class ModernJobCard(ctk.CTkFrame):
             time_label = ctk.CTkLabel(
                 metadata_frame,
                 text=f"🕐 {created_at[:10]}",  # Show date part
-                font=ctk.CTkFont(size=12),
+                font=ctk.CTkFont(size=11),
                 text_color=self.COLORS['text_secondary']
             )
-            time_label.pack(side="left", padx=(0, 15))
+            time_label.pack(side="left", padx=(0, 12))
         
         # PR number
         pr_number = self.job.get('pr_number')
@@ -132,10 +132,10 @@ class ModernJobCard(ctk.CTkFrame):
             pr_label = ctk.CTkLabel(
                 metadata_frame,
                 text=f"PR #{pr_number}",
-                font=ctk.CTkFont(size=12),
+                font=ctk.CTkFont(size=11),
                 text_color=self.COLORS['text_secondary']
             )
-            pr_label.pack(side="left", padx=(0, 15))
+            pr_label.pack(side="left", padx=(0, 12))
         
         # Base version (shortened)
         base_version = self.job.get('base_version', '')
@@ -144,7 +144,7 @@ class ModernJobCard(ctk.CTkFrame):
             version_label = ctk.CTkLabel(
                 metadata_frame,
                 text=f"📎 {sha_short}",
-                font=ctk.CTkFont(size=12),
+                font=ctk.CTkFont(size=11),
                 text_color=self.COLORS['text_secondary']
             )
             version_label.pack(side="left")
@@ -169,9 +169,9 @@ class ModernJobCard(ctk.CTkFrame):
             hover_color=self.COLORS['card_hover'],
             text_color=self.COLORS['text_secondary'],
             anchor="w",
-            font=ctk.CTkFont(size=13),
+            font=ctk.CTkFont(size=12),
             command=self.toggle_verification_steps,
-            height=32
+            height=28
         )
         self.verification_toggle.pack(fill="x")
         
@@ -186,7 +186,7 @@ class ModernJobCard(ctk.CTkFrame):
         # Add steps
         for i, step in enumerate(verification_steps, 1):
             step_frame = ctk.CTkFrame(self.steps_container, fg_color="transparent")
-            step_frame.pack(fill="x", padx=15, pady=10)
+            step_frame.pack(fill="x", padx=12, pady=6)
             
             # Step number badge
             step_number = ctk.CTkLabel(
@@ -194,12 +194,12 @@ class ModernJobCard(ctk.CTkFrame):
                 text=str(i),
                 fg_color=self.COLORS['accent_blue'],
                 text_color=self.COLORS['text_primary'],
-                width=26,
-                height=26,
-                corner_radius=13,
-                font=ctk.CTkFont(size=12, weight="bold")
+                width=22,
+                height=22,
+                corner_radius=11,
+                font=ctk.CTkFont(size=11, weight="bold")
             )
-            step_number.pack(side="left", padx=(0, 12))
+            step_number.pack(side="left", padx=(0, 10))
             
             # Step text
             step_label = ctk.CTkLabel(
@@ -207,59 +207,59 @@ class ModernJobCard(ctk.CTkFrame):
                 text=step,
                 anchor="w",
                 wraplength=500,
-                font=ctk.CTkFont(size=13),
+                font=ctk.CTkFont(size=12),
                 text_color=self.COLORS['text_primary']
             )
             step_label.pack(side="left", fill="x", expand=True)
     
     def _create_actions_section(self):
-        """Create action buttons on the right."""
+        """Create action buttons on the right - horizontal layout."""
         actions_frame = ctk.CTkFrame(self, fg_color="transparent")
-        actions_frame.grid(row=0, column=2, padx=(15, 20), pady=20, sticky="n")
+        actions_frame.grid(row=0, column=2, padx=(15, 20), pady=15, sticky="n")
         
         # View Preview button
         if self.job.get('preview_url'):
             preview_btn = ctk.CTkButton(
                 actions_frame,
-                text="🔍 View Preview",
+                text="🔍 Preview",
                 command=self._open_preview,
                 fg_color=self.COLORS['accent_blue'],
                 hover_color=self.COLORS['accent_blue_hover'],
-                corner_radius=8,
-                height=38,
-                width=140,
-                font=ctk.CTkFont(size=13, weight="bold")
+                corner_radius=6,
+                height=32,
+                width=100,
+                font=ctk.CTkFont(size=12, weight="bold")
             )
-            preview_btn.pack(pady=(0, 10))
+            preview_btn.pack(side="left", padx=4)
         
         # Mark for Integration button
         can_be_marked = self.job.get('status') == 'waiting_for_review' and self.job.get('preview_url')
         if can_be_marked:
             self.mark_button = ctk.CTkButton(
                 actions_frame,
-                text="Mark Ready",
+                text="Mark",
                 command=self._on_mark_toggle,
-                corner_radius=8,
-                height=38,
-                width=140,
-                font=ctk.CTkFont(size=13, weight="bold")
+                corner_radius=6,
+                height=32,
+                width=80,
+                font=ctk.CTkFont(size=12, weight="bold")
             )
-            self.mark_button.pack(pady=(0, 10))
+            self.mark_button.pack(side="left", padx=4)
             self._update_mark_button_state()
         
         # Remove button
         remove_btn = ctk.CTkButton(
             actions_frame,
-            text="🗑 Remove",
+            text="🗑",
             command=self._on_delete_click,
             fg_color=self.COLORS['accent_red'],
             hover_color=self.COLORS['accent_red_hover'],
-            corner_radius=8,
-            height=38,
-            width=140,
-            font=ctk.CTkFont(size=13, weight="bold")
+            corner_radius=6,
+            height=32,
+            width=50,
+            font=ctk.CTkFont(size=14, weight="bold")
         )
-        remove_btn.pack()
+        remove_btn.pack(side="left", padx=4)
     
     def toggle_verification_steps(self):
         """Toggle visibility of verification steps."""
@@ -285,13 +285,13 @@ class ModernJobCard(ctk.CTkFrame):
         if hasattr(self, 'mark_button'):
             if self.is_selected.get():
                 self.mark_button.configure(
-                    text="✓ Marked",
+                    text="✓",
                     fg_color=self.COLORS['accent_green'],
                     hover_color=self.COLORS['accent_green_hover']
                 )
             else:
                 self.mark_button.configure(
-                    text="Mark Ready",
+                    text="Mark",
                     fg_color=self.COLORS['accent_blue'],
                     hover_color=self.COLORS['accent_blue_hover']
                 )
@@ -347,8 +347,8 @@ class ModernGroupHeader(ctk.CTkFrame):
         super().__init__(
             master,
             fg_color="#252525",
-            corner_radius=10,
-            height=56
+            corner_radius=8,
+            height=44
         )
         
         # Extract SHA from base_version
@@ -359,13 +359,13 @@ class ModernGroupHeader(ctk.CTkFrame):
         
         # Container frame for content
         content_frame = ctk.CTkFrame(self, fg_color="transparent")
-        content_frame.pack(fill="both", expand=True, padx=20, pady=14)
+        content_frame.pack(fill="both", expand=True, padx=16, pady=10)
         
         # Left: Version info
         version_label = ctk.CTkLabel(
             content_frame,
             text=f"📦 {sha_display}",
-            font=ctk.CTkFont(size=15, weight="bold"),
+            font=ctk.CTkFont(size=13, weight="bold"),
             text_color="#ffffff"
         )
         version_label.pack(side="left")
@@ -376,10 +376,10 @@ class ModernGroupHeader(ctk.CTkFrame):
             text=f"{job_count} job{'s' if job_count != 1 else ''}",
             fg_color="#3498db",
             text_color="#ffffff",
-            corner_radius=14,
-            padx=14,
-            pady=6,
-            font=ctk.CTkFont(size=12, weight="bold")
+            corner_radius=12,
+            padx=12,
+            pady=4,
+            font=ctk.CTkFont(size=11, weight="bold")
         )
         count_badge.pack(side="right")
 
