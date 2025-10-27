@@ -95,17 +95,21 @@ When calling `dispatch_job`, provide three required fields:
 When instructed to **reconcile, integrate, or commit** completed jobs:
 
 1. Call `get_ready_jobs` MCP tool → Returns jobs with diffs and integration_summary
-2. List all changes from diffs
-3. Apply changes one at a time using `search_replace`/`write` tools per Integration Protocol below
-4. Run: `node integrate-jobs.cjs "title1" "title2" ...`
-5. Call `mark_jobs_integrated` MCP tool with job IDs
+2. **Reiterate the Integration Protocol below before beginning**
+3. List all changes from diffs
+4. **Go through each change ONE AT A TIME individually** - apply using `search_replace`/`write` tools per Integration Protocol
+5. Run: `node integrate-jobs.cjs "title1" "title2" ...`
+6. Call `mark_jobs_integrated` MCP tool with job IDs
 
 ### Integration Protocol
 
-**THIS IS INTEGRATION, NOT REIMPLEMENTATION.**
+**BEFORE STARTING INTEGRATION, REITERATE THIS PROTOCOL:**
 
+- **THIS IS INTEGRATION, NOT REIMPLEMENTATION.**
+- **GO THROUGH EACH CHANGE ONE AT A TIME** - Do NOT look at the whole file and come up with a solution
+- **EVALUATE EACH CHANGE INDIVIDUALLY** - Process each diff change separately, one by one
 - Apply each diff change exactly as written unless it conflicts
 - Where conflicts exist, use integration_summary context to resolve intelligently
-- Favor reusing existing work over rewriting
-- Evaluate each change individually before applying
+- **STRONGLY FAVOR reusing existing work over rewriting**
 - After all changes applied, report any conflicts encountered
+- **CRITICAL: Go through each change from each diff individually, one at a time, without reimplementing.**

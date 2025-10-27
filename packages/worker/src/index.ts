@@ -1796,7 +1796,7 @@ async function handleJobResult(request: Request, env: Env): Promise<Response> {
         const { error } = await supabase
             .from('jobs')
             .update({
-                status: 'completed',
+                status: 'waiting_for_review',
                 pr_number: pr_number,
                 preview_url: preview_url,
                 updated_at: new Date().toISOString(),
@@ -1832,7 +1832,7 @@ async function handleGetReadyJobs(request: Request, env: Env): Promise<Response>
             .from('jobs')
             .select('id, title, pr_number, branch_name, base_version, integration_summary')
             .eq('ready_for_integration', true)
-            .eq('status', 'completed');
+            .eq('status', 'waiting_for_review');
 
         if (queryError) {
             throw new Error(`Failed to query jobs: ${queryError.message}`);
@@ -1914,7 +1914,7 @@ async function handleMarkJobsIntegrated(request: Request, env: Env): Promise<Res
 
         const { error: updateError } = await supabase
             .from('jobs')
-            .update({ status: 'integrated', updated_at: new Date().toISOString() })
+            .update({ status: 'integrated_and_complete', updated_at: new Date().toISOString() })
             .in('id', job_ids);
 
         if (updateError) {

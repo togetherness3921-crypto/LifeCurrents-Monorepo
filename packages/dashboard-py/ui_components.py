@@ -10,22 +10,16 @@ class JobListItem(ctk.CTkFrame):
         self.on_delete = on_delete
         self.is_selected = ctk.BooleanVar(value=job.get('ready_for_integration', False))
 
-        self.grid_columnconfigure(2, weight=1)
-
-        # --- Checkbox ---
-        can_be_selected = job.get('status') == 'completed' and job.get('preview_url')
-        if can_be_selected:
-            self.checkbox = ctk.CTkCheckBox(self, text="", variable=self.is_selected, command=self._on_checkbox_toggle)
-            self.checkbox.grid(row=0, column=0, padx=10, pady=10, sticky="n")
+        self.grid_columnconfigure(1, weight=1)
 
         # --- Status Indicator ---
         self.status_indicator = ctk.CTkFrame(self, width=12, height=12, corner_radius=6)
-        self.status_indicator.grid(row=0, column=1, padx=(0, 10), pady=12, sticky="n")
+        self.status_indicator.grid(row=0, column=0, padx=(10, 10), pady=12, sticky="n")
         self.update_status_color()
 
         # --- Details ---
         self.details_frame = ctk.CTkFrame(self, fg_color="transparent")
-        self.details_frame.grid(row=0, column=2, padx=10, pady=10, sticky="nsew")
+        self.details_frame.grid(row=0, column=1, padx=10, pady=10, sticky="nsew")
         
         self.title_label = ctk.CTkLabel(self.details_frame, text=job.get('title', 'No Title'), anchor="w", font=ctk.CTkFont(weight="bold"))
         self.title_label.pack(fill="x")
@@ -47,6 +41,14 @@ class JobListItem(ctk.CTkFrame):
                 step_label = ctk.CTkLabel(self.steps_container, text=f"{i}. {step}", anchor="w", wraplength=400, text_color="white")
                 step_label.pack(fill="x", padx=10, pady=2)
         
+        # --- Status Label (center) ---
+        self.status_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.status_frame.grid(row=0, column=2, padx=10, pady=10)
+        
+        status_text = job.get('status', 'unknown').replace('active', 'in-progress').replace('waiting_for_review', 'review pending').replace('integrated_and_complete', 'integrated').upper()
+        self.status_label = ctk.CTkLabel(self.status_frame, text=status_text)
+        self.status_label.pack()
+
         # --- Actions/Links ---
         self.actions_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.actions_frame.grid(row=0, column=3, padx=10, pady=10, sticky="n")
@@ -55,11 +57,14 @@ class JobListItem(ctk.CTkFrame):
             self.preview_link = ctk.CTkButton(self.actions_frame, text="View Preview", command=self._open_preview)
             self.preview_link.pack(side="left", padx=5)
 
-        status_text = job.get('status', 'unknown').replace('active', 'in-progress').upper()
-        self.status_label = ctk.CTkLabel(self.actions_frame, text=status_text)
-        self.status_label.pack(side="left", padx=5)
+        # Mark for Integration button (only show if status is waiting_for_review and has preview_url)
+        can_be_marked = job.get('status') == 'waiting_for_review' and job.get('preview_url')
+        if can_be_marked:
+            self.mark_button = ctk.CTkButton(self.actions_frame, text="Mark for Integration", command=self._on_mark_toggle)
+            self.mark_button.pack(side="left", padx=5)
+            self._update_mark_button_state()
 
-        self.delete_button = ctk.CTkButton(self.actions_frame, text="X", width=28, command=self._on_delete_click)
+        self.delete_button = ctk.CTkButton(self.actions_frame, text="Remove", fg_color="#d9534f", hover_color="#c9302c", command=self._on_delete_click)
         self.delete_button.pack(side="left", padx=5)
 
 
@@ -72,8 +77,20 @@ class JobListItem(ctk.CTkFrame):
             self.verification_label.configure(text="Verification Steps ▲")
         self.steps_visible = not self.steps_visible
 
-    def _on_checkbox_toggle(self):
-        self.on_toggle_ready(self.job['id'], self.is_selected.get())
+    def _on_mark_toggle(self):
+        # Toggle the ready state
+        new_state = not self.is_selected.get()
+        self.is_selected.set(new_state)
+        self.on_toggle_ready(self.job['id'], new_state)
+        self._update_mark_button_state()
+    
+    def _update_mark_button_state(self):
+        # Update button appearance based on ready state
+        if hasattr(self, 'mark_button'):
+            if self.is_selected.get():
+                self.mark_button.configure(text="Marked ✓", fg_color="#5cb85c", hover_color="#4cae4c")
+            else:
+                self.mark_button.configure(text="Mark for Integration", fg_color="#337ab7", hover_color="#2e6da4")
 
     def _on_delete_click(self):
         self.on_delete(self.job['id'])
@@ -86,7 +103,8 @@ class JobListItem(ctk.CTkFrame):
         status_colors = {
             'pending': '#f0ad4e',
             'active': '#337ab7', # 'in-progress' will map here
-            'completed': '#5cb85c',
+            'waiting_for_review': '#5cb85c',
+            'integrated_and_complete': '#5cb85c',
             'failed': '#d9534f',
             'cancelled': '#777777'
         }
@@ -107,7 +125,7 @@ class JobListItem(ctk.CTkFrame):
             self.title_label.configure(text=new_title)
         
         # Update status label if changed
-        new_status_text = new_status.replace('active', 'in-progress').upper()
+        new_status_text = new_status.replace('active', 'in-progress').replace('waiting_for_review', 'review pending').replace('integrated_and_complete', 'integrated').upper()
         if self.status_label.cget('text') != new_status_text:
             self.status_label.configure(text=new_status_text)
         
@@ -115,7 +133,8 @@ class JobListItem(ctk.CTkFrame):
         if old_status != new_status:
             self.update_status_color()
         
-        # Update ready_for_integration checkbox state if changed
+        # Update ready_for_integration state and button if changed
         new_ready_state = new_job.get('ready_for_integration', False)
         if self.is_selected.get() != new_ready_state:
             self.is_selected.set(new_ready_state)
+            self._update_mark_button_state()
