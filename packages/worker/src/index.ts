@@ -1684,7 +1684,9 @@ async function handleDispatchJob(request: Request, env: Env): Promise<Response> 
     }
 
     try {
+        console.log('[DispatchJob] Starting job dispatch...');
         const { title, prompt, integration_summary, verification_steps } = await request.json();
+        console.log('[DispatchJob] Received:', { title, promptLength: prompt?.length, hasSummary: !!integration_summary });
 
         if (!title || !prompt || !integration_summary) {
             return new Response('Missing title, prompt, or integration_summary', { status: 400, headers: CORS_HEADERS });
@@ -1694,11 +1696,14 @@ async function handleDispatchJob(request: Request, env: Env): Promise<Response> 
         const GITHUB_REPO = env.GITHUB_REPO;
         const GITHUB_PAT = env.GITHUB_PAT;
 
+        console.log('[DispatchJob] Environment:', { GITHUB_OWNER, GITHUB_REPO, hasGH_PAT: !!GITHUB_PAT });
+
         if (!GITHUB_OWNER || !GITHUB_REPO || !GITHUB_PAT) {
             return new Response('GitHub environment variables not configured', { status: 500, headers: CORS_HEADERS });
         }
 
         // 1. Get the latest commit SHA from the main branch
+        console.log('[DispatchJob] Fetching latest commit from GitHub...');
         const githubApiUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/branches/main`;
         const ghResponse = await fetch(githubApiUrl, {
             headers: {
@@ -1707,6 +1712,7 @@ async function handleDispatchJob(request: Request, env: Env): Promise<Response> 
                 'User-Agent': 'LifeCurrents-Worker'
             }
         });
+        console.log('[DispatchJob] GitHub API response status:', ghResponse.status);
 
         if (!ghResponse.ok) {
             throw new Error(`Failed to fetch main branch info: ${await ghResponse.text()}`);
@@ -1714,8 +1720,10 @@ async function handleDispatchJob(request: Request, env: Env): Promise<Response> 
         const branchInfo = await ghResponse.json();
         const latestSha = branchInfo.commit.sha;
         const base_version = `main@${latestSha}`;
+        console.log('[DispatchJob] Latest SHA:', latestSha);
         
         // 2. Create a new job record in Supabase
+        console.log('[DispatchJob] Creating job in Supabase...');
         const { data: newJob, error: insertError } = await supabase
             .from('jobs')
             .insert({
@@ -1728,14 +1736,17 @@ async function handleDispatchJob(request: Request, env: Env): Promise<Response> 
             })
             .select('id')
             .single();
+        console.log('[DispatchJob] Supabase insert result:', { hasNewJob: !!newJob, hasError: !!insertError });
 
         if (insertError) {
             throw new Error(`Failed to create job in database: ${insertError.message}`);
         }
 
         const jobId = newJob.id;
+        console.log('[DispatchJob] Created job with ID:', jobId);
 
         // 3. Trigger the GitHub Actions workflow
+        console.log('[DispatchJob] Triggering GitHub Actions workflow...');
         await fetch(`https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/dispatches`, {
             method: 'POST',
             headers: {

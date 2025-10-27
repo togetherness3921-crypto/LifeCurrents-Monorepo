@@ -44,7 +44,7 @@ class JobListItem(ctk.CTkFrame):
             self.steps_visible = False
             
             for i, step in enumerate(verification_steps, 1):
-                step_label = ctk.CTkLabel(self.steps_container, text=f"{i}. {step}", anchor="w", wraplength=400)
+                step_label = ctk.CTkLabel(self.steps_container, text=f"{i}. {step}", anchor="w", wraplength=400, text_color="white")
                 step_label.pack(fill="x", padx=10, pady=2)
         
         # --- Actions/Links ---
