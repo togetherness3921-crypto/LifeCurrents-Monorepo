@@ -130,7 +130,7 @@ export default function DailyCalendarPanel({
     return (
         <div className="h-full w-full flex flex-col bg-card text-card-foreground border-l border-border">
             <div className="px-2 py-1 border-b border-border flex items-center justify-between" style={{ backgroundColor: '#5cb85c' }}>
-                <span className="font-semibold text-[0.6rem] text-blue-600 uppercase tracking-wider">Calendar</span>
+                <span className="font-semibold text-[0.6rem] text-red-600 uppercase tracking-wider">Calendar</span>
                 <div className="flex items-center gap-1">
                     <Button
                         type="button"
