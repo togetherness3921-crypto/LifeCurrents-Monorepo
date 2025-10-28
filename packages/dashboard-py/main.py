@@ -133,7 +133,6 @@ class ModernApp(ctk.CTk):
         self.is_closing = False
         self.jobs = {}
         self.job_widgets = {}
-        self.selected_jobs = set()
         self.previous_job_states = {}  # Track job states to detect new completions
         
         # Thread-safe queue for asyncio → UI communication (canonical pattern)
