@@ -13,6 +13,7 @@ import atexit
 from collections import defaultdict
 import pygame
 import os
+from pathlib import Path
 
 # --- Global process list to ensure cleanup ---
 running_processes = []
@@ -185,11 +186,16 @@ class ModernApp(ctk.CTk):
         """Start the Cloudflare Worker and MCP Server as background processes."""
         print("[Init] Starting background services...")
         
-        # Start Cloudflare Worker
+        # Get project root directory (2 levels up from this file)
+        project_root = Path(__file__).parent.parent.parent
+        print(f"[Init] Project root: {project_root}")
+        
+        # Start Cloudflare Worker (run from project root)
         worker_command = "npm run dev --workspace=packages/worker -- --port 8787"
         worker_process = subprocess.Popen(
             worker_command, 
-            shell=True, 
+            shell=True,
+            cwd=str(project_root),  # Run from project root
             stdout=subprocess.PIPE, 
             stderr=subprocess.PIPE, 
             text=True, 
@@ -199,11 +205,12 @@ class ModernApp(ctk.CTk):
         running_processes.append(worker_process)
         print(f"[Init] Cloudflare Worker started (PID: {worker_process.pid})")
         
-        # Start MCP Server
+        # Start MCP Server (run from project root)
         mcp_command = "node packages/mcp-server/build/index.js"
         mcp_process = subprocess.Popen(
             mcp_command, 
-            shell=True, 
+            shell=True,
+            cwd=str(project_root),  # Run from project root
             stdout=subprocess.PIPE, 
             stderr=subprocess.PIPE, 
             text=True, 
