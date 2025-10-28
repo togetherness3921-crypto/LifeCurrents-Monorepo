@@ -31,7 +31,6 @@ import { prepareIntelligentContext, type SummarizeActionDescriptor, type Summari
 import { v4 as uuidv4 } from 'uuid';
 
 const SETTINGS_BADGE_MAX = 99;
-const EXPANDED_INPUT_MAX_HEIGHT = 'min(420px, 70vh)';
 const MAX_AGENT_ITERATIONS = 8;
 
 type SerializableToolCall = NonNullable<Message['toolCalls']>[number];
@@ -240,7 +239,6 @@ const ChatPane = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
     const [isSettingsDialogOpen, setSettingsDialogOpen] = useState(false);
-    const [isInputExpanded, setIsInputExpanded] = useState(false);
     const [fontScale, setFontScale] = useState(() => {
         if (typeof window === 'undefined') return 1;
         const stored = window.localStorage.getItem('life-currents.chat.font-scale');
@@ -319,7 +317,6 @@ const ChatPane = () => {
                 }
                 return updated;
             });
-            setIsInputExpanded(true);
         },
         [activeThreadId, updateDraft]
     );
@@ -915,7 +912,6 @@ const ChatPane = () => {
 
         const userInput = input;
         setInput('');
-        setIsInputExpanded(false);
 
         const currentChain = getMessageChain(activeThread?.leafMessageId || null);
         const parentId = currentChain.length > 0 ? currentChain[currentChain.length - 1].id : null;
@@ -1004,11 +1000,6 @@ const ChatPane = () => {
             <ScrollArea
                 className="flex-1 min-h-0 p-4"
                 ref={scrollAreaRef}
-                onMouseDown={() => {
-                    if (isInputExpanded) {
-                        setIsInputExpanded(false);
-                    }
-                }}
             >
                 <div className="mb-4 flex w-full max-w-[220px] items-center gap-3 text-xs text-muted-foreground">
                     <span className="font-semibold uppercase tracking-wide">Font</span>
@@ -1083,96 +1074,59 @@ const ChatPane = () => {
                     onStop={stopRecording}
                 />
             </div>
-            <div
-                className={cn(
-                    'sticky bottom-0 left-0 right-0 z-10 overflow-hidden border-t bg-background transition-[max-height] duration-300 ease-in-out',
-                    isInputExpanded ? 'z-30 shadow-2xl' : ''
-                )}
-                style={isInputExpanded ? { maxHeight: EXPANDED_INPUT_MAX_HEIGHT } : undefined}
-            >
+            <div className="sticky bottom-0 left-0 right-0 z-10 overflow-hidden border-t bg-background rounded-t-3xl shadow-lg">
                 <div className="relative flex w-full flex-col">
-                    <div
-                        className={cn(
-                            'pointer-events-none absolute inset-0 bg-background transition-opacity duration-200',
-                            isInputExpanded ? 'opacity-100' : 'opacity-0'
-                        )}
-                    />
                     <form
                         ref={formRef}
                         onSubmit={handleSubmit}
-                        className={cn(
-                            'relative z-10 flex w-full flex-col gap-3 p-4',
-                            isInputExpanded ? 'max-h-full overflow-y-auto' : ''
-                        )}
+                        className="relative z-10 flex w-full flex-col gap-2 p-4"
                     >
-                        <div className="flex w-full flex-wrap items-end gap-3">
+                        <Textarea
+                            value={input}
+                            onChange={(e) => {
+                                let threadId = activeThreadId;
+                                if (!threadId) {
+                                    threadId = createThread();
+                                }
+                                const value = e.target.value;
+                                setInput(value);
+                                if (threadId) {
+                                    updateDraft(threadId, value);
+                                }
+                            }}
+                            placeholder="Ask anything..."
+                            disabled={isLoading}
+                            rows={3}
+                            className="min-h-[44px] w-full resize-none border bg-background text-sm shadow-sm overflow-y-auto"
+                            onKeyDown={(event) => {
+                                if (event.key === 'Enter' && !event.shiftKey) {
+                                    event.preventDefault();
+                                    formRef.current?.requestSubmit();
+                                }
+                            }}
+                        />
+                        <div className="flex w-full items-center justify-between">
                             <Button
                                 type="button"
                                 variant="secondary"
                                 onClick={() => setSettingsDialogOpen(true)}
-                                className={cn('relative h-10 w-10 p-0', hasUnseenBuilds ? 'border-primary text-primary' : '')}
+                                className={cn('relative h-8 w-8 p-0 rounded-full', hasUnseenBuilds ? 'border-primary text-primary' : '')}
                                 title={settingsButtonLabel}
                                 aria-label={settingsButtonLabel}
                             >
                                 <Cog className="h-4 w-4" />
                                 {hasUnseenBuilds && (
-                                    <span className="pointer-events-none absolute -top-1.5 -right-1.5 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-destructive px-1 text-[0.625rem] font-semibold leading-none text-destructive-foreground">
+                                    <span className="pointer-events-none absolute -top-1 -right-1 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-destructive px-1 text-[0.625rem] font-semibold leading-none text-destructive-foreground">
                                         {displaySettingsBadge}
                                     </span>
                                 )}
                             </Button>
-                            <Textarea
-                                value={input}
-                                onFocus={() => setIsInputExpanded(true)}
-                                onBlurCapture={(event) => {
-                                    const relatedTarget = event.relatedTarget as Node | null;
-                                    if (!event.currentTarget.parentElement?.parentElement?.parentElement?.contains(relatedTarget)) {
-                                        setIsInputExpanded(false);
-                                    }
-                                }}
-                                onChange={(e) => {
-                                    let threadId = activeThreadId;
-                                    if (!threadId) {
-                                        threadId = createThread();
-                                    }
-                                    const value = e.target.value;
-                                    setInput(value);
-                                    if (threadId) {
-                                        updateDraft(threadId, value);
-                                    }
-                                }}
-                                placeholder="Ask anything..."
-                                disabled={isLoading}
-                                rows={isInputExpanded ? 8 : 1}
-                                className={cn(
-                                    'min-h-[44px] flex-1 resize-none border bg-background text-sm shadow-sm',
-                                    isInputExpanded ? 'text-base' : ''
-                                )}
-                                onKeyDown={(event) => {
-                                    if (event.key === 'Enter' && !event.shiftKey) {
-                                        const hasModifier = event.metaKey || event.ctrlKey;
-                                        if (!isInputExpanded || hasModifier) {
-                                            event.preventDefault();
-                                            formRef.current?.requestSubmit();
-                                        }
-                                    }
-                                }}
-                            />
                             <div className="flex items-center gap-2">
-                                {isLoading ? (
-                                    <Button type="button" onClick={handleCancel} variant="destructive" className="h-10 w-10 p-0">
-                                        <Square className="h-4 w-4" />
-                                    </Button>
-                                ) : (
-                                    <Button type="submit" disabled={!input.trim()} className="h-10 w-10 p-0">
-                                        <Send className="h-4 w-4" />
-                                    </Button>
-                                )}
                                 <Button
                                     type="button"
                                     onClick={toggleRecording}
                                     variant={isRecording ? 'destructive' : 'secondary'}
-                                    className="h-10 w-10 p-0"
+                                    className="h-8 w-8 p-0 rounded-full"
                                     title={recordingTooltip}
                                     aria-label={
                                         isRecording
@@ -1186,6 +1140,15 @@ const ChatPane = () => {
                                 >
                                     {recordingButtonDisabled ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
                                 </Button>
+                                {isLoading ? (
+                                    <Button type="button" onClick={handleCancel} variant="destructive" className="h-8 w-8 p-0 rounded-full">
+                                        <Square className="h-4 w-4" />
+                                    </Button>
+                                ) : (
+                                    <Button type="submit" disabled={!input.trim()} className="h-8 w-8 p-0 rounded-full">
+                                        <Send className="h-4 w-4" />
+                                    </Button>
+                                )}
                             </div>
                         </div>
                     </form>
