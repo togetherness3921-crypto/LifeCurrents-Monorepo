@@ -181,7 +181,6 @@ class ModernJobCard(ctk.CTkFrame):
             fg_color=self.COLORS['verification_bg'],
             corner_radius=8
         )
-            self.steps_visible = False
         
         # Add steps with checkboxes
         for i, step in enumerate(verification_steps, 1):
@@ -287,7 +286,7 @@ class ModernJobCard(ctk.CTkFrame):
             step_count = len(self.job.get('verification_steps', {}).get('steps', []))
             self.verification_toggle.configure(text=f"📋 Verification Steps ({step_count}) ▲")
         self.steps_visible = not self.steps_visible
-    
+
     def _on_checkbox_changed(self):
         """Handle individual checkbox changes - check if all are checked."""
         if all(var.get() for var in self.step_checkboxes):
