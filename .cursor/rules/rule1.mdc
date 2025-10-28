@@ -52,6 +52,12 @@ alwaysApply: true/false        # Optional: always include in context
 - When implementing or modifying any functionality (either locally or through a dispatched job), ensure that appropriate console logs are included to facilitate easier troubleshooting. All logs should be tagged with a descriptive, bracketed identifier.
 - **Example:** `console.log('[Auth] User login successful:', userId);`
 
+## Git Commit Guidelines
+- **Do NOT commit changes unless explicitly instructed to do so by the user.**
+- Making changes, staging files, and committing them should only happen when the user explicitly requests it.
+- Feel free to make code changes, edits, and modifications as needed during the conversation, but do not automatically commit them.
+- Wait for explicit instructions like "commit these changes" or "push this to main" before using git commands.
+
 ## Standard Development Workflow: Dispatching Agentic Tasks
 
 Our primary method for making changes to the codebase is a collaborative, semi-automated process. This workflow allows us to dispatch tasks to an AI agent and track them through to completion and integration.

@@ -289,19 +289,7 @@ class ModernApp(ctk.CTk):
         )
         self.job_count_badge.pack(side="left", padx=15)
         
-        # Right side: Action button
-        self.reconciliation_button = ctk.CTkButton(
-            header_frame,
-            text="Mark 0 as Ready for Integration",
-            command=self.mark_as_ready,
-            state="disabled",
-            fg_color=self.COLORS['accent_green'],
-            hover_color="#229954",
-            corner_radius=10,
-            height=42,
-            font=ctk.CTkFont(size=14, weight="bold")
-        )
-        self.reconciliation_button.grid(row=0, column=1, sticky="e", padx=30, pady=20)
+        # Right side: (removed "Mark as Ready" button - verification now happens in job cards)
 
     def process_queue(self):
         """
@@ -510,37 +498,14 @@ class ModernApp(ctk.CTk):
             except Exception as e:
                 print(f"[Sound] Error playing new job sound: {e}")
         
-    def on_toggle_ready(self, job_id, is_selected):
-        if is_selected:
-            self.selected_jobs.add(job_id)
-        else:
-            self.selected_jobs.discard(job_id)
+    def on_toggle_ready(self, job_id, is_ready):
+        """Handle ready state toggle from job cards - now marks immediately."""
+        if is_ready:
+            # Mark this job as ready for integration immediately
+            print(f"[UI] Marking job {job_id} as ready for integration...")
+            if self.async_thread:
+                self.async_thread.mark_as_ready([job_id])
         
-        count = len(self.selected_jobs)
-        self.reconciliation_button.configure(
-            text=f"Mark {count} as Ready for Integration",
-            state="normal" if count > 0 else "disabled"
-        )
-        
-    def mark_as_ready(self):
-        """Mark selected jobs as ready for integration."""
-        job_ids = list(self.selected_jobs)
-        if not job_ids:
-            return
-            
-        print(f"[UI] Marking {len(job_ids)} jobs as ready for integration...")
-        self.reconciliation_button.configure(state="disabled", text="Marking...")
-        
-        # Call the async thread method (thread-safe)
-        if self.async_thread:
-            self.async_thread.mark_as_ready(job_ids)
-        
-        # Optimistically reset UI
-        self.selected_jobs.clear()
-        self.reconciliation_button.configure(
-            text="Mark 0 as Ready for Integration",
-            state="disabled"
-        )
 
     def delete_job(self, job_id):
         """Delete a job (optimistic UI update + async database delete)."""

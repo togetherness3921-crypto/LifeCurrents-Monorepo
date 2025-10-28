@@ -46,7 +46,9 @@ class ModernJobCard(ctk.CTkFrame):
         self.job = job
         self.on_toggle_ready = on_toggle_ready
         self.on_delete = on_delete
-        self.is_selected = ctk.BooleanVar(value=job.get('ready_for_integration', False))
+        self.is_verified = job.get('ready_for_integration', False)
+        self.step_checkboxes = []  # Track verification step checkboxes
+        self.verified_button = None  # Will be created if verification steps exist
         self.steps_visible = False
         
         # Configure grid
@@ -93,15 +95,19 @@ class ModernJobCard(ctk.CTkFrame):
         content_frame = ctk.CTkFrame(self, fg_color="transparent")
         content_frame.grid(row=0, column=1, padx=12, pady=15, sticky="nsew")
         
-        # Title
+        # Title (selectable textbox)
         title_text = self.job.get('title', 'No Title')
-        self.title_label = ctk.CTkLabel(
+        self.title_label = ctk.CTkTextbox(
             content_frame,
-            text=title_text,
-            anchor="w",
+            height=25,
+            fg_color="transparent",
             font=ctk.CTkFont(size=14, weight="bold"),
-            text_color=self.COLORS['text_primary']
+            text_color=self.COLORS['text_primary'],
+            wrap="word",
+            activate_scrollbars=False
         )
+        self.title_label.insert("1.0", title_text)
+        self.title_label.configure(state="disabled")  # Read-only but selectable
         self.title_label.pack(fill="x", pady=(0, 6))
         
         # Metadata row (created time, PR number, etc.)
@@ -111,46 +117,40 @@ class ModernJobCard(ctk.CTkFrame):
         self._create_verification_steps(content_frame)
     
     def _create_metadata_row(self, parent):
-        """Create metadata row with job info."""
-        metadata_frame = ctk.CTkFrame(parent, fg_color="transparent")
-        metadata_frame.pack(fill="x", pady=(0, 6))
+        """Create metadata row with job info (selectable)."""
+        # Build metadata text
+        metadata_parts = []
         
-        # Created time (relative or formatted)
         created_at = self.job.get('created_at', '')
         if created_at:
-            time_label = ctk.CTkLabel(
-                metadata_frame,
-                text=f"🕐 {created_at[:10]}",  # Show date part
-                font=ctk.CTkFont(size=11),
-                text_color=self.COLORS['text_secondary']
-            )
-            time_label.pack(side="left", padx=(0, 12))
+            metadata_parts.append(f"🕐 {created_at[:10]}")
         
-        # PR number
         pr_number = self.job.get('pr_number')
         if pr_number:
-            pr_label = ctk.CTkLabel(
-                metadata_frame,
-                text=f"PR #{pr_number}",
-                font=ctk.CTkFont(size=11),
-                text_color=self.COLORS['text_secondary']
-            )
-            pr_label.pack(side="left", padx=(0, 12))
+            metadata_parts.append(f"PR #{pr_number}")
         
-        # Base version (shortened)
         base_version = self.job.get('base_version', '')
         if base_version and '@' in base_version:
             sha_short = base_version.split('@')[1][:7]
-            version_label = ctk.CTkLabel(
-                metadata_frame,
-                text=f"📎 {sha_short}",
+            metadata_parts.append(f"📎 {sha_short}")
+        
+        if metadata_parts:
+            metadata_text = "  ".join(metadata_parts)
+            metadata_textbox = ctk.CTkTextbox(
+                parent,
+                height=20,
+                fg_color="transparent",
                 font=ctk.CTkFont(size=11),
-                text_color=self.COLORS['text_secondary']
+                text_color=self.COLORS['text_secondary'],
+                wrap="none",
+                activate_scrollbars=False
             )
-            version_label.pack(side="left")
+            metadata_textbox.insert("1.0", metadata_text)
+            metadata_textbox.configure(state="disabled")  # Read-only but selectable
+            metadata_textbox.pack(fill="x", pady=(0, 6))
     
     def _create_verification_steps(self, parent):
-        """Create collapsible verification steps section."""
+        """Create collapsible verification steps section with checkboxes."""
         verification_data = self.job.get('verification_steps')
         verification_steps = verification_data.get('steps', []) if isinstance(verification_data, dict) else []
         
@@ -181,9 +181,9 @@ class ModernJobCard(ctk.CTkFrame):
             fg_color=self.COLORS['verification_bg'],
             corner_radius=8
         )
-        self.steps_visible = False
+            self.steps_visible = False
         
-        # Add steps
+        # Add steps with checkboxes
         for i, step in enumerate(verification_steps, 1):
             step_frame = ctk.CTkFrame(self.steps_container, fg_color="transparent")
             step_frame.pack(fill="x", padx=12, pady=6)
@@ -201,16 +201,46 @@ class ModernJobCard(ctk.CTkFrame):
             )
             step_number.pack(side="left", padx=(0, 10))
             
-            # Step text
-            step_label = ctk.CTkLabel(
+            # Checkbox
+            checkbox_var = ctk.BooleanVar(value=self.is_verified)
+            checkbox = ctk.CTkCheckBox(
                 step_frame,
-                text=step,
-                anchor="w",
-                wraplength=500,
-                font=ctk.CTkFont(size=12),
-                text_color=self.COLORS['text_primary']
+                text="",
+                variable=checkbox_var,
+                width=20,
+                command=self._on_checkbox_changed,
+                fg_color=self.COLORS['accent_green'],
+                hover_color=self.COLORS['accent_green_hover']
             )
-            step_label.pack(side="left", fill="x", expand=True)
+            checkbox.pack(side="left", padx=(0, 10))
+            self.step_checkboxes.append(checkbox_var)
+            
+            # Step text (selectable)
+            step_textbox = ctk.CTkTextbox(
+                step_frame,
+                height=40,
+                fg_color="transparent",
+                font=ctk.CTkFont(size=12),
+                text_color=self.COLORS['text_primary'],
+                wrap="word",
+                activate_scrollbars=False
+            )
+            step_textbox.insert("1.0", step)
+            step_textbox.configure(state="disabled")  # Read-only but selectable
+            step_textbox.pack(side="left", fill="x", expand=True)
+        
+        # "Verified?" button below steps
+        self.verified_button = ctk.CTkButton(
+            self.steps_container,
+            text="Verified?" if not self.is_verified else "Verified ✓",
+            command=self._toggle_verified,
+            fg_color="#f39c12" if not self.is_verified else self.COLORS['accent_green'],
+            hover_color="#e67e22" if not self.is_verified else self.COLORS['accent_green_hover'],
+            corner_radius=6,
+            height=36,
+            font=ctk.CTkFont(size=13, weight="bold")
+        )
+        self.verified_button.pack(fill="x", padx=12, pady=(10, 12))
     
     def _create_actions_section(self):
         """Create action buttons on the right - horizontal layout."""
@@ -232,22 +262,7 @@ class ModernJobCard(ctk.CTkFrame):
             )
             preview_btn.pack(side="left", padx=4)
         
-        # Mark for Integration button
-        can_be_marked = self.job.get('status') == 'waiting_for_review' and self.job.get('preview_url')
-        if can_be_marked:
-            self.mark_button = ctk.CTkButton(
-                actions_frame,
-                text="Mark",
-                command=self._on_mark_toggle,
-                corner_radius=6,
-                height=32,
-                width=80,
-                font=ctk.CTkFont(size=12, weight="bold")
-            )
-            self.mark_button.pack(side="left", padx=4)
-            self._update_mark_button_state()
-        
-        # Remove button
+        # Remove button (no more "Mark" button - verification handles marking)
         remove_btn = ctk.CTkButton(
             actions_frame,
             text="🗑",
@@ -268,42 +283,59 @@ class ModernJobCard(ctk.CTkFrame):
             step_count = len(self.job.get('verification_steps', {}).get('steps', []))
             self.verification_toggle.configure(text=f"📋 Verification Steps ({step_count}) ▼")
         else:
-            self.steps_container.pack(fill="x", pady=(10, 0))
+            self.steps_container.pack(fill="x", pady=(5, 0))
             step_count = len(self.job.get('verification_steps', {}).get('steps', []))
             self.verification_toggle.configure(text=f"📋 Verification Steps ({step_count}) ▲")
         self.steps_visible = not self.steps_visible
     
-    def _on_mark_toggle(self):
-        """Toggle the ready for integration state."""
-        new_state = not self.is_selected.get()
-        self.is_selected.set(new_state)
-        self.on_toggle_ready(self.job['id'], new_state)
-        self._update_mark_button_state()
+    def _on_checkbox_changed(self):
+        """Handle individual checkbox changes - check if all are checked."""
+        if all(var.get() for var in self.step_checkboxes):
+            # All checkboxes checked - mark as verified
+            if not self.is_verified:
+                self.is_verified = True
+                self._update_verified_button()
+                self.on_toggle_ready(self.job['id'], True)
     
-    def _update_mark_button_state(self):
-        """Update mark button appearance based on state."""
-        if hasattr(self, 'mark_button'):
-            if self.is_selected.get():
-                self.mark_button.configure(
-                    text="✓",
+    def _toggle_verified(self):
+        """Toggle verified state - checks/unchecks all boxes."""
+        self.is_verified = not self.is_verified
+        
+        # Update all checkboxes
+        for var in self.step_checkboxes:
+            var.set(self.is_verified)
+        
+        # Update button appearance
+        self._update_verified_button()
+        
+        # Notify parent to mark as ready for integration
+        if self.is_verified:
+            self.on_toggle_ready(self.job['id'], True)
+    
+    def _update_verified_button(self):
+        """Update the verified button appearance."""
+        if self.verified_button:
+            if self.is_verified:
+                self.verified_button.configure(
+                    text="Verified ✓",
                     fg_color=self.COLORS['accent_green'],
                     hover_color=self.COLORS['accent_green_hover']
                 )
             else:
-                self.mark_button.configure(
-                    text="Mark",
-                    fg_color=self.COLORS['accent_blue'],
-                    hover_color=self.COLORS['accent_blue_hover']
+                self.verified_button.configure(
+                    text="Verified?",
+                    fg_color="#f39c12",
+                    hover_color="#e67e22"
                 )
-    
+
     def _on_delete_click(self):
         """Handle delete button click."""
         self.on_delete(self.job['id'])
-    
+
     def _open_preview(self):
         """Open preview URL in browser."""
         webbrowser.open_new_tab(self.job['preview_url'])
-    
+
     def _get_status_display(self, status):
         """Get display text and color for status."""
         status_map = {
@@ -361,14 +393,20 @@ class ModernGroupHeader(ctk.CTkFrame):
         content_frame = ctk.CTkFrame(self, fg_color="transparent")
         content_frame.pack(fill="both", expand=True, padx=16, pady=10)
         
-        # Left: Version info
-        version_label = ctk.CTkLabel(
+        # Left: Version info (selectable)
+        version_textbox = ctk.CTkTextbox(
             content_frame,
-            text=f"📦 {sha_display}",
+            height=20,
+            width=200,
+            fg_color="transparent",
             font=ctk.CTkFont(size=13, weight="bold"),
-            text_color="#ffffff"
+            text_color="#ffffff",
+            wrap="none",
+            activate_scrollbars=False
         )
-        version_label.pack(side="left")
+        version_textbox.insert("1.0", f"📦 {sha_display}")
+        version_textbox.configure(state="disabled")  # Read-only but selectable
+        version_textbox.pack(side="left")
         
         # Right: Job count badge
         count_badge = ctk.CTkLabel(
