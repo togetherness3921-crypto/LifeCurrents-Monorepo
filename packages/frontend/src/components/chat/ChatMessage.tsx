@@ -1,5 +1,7 @@
 // This component will render a single chat message bubble
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { Message } from '@/hooks/chatProviderContext';
 import { Button } from '../ui/button';
 import { Pencil, Save, X, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -32,6 +34,140 @@ interface ChatMessageProps {
 const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave, branchInfo, onActivate, isActiveSnapshot, isHistoricalView }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [editText, setEditText] = useState('');
+    const contentRef = useRef<HTMLDivElement>(null);
+
+    // Helper function to extract list markdown
+    const extractListMarkdown = useCallback((
+        fullMarkdown: string,
+        selectedText: string,
+        isOrdered: boolean
+    ): string => {
+        // Split markdown into lines
+        const lines = fullMarkdown.split('\n');
+
+        // Find lines that match list syntax and contain selected text words
+        const selectedWords = selectedText.split(/\s+/).filter(w => w.length > 2);
+        const listLines: string[] = [];
+
+        const listPattern = isOrdered ? /^\d+\.\s+/ : /^[-*+]\s+/;
+
+        for (const line of lines) {
+            if (listPattern.test(line)) {
+                // Check if this line contains any of the selected words
+                const lineText = line.replace(listPattern, '').trim();
+                if (selectedWords.some(word => lineText.includes(word))) {
+                    listLines.push(line);
+                }
+            }
+        }
+
+        // If we found matching list lines, return them
+        if (listLines.length > 0) {
+            return listLines.join('\n');
+        }
+
+        // Fallback: try to reconstruct list from selected text
+        const textLines = selectedText.split('\n').filter(l => l.trim());
+        if (isOrdered) {
+            return textLines.map((line, i) => `${i + 1}. ${line.trim()}`).join('\n');
+        } else {
+            return textLines.map(line => `- ${line.trim()}`).join('\n');
+        }
+    }, []);
+
+    // Helper function to extract markdown from selection
+    const extractMarkdownForSelection = useCallback((
+        fullMarkdown: string,
+        selectedText: string,
+        selection: Selection
+    ): string | null => {
+        // If selection is very small or empty, return null to use default behavior
+        if (selectedText.trim().length < 2) {
+            return null;
+        }
+
+        // STRATEGY 1: If selecting entire or most of message, return full markdown
+        if (selectedText.length / fullMarkdown.length > 0.8) {
+            return fullMarkdown;
+        }
+
+        // STRATEGY 2: Detect if selection includes list items
+        const selectedNode = selection.anchorNode;
+        if (selectedNode) {
+            // Check if selection is within a list
+            let listElement = selectedNode.parentElement;
+            while (listElement && listElement !== contentRef.current) {
+                if (listElement.tagName === 'UL' || listElement.tagName === 'OL') {
+                    // Extract list items from markdown
+                    return extractListMarkdown(fullMarkdown, selectedText, listElement.tagName === 'OL');
+                }
+                listElement = listElement.parentElement;
+            }
+        }
+
+        // STRATEGY 3: Search for selected text in markdown and return with context
+        const escapedText = selectedText.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+        // Check for bold syntax
+        const boldPattern = new RegExp(`\\*\\*[^*]*${escapedText}[^*]*\\*\\*`, 'i');
+        const boldMatch = fullMarkdown.match(boldPattern);
+        if (boldMatch) {
+            return boldMatch[0];
+        }
+
+        // Check for italic syntax
+        const italicPattern = new RegExp(`\\*[^*]*${escapedText}[^*]*\\*`, 'i');
+        const italicMatch = fullMarkdown.match(italicPattern);
+        if (italicMatch) {
+            return italicMatch[0];
+        }
+
+        // Check for heading
+        const headingPattern = new RegExp(`^#+\\s+.*${escapedText}.*$`, 'mi');
+        const headingMatch = fullMarkdown.match(headingPattern);
+        if (headingMatch) {
+            return headingMatch[0];
+        }
+
+        // Check for code blocks
+        const codeBlockPattern = new RegExp(`\`\`\`[\\s\\S]*?${escapedText}[\\s\\S]*?\`\`\``, 'i');
+        const codeBlockMatch = fullMarkdown.match(codeBlockPattern);
+        if (codeBlockMatch) {
+            return codeBlockMatch[0];
+        }
+
+        // Check for inline code
+        const inlineCodePattern = new RegExp(`\`[^\`]*${escapedText}[^\`]*\``, 'i');
+        const inlineCodeMatch = fullMarkdown.match(inlineCodePattern);
+        if (inlineCodeMatch) {
+            return inlineCodeMatch[0];
+        }
+
+        // FALLBACK: Return null to use default copy behavior
+        return null;
+    }, [extractListMarkdown]);
+
+    // Copy event handler
+    const handleCopy = useCallback((event: React.ClipboardEvent<HTMLDivElement>) => {
+        const selection = window.getSelection();
+
+        // If no selection or selection is collapsed, use default behavior
+        if (!selection || selection.isCollapsed) {
+            return;
+        }
+
+        // Get the selected text
+        const selectedText = selection.toString();
+
+        // Try to extract markdown from the message content based on selected text
+        const markdown = extractMarkdownForSelection(message.content, selectedText, selection);
+
+        if (markdown) {
+            event.clipboardData?.setData('text/plain', markdown);
+            event.preventDefault();
+        }
+        // If markdown extraction fails, allow default copy behavior
+    }, [message.content, extractMarkdownForSelection]);
 
     const handleActivation = useCallback(() => {
         if (!onActivate) return;
@@ -276,7 +412,14 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
                         ))}
                     </div>
                 )}
-                <p className="whitespace-pre-wrap">{message.content}</p>
+                <div ref={contentRef} onCopy={handleCopy} className="markdown-content">
+                    <ReactMarkdown
+                        className="prose prose-invert max-w-none prose-pre:bg-muted prose-pre:text-foreground"
+                        remarkPlugins={[remarkGfm]}
+                    >
+                        {message.content}
+                    </ReactMarkdown>
+                </div>
 
                 {message.createdAt && (
                     <div className="mt-2 text-[0.7rem] text-muted-foreground/60">
