@@ -13,6 +13,7 @@ import {
 import { Badge } from '../ui/badge';
 import ToolCallDetails from './ToolCallDetails';
 import { cn } from '@/lib/utils';
+import ReactMarkdown from 'react-markdown';
 
 interface ChatMessageProps {
     message: Message;
@@ -276,7 +277,9 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
                         ))}
                     </div>
                 )}
-                <p className="whitespace-pre-wrap">{message.content}</p>
+                <ReactMarkdown className="prose prose-invert max-w-none">
+                    {message.content}
+                </ReactMarkdown>
 
                 {message.createdAt && (
                     <div className="mt-2 text-[0.7rem] text-muted-foreground/60">
