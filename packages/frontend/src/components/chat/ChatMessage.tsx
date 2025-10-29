@@ -10,6 +10,12 @@ import {
     AccordionItem,
     AccordionTrigger,
 } from "@/components/ui/accordion";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 import { Badge } from '../ui/badge';
 import ToolCallDetails from './ToolCallDetails';
 import { cn } from '@/lib/utils';
@@ -32,6 +38,8 @@ interface ChatMessageProps {
 const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave, branchInfo, onActivate, isActiveSnapshot, isHistoricalView }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [editText, setEditText] = useState('');
+    const [isThinkingModalOpen, setIsThinkingModalOpen] = useState(false);
+    const [openToolCallId, setOpenToolCallId] = useState<string | null>(null);
 
     const handleActivation = useCallback(() => {
         if (!onActivate) return;
@@ -127,20 +135,33 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
                 aria-label={ariaLabel}
             >
                 {(isStreaming || (message.thinking && message.thinking.trim().length > 0)) && (
-                    <div data-graph-interactive="true">
-                        <Accordion type="single" collapsible className="w-full mb-2">
-                            <AccordionItem value="thinking" className="rounded-md border border-muted-foreground/20 bg-background/80">
-                                <AccordionTrigger className="px-3 py-2 font-medium text-[0.875em]">
-                                    <div className="flex items-center gap-2">
-                                        <Badge variant="secondary" className="uppercase tracking-wide text-[0.75em]">Thinking</Badge>
-                                        <span className="text-muted-foreground">View reasoning</span>
-                                    </div>
-                                </AccordionTrigger>
-                                <AccordionContent className="px-3 pb-3 text-[0.875em] whitespace-pre-wrap">
+                    <div data-graph-interactive="true" className="mb-2">
+                        {/* Clickable trigger (looks like accordion) */}
+                        <button
+                            type="button"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setIsThinkingModalOpen(true);
+                            }}
+                            className="w-full rounded-md border border-muted-foreground/20 bg-background/80 px-3 py-2 text-left hover:bg-background transition-colors"
+                        >
+                            <div className="flex items-center gap-2">
+                                <Badge variant="secondary" className="uppercase tracking-wide text-[0.75em]">Thinking</Badge>
+                                <span className="text-muted-foreground text-[0.875em]">View reasoning</span>
+                            </div>
+                        </button>
+
+                        {/* Modal */}
+                        <Dialog open={isThinkingModalOpen} onOpenChange={setIsThinkingModalOpen}>
+                            <DialogContent className="max-w-4xl h-[90vh] flex flex-col bg-background text-foreground">
+                                <DialogHeader>
+                                    <DialogTitle>Thinking Process</DialogTitle>
+                                </DialogHeader>
+                                <div className="flex-1 overflow-y-auto whitespace-pre-wrap text-[0.875em] pr-4">
                                     {message.thinking?.trim().length ? message.thinking : 'The model is generating a response...'}
-                                </AccordionContent>
-                            </AccordionItem>
-                        </Accordion>
+                                </div>
+                            </DialogContent>
+                        </Dialog>
                     </div>
                 )}
                 {message.contextActions && message.contextActions.length > 0 && (
@@ -258,22 +279,40 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
                     </div>
                 )}
                 {message.toolCalls && message.toolCalls.length > 0 && (
-                    <div className="space-y-3 mb-3" data-graph-interactive="true">
-                        {message.toolCalls.map((call, index) => (
-                            <Accordion type="single" collapsible key={call.id || index} className="w-full">
-                                <AccordionItem value={`tool-${call.id || index}`} className="rounded-md border border-muted-foreground/20 bg-background/80">
-                                    <AccordionTrigger className="px-3 py-2 font-medium">
+                    <div className="space-y-2 mb-3" data-graph-interactive="true">
+                        {message.toolCalls.map((call, index) => {
+                            const toolId = call.id || `tool-${index}`;
+                            return (
+                                <div key={toolId}>
+                                    {/* Clickable trigger */}
+                                    <button
+                                        type="button"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setOpenToolCallId(toolId);
+                                        }}
+                                        className="w-full rounded-md border border-muted-foreground/20 bg-background/80 px-3 py-2 text-left hover:bg-background transition-colors"
+                                    >
                                         <div className="flex items-center gap-2">
                                             <Badge variant="secondary" className="uppercase tracking-wide text-[0.75em]">Tool</Badge>
-                                            <span className="text-muted-foreground">{call.name || 'Tool call'}</span>
+                                            <span className="text-muted-foreground text-[0.875em]">{call.name || 'Tool call'}</span>
                                         </div>
-                                    </AccordionTrigger>
-                                    <AccordionContent className="px-3 pb-3 text-muted-foreground">
-                                        <ToolCallDetails call={call} />
-                                    </AccordionContent>
-                                </AccordionItem>
-                            </Accordion>
-                        ))}
+                                    </button>
+
+                                    {/* Modal */}
+                                    <Dialog open={openToolCallId === toolId} onOpenChange={(open) => !open && setOpenToolCallId(null)}>
+                                        <DialogContent className="max-w-4xl h-[90vh] flex flex-col bg-background text-foreground">
+                                            <DialogHeader>
+                                                <DialogTitle>Tool Call: {call.name || 'Unknown'}</DialogTitle>
+                                            </DialogHeader>
+                                            <div className="flex-1 overflow-y-auto pr-4">
+                                                <ToolCallDetails call={call} />
+                                            </div>
+                                        </DialogContent>
+                                    </Dialog>
+                                </div>
+                            );
+                        })}
                     </div>
                 )}
                 <p className="whitespace-pre-wrap">{message.content}</p>
