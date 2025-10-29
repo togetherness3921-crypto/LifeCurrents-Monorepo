@@ -13,6 +13,8 @@ import {
 import { Badge } from '../ui/badge';
 import ToolCallDetails from './ToolCallDetails';
 import { cn } from '@/lib/utils';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface ChatMessageProps {
     message: Message;
@@ -90,6 +92,27 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
         setEditText('');
         setIsEditing(false);
     };
+
+    // Copy handler to preserve markdown formatting
+    const handleCopy = useCallback((event: React.ClipboardEvent<HTMLDivElement>) => {
+        // Only intercept if this is an assistant message with markdown content
+        if (message.role !== 'assistant' || !message.content) return;
+
+        const selection = window.getSelection();
+        if (!selection || selection.rangeCount === 0) return;
+
+        // Check if selection is within our message content
+        const range = selection.getRangeAt(0);
+        const container = event.currentTarget;
+
+        if (container.contains(range.commonAncestorContainer)) {
+            // Prevent default copy behavior
+            event.preventDefault();
+
+            // Write markdown source to clipboard
+            event.clipboardData?.setData('text/plain', message.content);
+        }
+    }, [message.role, message.content]);
 
     if (isEditing) {
         return (
@@ -276,7 +299,18 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
                         ))}
                     </div>
                 )}
-                <p className="whitespace-pre-wrap">{message.content}</p>
+                <div onCopy={handleCopy}>
+                    {isUser ? (
+                        <p className="whitespace-pre-wrap">{message.content}</p>
+                    ) : (
+                        <ReactMarkdown
+                            className="prose prose-invert max-w-none"
+                            remarkPlugins={[remarkGfm]}
+                        >
+                            {message.content}
+                        </ReactMarkdown>
+                    )}
+                </div>
 
                 {message.createdAt && (
                     <div className="mt-2 text-[0.7rem] text-muted-foreground/60">
