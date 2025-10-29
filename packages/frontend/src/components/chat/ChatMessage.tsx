@@ -13,6 +13,9 @@ import {
 import { Badge } from '../ui/badge';
 import ToolCallDetails from './ToolCallDetails';
 import { cn } from '@/lib/utils';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import FullScreenModal from './FullScreenModal';
 
 interface ChatMessageProps {
     message: Message;
@@ -32,6 +35,8 @@ interface ChatMessageProps {
 const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave, branchInfo, onActivate, isActiveSnapshot, isHistoricalView }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [editText, setEditText] = useState('');
+    const [isThinkingModalOpen, setIsThinkingModalOpen] = useState(false);
+    const [openToolCallIndex, setOpenToolCallIndex] = useState<number | null>(null);
 
     const handleActivation = useCallback(() => {
         if (!onActivate) return;
@@ -128,19 +133,27 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
             >
                 {(isStreaming || (message.thinking && message.thinking.trim().length > 0)) && (
                     <div data-graph-interactive="true">
-                        <Accordion type="single" collapsible className="w-full mb-2">
-                            <AccordionItem value="thinking" className="rounded-md border border-muted-foreground/20 bg-background/80">
-                                <AccordionTrigger className="px-3 py-2 font-medium text-[0.875em]">
-                                    <div className="flex items-center gap-2">
-                                        <Badge variant="secondary" className="uppercase tracking-wide text-[0.75em]">Thinking</Badge>
-                                        <span className="text-muted-foreground">View reasoning</span>
-                                    </div>
-                                </AccordionTrigger>
-                                <AccordionContent className="px-3 pb-3 text-[0.875em] whitespace-pre-wrap">
-                                    {message.thinking?.trim().length ? message.thinking : 'The model is generating a response...'}
-                                </AccordionContent>
-                            </AccordionItem>
-                        </Accordion>
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setIsThinkingModalOpen(true);
+                            }}
+                            className="w-full mb-2 rounded-md border border-muted-foreground/20 bg-background/80 px-3 py-2 text-left transition-colors hover:bg-background"
+                        >
+                            <div className="flex items-center gap-2">
+                                <Badge variant="secondary" className="uppercase tracking-wide text-[0.75em]">Thinking</Badge>
+                                <span className="text-muted-foreground text-[0.875em]">View reasoning</span>
+                            </div>
+                        </button>
+                        <FullScreenModal
+                            isOpen={isThinkingModalOpen}
+                            onClose={() => setIsThinkingModalOpen(false)}
+                            title="Thinking Process"
+                        >
+                            <div className="whitespace-pre-wrap text-foreground">
+                                {message.thinking?.trim().length ? message.thinking : 'The model is generating a response...'}
+                            </div>
+                        </FullScreenModal>
                     </div>
                 )}
                 {message.contextActions && message.contextActions.length > 0 && (
@@ -260,23 +273,35 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
                 {message.toolCalls && message.toolCalls.length > 0 && (
                     <div className="space-y-3 mb-3" data-graph-interactive="true">
                         {message.toolCalls.map((call, index) => (
-                            <Accordion type="single" collapsible key={call.id || index} className="w-full">
-                                <AccordionItem value={`tool-${call.id || index}`} className="rounded-md border border-muted-foreground/20 bg-background/80">
-                                    <AccordionTrigger className="px-3 py-2 font-medium">
-                                        <div className="flex items-center gap-2">
-                                            <Badge variant="secondary" className="uppercase tracking-wide text-[0.75em]">Tool</Badge>
-                                            <span className="text-muted-foreground">{call.name || 'Tool call'}</span>
-                                        </div>
-                                    </AccordionTrigger>
-                                    <AccordionContent className="px-3 pb-3 text-muted-foreground">
-                                        <ToolCallDetails call={call} />
-                                    </AccordionContent>
-                                </AccordionItem>
-                            </Accordion>
+                            <div key={call.id || index}>
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setOpenToolCallIndex(index);
+                                    }}
+                                    className="w-full rounded-md border border-muted-foreground/20 bg-background/80 px-3 py-2 text-left transition-colors hover:bg-background"
+                                >
+                                    <div className="flex items-center gap-2">
+                                        <Badge variant="secondary" className="uppercase tracking-wide text-[0.75em]">Tool</Badge>
+                                        <span className="text-muted-foreground">{call.name || 'Tool call'}</span>
+                                    </div>
+                                </button>
+                                <FullScreenModal
+                                    isOpen={openToolCallIndex === index}
+                                    onClose={() => setOpenToolCallIndex(null)}
+                                    title={`Tool: ${call.name || 'Tool call'}`}
+                                >
+                                    <ToolCallDetails call={call} />
+                                </FullScreenModal>
+                            </div>
                         ))}
                     </div>
                 )}
-                <p className="whitespace-pre-wrap">{message.content}</p>
+                <div className="prose prose-invert prose-sm max-w-none prose-p:leading-relaxed prose-pre:bg-muted/50 prose-pre:text-foreground">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {message.content}
+                    </ReactMarkdown>
+                </div>
 
                 {message.createdAt && (
                     <div className="mt-2 text-[0.7rem] text-muted-foreground/60">

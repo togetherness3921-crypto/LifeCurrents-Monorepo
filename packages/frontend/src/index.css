@@ -8,63 +8,63 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    /* Change B – Claude-inspired warm light palette */
-    --background: 35 52% 95%;
-    --foreground: 24 30% 22%;
+    /* Dark theme - Claude mobile inspired */
+    --background: 0 0% 13%;
+    --foreground: 0 0% 98%;
 
-    --card: 33 40% 98%;
-    --card-foreground: 24 30% 24%;
+    --card: 0 0% 15%;
+    --card-foreground: 0 0% 98%;
 
-    --popover: 33 40% 99%;
-    --popover-foreground: 24 30% 24%;
+    --popover: 0 0% 15%;
+    --popover-foreground: 0 0% 98%;
 
-    --primary: 21 85% 56%;
-    --primary-foreground: 33 100% 98%;
+    --primary: 0 0% 5%;
+    --primary-foreground: 0 0% 98%;
 
-    --secondary: 28 32% 92%;
-    --secondary-foreground: 24 29% 28%;
+    --secondary: 0 0% 20%;
+    --secondary-foreground: 0 0% 98%;
 
-    --muted: 28 26% 88%;
-    --muted-foreground: 24 18% 40%;
+    --muted: 0 0% 18%;
+    --muted-foreground: 0 0% 65%;
 
-    --accent: 17 70% 64%;
-    --accent-foreground: 35 100% 98%;
+    --accent: 0 0% 25%;
+    --accent-foreground: 0 0% 98%;
 
-    --destructive: 3 71% 58%;
-    --destructive-foreground: 35 100% 98%;
+    --destructive: 0 65% 55%;
+    --destructive-foreground: 0 0% 98%;
 
-    --border: 28 24% 82%;
-    --input: 28 24% 82%;
-    --ring: 21 85% 56%;
+    --border: 0 0% 25%;
+    --input: 0 0% 25%;
+    --ring: 0 0% 40%;
 
-    /* Graph-specific colors */
-    --node-start: 146 32% 45%;
-    --node-objective: 21 78% 56%;
-    --node-milestone: 33 70% 58%;
-    --node-validation: 196 34% 46%;
-    --node-goal: 136 34% 44%;
+    /* Graph-specific colors - adjusted for dark theme */
+    --node-start: 146 50% 45%;
+    --node-objective: 210 80% 60%;
+    --node-milestone: 40 85% 60%;
+    --node-validation: 196 60% 55%;
+    --node-goal: 136 50% 50%;
 
-    /* Status colors */
-    --status-not-started: 24 15% 55%;
-    --status-in-progress: 21 85% 56%;
-    --status-blocked: 3 71% 58%;
-    --status-complete: 136 34% 44%;
+    /* Status colors - adjusted for dark theme */
+    --status-not-started: 0 0% 50%;
+    --status-in-progress: 210 80% 60%;
+    --status-blocked: 0 65% 55%;
+    --status-complete: 136 50% 50%;
 
-    /* Graph colors */
-    --graph-background: 35 52% 95%;
-    --graph-grid: 28 22% 80%;
-    --graph-edge: 27 20% 60%;
+    /* Graph colors - dark theme */
+    --graph-background: 0 0% 10%;
+    --graph-grid: 0 0% 20%;
+    --graph-edge: 210 60% 50%;
 
     --radius: 0.75rem;
 
-    --sidebar-background: 35 52% 94%;
-    --sidebar-foreground: 24 30% 24%;
-    --sidebar-primary: 21 85% 56%;
-    --sidebar-primary-foreground: 33 100% 98%;
-    --sidebar-accent: 28 32% 92%;
-    --sidebar-accent-foreground: 24 29% 28%;
-    --sidebar-border: 28 24% 82%;
-    --sidebar-ring: 21 85% 56%;
+    --sidebar-background: 0 0% 12%;
+    --sidebar-foreground: 0 0% 98%;
+    --sidebar-primary: 0 0% 5%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 0 0% 20%;
+    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-border: 0 0% 25%;
+    --sidebar-ring: 0 0% 40%;
   }
 
   .dark {
