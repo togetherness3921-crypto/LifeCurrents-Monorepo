@@ -283,7 +283,7 @@
       "color": "#bde0fe",
       "graph": "main",
       "label": "Test Task A",
-      "status": "not-started",
+      "status": "in-progress",
       "parents": [
         "build_life_currents"
       ],
@@ -493,7 +493,7 @@
       "color": "#c7f9cc",
       "graph": "main",
       "label": "Test Task A",
-      "status": "not-started",
+      "status": "in-progress",
       "parents": [
         "build_life_currents"
       ],

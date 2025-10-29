@@ -24,14 +24,14 @@ const ToolCallDetails: React.FC<ToolCallDetailsProps> = ({ call }) => {
             <CardContent className="space-y-3 py-4">
                 <div>
                     <p className="mb-1 text-xs font-medium text-muted-foreground uppercase tracking-wide">Request</p>
-                    <pre className="rounded-md bg-background/60 p-3 text-xs text-muted-foreground overflow-x-auto">
+                    <pre className="rounded-md bg-background/60 p-3 text-xs text-muted-foreground whitespace-pre-wrap break-words">
                         {call.arguments}
                     </pre>
                 </div>
                 {call.response && (
                     <div>
                         <p className="mb-1 text-xs font-medium text-muted-foreground uppercase tracking-wide">Response</p>
-                        <pre className="rounded-md bg-background/60 p-3 text-xs text-muted-foreground overflow-x-auto">
+                        <pre className="rounded-md bg-background/60 p-3 text-xs text-muted-foreground whitespace-pre-wrap break-words">
                             {call.response}
                         </pre>
                     </div>
@@ -39,7 +39,7 @@ const ToolCallDetails: React.FC<ToolCallDetailsProps> = ({ call }) => {
                 {call.error && (
                     <div>
                         <p className="mb-1 text-xs font-medium text-destructive uppercase tracking-wide">Error</p>
-                        <pre className="rounded-md bg-destructive/10 p-3 text-xs text-destructive overflow-x-auto">
+                        <pre className="rounded-md bg-destructive/10 p-3 text-xs text-destructive whitespace-pre-wrap break-words">
                             {call.error}
                         </pre>
                     </div>

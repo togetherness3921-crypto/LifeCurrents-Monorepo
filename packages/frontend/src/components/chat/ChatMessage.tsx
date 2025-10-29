@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Message } from '@/hooks/chatProviderContext';
 import { Button } from '../ui/button';
-import { Pencil, Save, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Pencil, Save, X, ChevronLeft, ChevronRight, Copy, Check } from 'lucide-react';
 import { Textarea } from '../ui/textarea';
 import {
     Accordion,
@@ -37,6 +37,9 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
     const [editText, setEditText] = useState('');
     const [isThinkingModalOpen, setIsThinkingModalOpen] = useState(false);
     const [openToolCallIndex, setOpenToolCallIndex] = useState<number | null>(null);
+    const [openContextActionId, setOpenContextActionId] = useState<string | null>(null);
+    const [openDaySummaryId, setOpenDaySummaryId] = useState<string | null>(null);
+    const [copied, setCopied] = useState(false);
 
     const handleActivation = useCallback(() => {
         if (!onActivate) return;
@@ -66,10 +69,20 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
         [handleActivation, isEditing, onActivate]
     );
 
-    const containerClasses = cn('flex', message.role === 'user' ? 'justify-end' : 'justify-start');
+    const handleCopy = async () => {
+        try {
+            await navigator.clipboard.writeText(message.content);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        } catch (error) {
+            console.error('Failed to copy:', error);
+        }
+    };
+
+    const containerClasses = cn('flex w-full', message.role === 'user' ? 'justify-end' : 'justify-start');
     const bubbleClasses = cn(
-        'relative max-w-[87.5%] rounded-lg px-4 py-3 transition-shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
-        message.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground',
+        'relative w-full rounded-lg px-4 py-3 transition-shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
+        message.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-transparent text-foreground',
         onActivate ? 'cursor-pointer focus-visible:ring-primary/60 focus-visible:ring-offset-background' : '',
         isActiveSnapshot ? 'ring-2 ring-primary/60 ring-offset-2 ring-offset-background' : ''
     );
@@ -159,33 +172,37 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
                 {message.contextActions && message.contextActions.length > 0 && (
                     <div className="space-y-3 mb-3" data-graph-interactive="true">
                         {message.contextActions.map((action) => (
-                            <Accordion type="single" collapsible key={action.id} className="w-full">
-                                <AccordionItem
-                                    value={`context-${action.id}`}
-                                    className="rounded-md border border-muted-foreground/20 bg-background/80"
+                            <div key={action.id}>
+                                <button
+                                    onClick={() => setOpenContextActionId(action.id)}
+                                    className="w-full rounded-md border border-muted-foreground/20 bg-background/80 px-3 py-2 hover:bg-background transition-colors"
                                 >
-                                    <AccordionTrigger className="px-3 py-2 font-medium">
-                                        <div className="flex w-full flex-col gap-1 text-left sm:flex-row sm:items-center sm:justify-between sm:gap-2">
-                                            <div className="flex items-center gap-2">
-                                                <Badge variant="secondary" className="uppercase tracking-wide text-[0.75em]">
-                                                    Summarize
-                                                </Badge>
-                                                <span className="text-muted-foreground text-[0.875em]">
-                                                    {action.label}
-                                                </span>
-                                            </div>
-                                            <span className="text-[0.75em] text-muted-foreground">
-                                                {action.status === 'running'
-                                                    ? 'Generating summary…'
-                                                    : action.status === 'error'
-                                                        ? 'Failed'
-                                                        : action.status === 'success'
-                                                            ? 'Ready'
-                                                            : 'Queued'}
+                                    <div className="flex w-full flex-col gap-1 text-left sm:flex-row sm:items-center sm:justify-between sm:gap-2">
+                                        <div className="flex items-center gap-2">
+                                            <Badge variant="secondary" className="uppercase tracking-wide text-[0.75em]">
+                                                Summarize
+                                            </Badge>
+                                            <span className="text-muted-foreground text-[0.875em]">
+                                                {action.label}
                                             </span>
                                         </div>
-                                    </AccordionTrigger>
-                                    <AccordionContent className="px-3 pb-3 text-[0.875em] whitespace-pre-wrap">
+                                        <span className="text-[0.75em] text-muted-foreground">
+                                            {action.status === 'running'
+                                                ? 'Generating summary…'
+                                                : action.status === 'error'
+                                                    ? 'Failed'
+                                                    : action.status === 'success'
+                                                        ? 'Ready'
+                                                        : 'Queued'}
+                                        </span>
+                                    </div>
+                                </button>
+                                <FullScreenModal
+                                    isOpen={openContextActionId === action.id}
+                                    onClose={() => setOpenContextActionId(null)}
+                                    title={action.label}
+                                >
+                                    <div className="whitespace-pre-wrap text-foreground">
                                         {action.status === 'error'
                                             ? (action.error && action.error.trim().length > 0
                                                 ? action.error
@@ -193,9 +210,9 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
                                             : action.content && action.content.trim().length > 0
                                                 ? action.content
                                                 : 'Summary is being prepared…'}
-                                    </AccordionContent>
-                                </AccordionItem>
-                            </Accordion>
+                                    </div>
+                                </FullScreenModal>
+                            </div>
                         ))}
                     </div>
                 )}
@@ -244,28 +261,32 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
                             }
 
                             return (
-                                <Accordion type="single" collapsible key={summary.id} className="w-full">
-                                    <AccordionItem
-                                        value={`persisted-summary-${summary.id}`}
-                                        className="rounded-md border border-muted-foreground/20 bg-background/80"
+                                <div key={summary.id}>
+                                    <button
+                                        onClick={() => setOpenDaySummaryId(summary.id)}
+                                        className="w-full rounded-md border border-muted-foreground/20 bg-background/80 px-3 py-2 hover:bg-background transition-colors"
                                     >
-                                        <AccordionTrigger className="px-3 py-2 font-medium">
-                                            <div className="flex w-full flex-col gap-1 text-left sm:flex-row sm:items-center sm:justify-between sm:gap-2">
-                                                <div className="flex items-center gap-2">
-                                                    <Badge variant="secondary" className="uppercase tracking-wide text-[0.75em]">
-                                                        {summary.summary_level}
-                                                    </Badge>
-                                                    <span className="text-muted-foreground text-[0.875em]">
-                                                        {dateDisplay}
-                                                    </span>
-                                                </div>
+                                        <div className="flex w-full flex-col gap-1 text-left sm:flex-row sm:items-center sm:justify-between sm:gap-2">
+                                            <div className="flex items-center gap-2">
+                                                <Badge variant="secondary" className="uppercase tracking-wide text-[0.75em]">
+                                                    {summary.summary_level}
+                                                </Badge>
+                                                <span className="text-muted-foreground text-[0.875em]">
+                                                    {dateDisplay}
+                                                </span>
                                             </div>
-                                        </AccordionTrigger>
-                                        <AccordionContent className="px-3 pb-3 text-[0.875em] whitespace-pre-wrap">
+                                        </div>
+                                    </button>
+                                    <FullScreenModal
+                                        isOpen={openDaySummaryId === summary.id}
+                                        onClose={() => setOpenDaySummaryId(null)}
+                                        title={`${summary.summary_level} Summary: ${dateDisplay}`}
+                                    >
+                                        <div className="whitespace-pre-wrap text-foreground">
                                             {summary.content}
-                                        </AccordionContent>
-                                    </AccordionItem>
-                                </Accordion>
+                                        </div>
+                                    </FullScreenModal>
+                                </div>
                             );
                         })}
                     </div>
@@ -316,6 +337,15 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
                 )}
 
                 <div className="absolute bottom-0 right-1 flex translate-y-1/2 items-center gap-0.5 rounded-md bg-muted p-0.5 text-xs text-foreground/70 shadow-sm">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-5 w-5"
+                        onClick={handleCopy}
+                        title={copied ? "Copied!" : "Copy message"}
+                    >
+                        {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                    </Button>
                     {branchInfo && (
                         <>
                             <Button
