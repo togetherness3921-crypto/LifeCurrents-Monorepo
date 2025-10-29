@@ -48,7 +48,10 @@ const ChatLayout = () => {
                                 </button>
                             </div>
                             <div className="flex-1">
-                                <ChatPane />
+                                <ChatPane
+                                    isSidebarOpen={isSidebarOpen}
+                                    onToggleSidebar={() => setIsSidebarOpen(prev => !prev)}
+                                />
                             </div>
                         </div>
                     </ConversationContextProvider>

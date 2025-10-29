@@ -10,7 +10,7 @@ import {
 } from '@/services/openRouter';
 import { Button } from '../ui/button';
 import { Textarea } from '../ui/textarea';
-import { Send, Square, PlusCircle, Cog, Mic, MicOff } from 'lucide-react';
+import { Send, Square, PlusCircle, Cog, Mic, MicOff, ChevronLeft } from 'lucide-react';
 import { ScrollArea } from '../ui/scroll-area';
 import { useChatContext } from '@/hooks/useChat';
 import { useSystemInstructions } from '@/hooks/useSystemInstructions';
@@ -219,7 +219,12 @@ function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
         });
 }
 
-const ChatPane = () => {
+interface ChatPaneProps {
+    isSidebarOpen?: boolean;
+    onToggleSidebar?: () => void;
+}
+
+const ChatPane: React.FC<ChatPaneProps> = ({ isSidebarOpen, onToggleSidebar }) => {
     const {
         activeThreadId,
         threads,
@@ -1001,6 +1006,17 @@ const ChatPane = () => {
 
     return (
         <div className="relative flex h-full flex-col bg-background">
+            {/* Floating chat list button */}
+            {onToggleSidebar && (
+                <button
+                    type="button"
+                    onClick={onToggleSidebar}
+                    className="absolute top-4 left-4 z-20 rounded-br-2xl bg-muted/80 backdrop-blur-sm p-2.5 shadow-md border-b border-r border-muted-foreground/20 hover:bg-muted/90 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    aria-label={isSidebarOpen ? "Close chat list" : "Open chat list"}
+                >
+                    <ChevronLeft className="h-5 w-5 text-foreground" />
+                </button>
+            )}
             <ScrollArea
                 className="flex-1 min-h-0 p-4"
                 ref={scrollAreaRef}
