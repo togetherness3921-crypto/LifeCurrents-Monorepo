@@ -10,7 +10,7 @@ import {
 } from '@/services/openRouter';
 import { Button } from '../ui/button';
 import { Textarea } from '../ui/textarea';
-import { Send, Square, PlusCircle, Cog, Mic, MicOff } from 'lucide-react';
+import { Send, Square, PlusCircle, Cog, Mic, MicOff, List } from 'lucide-react';
 import { ScrollArea } from '../ui/scroll-area';
 import { useChatContext } from '@/hooks/useChat';
 import { useSystemInstructions } from '@/hooks/useSystemInstructions';
@@ -35,6 +35,11 @@ const EXPANDED_INPUT_MAX_HEIGHT = 'min(420px, 70vh)';
 const MAX_AGENT_ITERATIONS = 8;
 
 type SerializableToolCall = NonNullable<Message['toolCalls']>[number];
+
+interface ChatPaneProps {
+    isSidebarOpen?: boolean;
+    onToggleSidebar?: () => void;
+}
 
 const ensureJsonArguments = (value: SerializableToolCall['arguments']): string => {
     if (typeof value === 'string') {
@@ -219,7 +224,7 @@ function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
         });
 }
 
-const ChatPane = () => {
+const ChatPane: React.FC<ChatPaneProps> = ({ isSidebarOpen, onToggleSidebar }) => {
     const {
         activeThreadId,
         threads,
@@ -1001,6 +1006,18 @@ const ChatPane = () => {
 
     return (
         <div className="relative flex h-full flex-col bg-background">
+            {/* Floating chat list button - top-left */}
+            {onToggleSidebar && (
+                <button
+                    type="button"
+                    onClick={onToggleSidebar}
+                    className="absolute left-4 top-4 z-20 flex h-10 w-10 items-center justify-center rounded-lg bg-card text-card-foreground shadow-md transition-colors hover:bg-card/80 border border-border"
+                    aria-expanded={isSidebarOpen}
+                    aria-label={isSidebarOpen ? 'Close chat list' : 'Open chat list'}
+                >
+                    <List className="h-5 w-5" />
+                </button>
+            )}
             <ScrollArea
                 className="flex-1 min-h-0 p-4"
                 ref={scrollAreaRef}
