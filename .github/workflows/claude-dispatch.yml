@@ -32,7 +32,19 @@ jobs:
           settings: |
             {
               "permissions": {
-                "allow": ["Edit", "Replace", "Read", "Bash"]
+                "allow": [
+                  "Edit",
+                  "Replace",
+                  "MultiEdit",
+                  "Read",
+                  "Write",
+                  "Bash",
+                  "Glob",
+                  "Grep",
+                  "LS",
+                  "WebSearch",
+                  "WebFetch"
+                ]
               }
             }
 
