@@ -228,9 +228,9 @@ class ModernJobCard(ctk.CTkFrame):
             step_textbox.configure(state="disabled")  # Read-only but selectable
             step_textbox.pack(side="left", fill="x", expand=True)
         
-        # "Verified?" button below steps
+        # "Verified?" button - OUTSIDE the collapsible container (always visible)
         self.verified_button = ctk.CTkButton(
-            self.steps_container,
+            parent,
             text="Verified?" if not self.is_verified else "Verified ✓",
             command=self._toggle_verified,
             fg_color="#f39c12" if not self.is_verified else self.COLORS['accent_green'],
@@ -239,7 +239,7 @@ class ModernJobCard(ctk.CTkFrame):
             height=36,
             font=ctk.CTkFont(size=13, weight="bold")
         )
-        self.verified_button.pack(fill="x", padx=12, pady=(10, 12))
+        self.verified_button.pack(fill="x", pady=(8, 0))
     
     def _create_actions_section(self):
         """Create action buttons on the right - horizontal layout."""
