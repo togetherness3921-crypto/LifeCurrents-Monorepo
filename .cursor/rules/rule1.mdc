@@ -29,9 +29,9 @@ alwaysApply: true/false        # Optional: always include in context
 
 ### Best Practices
 - Keep rules concise and focused (under 25 lines when possible)
+- Show what TO do with minimal examples, not what NOT to do
 - Use clear, actionable descriptions
-- Include both positive and negative examples
-- Don't combine `globs` and `description` in the same rule
+- When documenting formats, provide one correct example
 - Use `@filename` syntax to reference template files for additional context
 
 ### Updating Rules
@@ -78,13 +78,35 @@ When calling `dispatch_job`, provide three required fields:
 
 **1. title:** Brief job name
 
-**2. prompt:** Full implementation instructions with code examples, file locations, and:
+**2. prompt:** Full implementation instructions with code examples, file locations, and verification steps.
+
+**Required Format:**
+
 ```
+[Implementation instructions go here...]
+
 **Verification Steps:**
-1. Visual: [fastest checks first]
-2. Interaction: [user actions to test]
-3. Deployment: [PR/preview checks]
+
+1. Visual: Check button appears blue
+2. Interaction: Click button, verify modal opens
+3. Deployment: Test in Chrome and Firefox
+
+---
+
+**IMPORTANT:** At the end of your work, create a file named `INTEGRATION_SUMMARY.md` in the repository root that contains:
+
+1. **What Changed**: List of files modified/created/deleted
+2. **Key Changes**: Bullet points of significant changes made
+3. **Rationale**: Why these changes accomplish the objective
+4. **Testing Performed**: What you tested to verify correctness
+5. **Integration Notes**: Any conflicts, edge cases, or important context for code review
+
+This summary will be included in the pull request for integration context.
 ```
+
+Use `**Verification Steps:**` (markdown bold with colon), followed by blank line, then numbered list.
+
+**Always include the INTEGRATION_SUMMARY.md instruction** in every job prompt. This document provides human-readable context that supplements the integration_summary field and helps reviewers understand the changes.
 
 **3. integration_summary:** Comprehensive reconciliation context
 - What is changing and why (no length limit)

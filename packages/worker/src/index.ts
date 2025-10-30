@@ -1859,7 +1859,24 @@ async function handleGetReadyJobs(request: Request, env: Env): Promise<Response>
                     }
                 });
 
-                const diffContent = diffResponse.ok ? await diffResponse.text() : null;
+                let diffContent = diffResponse.ok ? await diffResponse.text() : null;
+                
+                // Filter out output.txt from the diff (it's huge and unnecessary for integration)
+                if (diffContent) {
+                    diffContent = diffContent
+                        .split(/\ndiff --git /)
+                        .filter(section => {
+                            // Keep all sections except output.txt
+                            return !section.startsWith('a/output.txt b/output.txt');
+                        })
+                        .map((section, index) => {
+                            // Re-add "diff --git " prefix (except for first section)
+                            if (index === 0) return section;
+                            return 'diff --git ' + section;
+                        })
+                        .join('\n')
+                        .trim();
+                }
                 
                 return {
                     job_id: job.id,
