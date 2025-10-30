@@ -105,6 +105,24 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           },
           required: ["job_id"]
         }
+      },
+      {
+        name: "list_all_jobs",
+        description: "List all jobs in the database (default: 50 most recent). Returns job metadata including ID, title, status, PR number, etc. Useful for finding job IDs, checking job status, or reviewing what jobs exist. Can filter by status.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            limit: {
+              type: "number",
+              description: "Maximum number of jobs to return (default: 50)"
+            },
+            status: {
+              type: "string",
+              description: "Optional: Filter by status (active, waiting_for_review, failed, cancelled, integrated_and_complete)"
+            }
+          },
+          required: []
+        }
       }
     ]
   };
@@ -291,6 +309,54 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       throw new McpError(
         ErrorCode.InternalError,
         `Failed to get job diff: ${errorMessage}`
+      );
+    }
+  }
+
+  if (request.params.name === "list_all_jobs") {
+    const { limit, status } = request.params.arguments as {
+      limit?: number;
+      status?: string;
+    };
+
+    try {
+      const workerUrl = process.env.CLOUDFLARE_WORKER_URL;
+      if (!workerUrl) {
+        throw new McpError(ErrorCode.InternalError, "CLOUDFLARE_WORKER_URL environment variable is not set.");
+      }
+
+      let url = `${workerUrl}/api/list-all-jobs?`;
+      if (limit) url += `limit=${limit}&`;
+      if (status) url += `status=${encodeURIComponent(status)}`;
+
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${process.env.CLOUDFLARE_API_TOKEN}`
+        }
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`API call failed: ${response.statusText} - ${errorText}`);
+      }
+
+      const result = await response.json();
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result, null, 2)
+          }
+        ]
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
+      throw new McpError(
+        ErrorCode.InternalError,
+        `Failed to list jobs: ${errorMessage}`
       );
     }
   }

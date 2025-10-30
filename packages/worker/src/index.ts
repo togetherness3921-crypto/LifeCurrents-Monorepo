@@ -1917,6 +1917,46 @@ async function handleGetReadyJobs(request: Request, env: Env): Promise<Response>
     }
 }
 
+async function handleListAllJobs(request: Request, env: Env): Promise<Response> {
+    if (request.method !== 'GET') {
+        return new Response('Method Not Allowed', { status: 405, headers: CORS_HEADERS });
+    }
+
+    try {
+        const url = new URL(request.url);
+        const limit = parseInt(url.searchParams.get('limit') || '50', 10);
+        const status = url.searchParams.get('status'); // Optional filter
+
+        let query = supabase
+            .from('jobs')
+            .select('id, title, status, pr_number, preview_url, base_version, created_at, ready_for_integration')
+            .order('created_at', { ascending: false })
+            .limit(limit);
+
+        if (status) {
+            query = query.eq('status', status);
+        }
+
+        const { data: jobs, error: queryError } = await query;
+
+        if (queryError) {
+            throw new Error(`Failed to query jobs: ${queryError.message}`);
+        }
+
+        return withCors(new Response(JSON.stringify({ jobs: jobs || [] }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' }
+        }));
+
+    } catch (error) {
+        console.error("Error in handleListAllJobs:", error);
+        return withCors(new Response(JSON.stringify({ error: error.message }), {
+            status: 500,
+            headers: { 'Content-Type': 'application/json' }
+        }));
+    }
+}
+
 async function handleGetJobDiff(request: Request, env: Env): Promise<Response> {
     if (request.method !== 'GET') {
         return new Response('Method Not Allowed', { status: 405, headers: CORS_HEADERS });
@@ -2138,6 +2178,10 @@ export default {
 
         if (url.pathname === '/api/get-job-diff') {
             return handleGetJobDiff(request, env);
+        }
+
+        if (url.pathname === '/api/list-all-jobs') {
+            return handleListAllJobs(request, env);
         }
 
         let response: Response;
