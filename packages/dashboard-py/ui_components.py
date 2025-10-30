@@ -119,17 +119,22 @@ class ModernJobCard(ctk.CTkFrame):
         # "Verified?" button - ALWAYS show for jobs that can be verified (outside/below verification steps)
         can_be_verified = self.job.get('status') == 'waiting_for_review' and self.job.get('preview_url')
         if can_be_verified:
+            # Container frame to control width/alignment
+            verified_container = ctk.CTkFrame(content_frame, fg_color="transparent")
+            verified_container.pack(fill="x", pady=(8, 0))
+            
             self.verified_button = ctk.CTkButton(
-                content_frame,
+                verified_container,
                 text="Verified?" if not self.is_verified else "Verified ✓",
                 command=self._toggle_verified,
                 fg_color="#f39c12" if not self.is_verified else self.COLORS['accent_green'],
                 hover_color="#e67e22" if not self.is_verified else self.COLORS['accent_green_hover'],
                 corner_radius=6,
                 height=36,
+                width=100,
                 font=ctk.CTkFont(size=13, weight="bold")
             )
-            self.verified_button.pack(fill="x", pady=(8, 0))
+            self.verified_button.pack(side="left")  # Left-justified, fixed width
     
     def _create_metadata_row(self, parent):
         """Create metadata row with job info (selectable)."""
@@ -190,12 +195,15 @@ class ModernJobCard(ctk.CTkFrame):
         )
         self.verification_toggle.pack(fill="x")
         
-        # Steps container (initially hidden)
+        # Steps container (initially hidden) - IMPORTANT: pack it in order even though hidden
         self.steps_container = ctk.CTkFrame(
             parent,
             fg_color=self.COLORS['verification_bg'],
             corner_radius=8
         )
+        # Pack but immediately forget - this reserves the position in pack order
+        self.steps_container.pack(fill="x", pady=(5, 0))
+        self.steps_container.pack_forget()
         
         # Add steps with checkboxes
         for i, step in enumerate(verification_steps, 1):
