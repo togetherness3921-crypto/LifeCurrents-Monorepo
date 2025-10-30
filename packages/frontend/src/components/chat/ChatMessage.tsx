@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import FullScreenModal from './FullScreenModal';
+import MarkdownWithCopy from './MarkdownWithCopy';
 
 interface ChatMessageProps {
     message: Message;
@@ -318,11 +319,10 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
                         ))}
                     </div>
                 )}
-                <div className="prose prose-invert prose-sm max-w-none prose-p:leading-relaxed prose-pre:bg-muted/50 prose-pre:text-foreground">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                        {message.content}
-                    </ReactMarkdown>
-                </div>
+                <MarkdownWithCopy
+                    source={message.content}
+                    className="prose prose-invert prose-sm max-w-none prose-p:leading-relaxed prose-pre:bg-muted/50 prose-pre:text-foreground"
+                />
 
                 {message.createdAt && (
                     <div className="mt-2 text-[0.7rem] text-muted-foreground/60">
