@@ -71,12 +71,132 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
 
     const handleCopy = async () => {
         try {
-            await navigator.clipboard.writeText(message.content);
+            // Feature detection for cutting-edge clipboard capabilities
+            const supportsClipboardItem = typeof ClipboardItem !== 'undefined';
+            const supportsClipboardWrite = navigator.clipboard && 'write' in navigator.clipboard;
+
+            if (supportsClipboardItem && supportsClipboardWrite) {
+                // INNOVATIVE APPROACH: Multi-format clipboard strategy
+                // This leverages the Clipboard API's ability to write multiple MIME types
+                // simultaneously, allowing paste targets to choose the best format:
+                //
+                // 1. text/plain → Raw markdown source (terminals, Notepad, code editors)
+                // 2. text/html → Rich formatted HTML with embedded markdown in data attribute
+                //    - Renders beautifully in rich text editors (Word, Notion, Google Docs)
+                //    - Preserves original markdown in a data-markdown-source attribute
+                //    - Smart apps can extract markdown from the attribute!
+                // 3. web text/markdown → Experimental custom format for future markdown apps
+
+                // Extract rendered HTML from the DOM (what the user sees)
+                const messageElement = document.querySelector(`[data-message-id="${message.id}"]`);
+                let renderedHTML = '';
+
+                if (messageElement) {
+                    // Clone the rendered content to avoid modifying the actual DOM
+                    const contentElement = messageElement.querySelector('.prose');
+                    if (contentElement) {
+                        const clone = contentElement.cloneNode(true) as HTMLElement;
+                        renderedHTML = clone.innerHTML;
+                    }
+                }
+
+                // Fallback: create minimal HTML if we can't extract from DOM
+                if (!renderedHTML) {
+                    // Simple markdown-to-HTML conversion for common patterns
+                    renderedHTML = message.content
+                        .replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;')
+                        .replace(/\n\n/g, '</p><p>')
+                        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+                        .replace(/\*(.+?)\*/g, '<em>$1</em>')
+                        .replace(/`(.+?)`/g, '<code>$1</code>')
+                        .replace(/^(#{1,6})\s+(.+)$/gm, (_, hashes, text) => {
+                            const level = hashes.length;
+                            return `<h${level}>${text}</h${level}>`;
+                        });
+                    renderedHTML = `<p>${renderedHTML}</p>`;
+                }
+
+                // Create semantic HTML that embeds the markdown source
+                // INNOVATION: The data-markdown-source attribute allows smart applications
+                // to extract the original markdown! This is inspired by how modern
+                // rich text editors like ProseMirror preserve source data.
+                const semanticHTML = `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="generator" content="LifeCurrents-Chat">
+    <meta name="format" content="markdown">
+</head>
+<body>
+    <div data-markdown-source="${escapeHtmlAttribute(message.content)}">
+        ${renderedHTML}
+    </div>
+</body>
+</html>`;
+
+                // Create blobs for each format
+                const plainBlob = new Blob([message.content], { type: 'text/plain' });
+                const htmlBlob = new Blob([semanticHTML], { type: 'text/html' });
+
+                const clipboardItemData: Record<string, Blob> = {
+                    'text/plain': plainBlob,
+                    'text/html': htmlBlob,
+                };
+
+                // EXPERIMENTAL: Web custom format for markdown
+                // This is bleeding-edge (Chrome 104+, not widely supported yet)
+                // The "web " prefix tells browsers this is a web-only custom format
+                // Future markdown-aware apps could read this directly!
+                try {
+                    if ('supports' in ClipboardItem && typeof ClipboardItem.supports === 'function') {
+                        if (ClipboardItem.supports('web text/markdown')) {
+                            const markdownBlob = new Blob([message.content], { type: 'text/markdown' });
+                            clipboardItemData['web text/markdown'] = markdownBlob;
+                        }
+                    }
+                } catch (e) {
+                    // ClipboardItem.supports not available or threw error - safely ignore
+                }
+
+                const clipboardItem = new ClipboardItem(clipboardItemData);
+                await navigator.clipboard.write([clipboardItem]);
+
+                // Debug logging for development
+                if (process.env.NODE_ENV === 'development') {
+                    console.log('[Clipboard] Multi-format copy:', Object.keys(clipboardItemData));
+                }
+            } else {
+                // Graceful degradation for older browsers
+                await navigator.clipboard.writeText(message.content);
+            }
+
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
         } catch (error) {
             console.error('Failed to copy:', error);
+            // Last resort fallback
+            try {
+                await navigator.clipboard.writeText(message.content);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+            } catch (fallbackError) {
+                console.error('Fallback copy also failed:', fallbackError);
+            }
         }
+    };
+
+    // Helper to safely escape HTML attributes
+    const escapeHtmlAttribute = (str: string): string => {
+        return str
+            .replace(/&/g, '&amp;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/\n/g, '&#10;')
+            .replace(/\r/g, '&#13;');
     };
 
     const containerClasses = cn('flex w-full', message.role === 'user' ? 'justify-end' : 'justify-start');
@@ -137,6 +257,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
         <div className={containerClasses}>
             <div
                 className={bubbleClasses}
+                data-message-id={message.id}
                 role={onActivate ? 'button' : undefined}
                 tabIndex={onActivate ? 0 : undefined}
                 onClick={handleContainerClick}
