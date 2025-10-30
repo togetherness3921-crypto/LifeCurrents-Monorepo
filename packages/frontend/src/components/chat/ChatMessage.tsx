@@ -318,7 +318,14 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
                         ))}
                     </div>
                 )}
-                <div className="prose prose-invert prose-sm max-w-none prose-p:leading-relaxed prose-pre:bg-muted/50 prose-pre:text-foreground">
+                <div
+                    className="prose prose-invert prose-sm max-w-none prose-p:leading-relaxed prose-pre:bg-muted/50 prose-pre:text-foreground"
+                    onCopy={(e) => {
+                        // Intercept copy to preserve markdown formatting
+                        e.preventDefault();
+                        e.clipboardData?.setData('text/plain', message.content);
+                    }}
+                >
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>
                         {message.content}
                     </ReactMarkdown>
