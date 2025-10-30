@@ -1,3 +1,5 @@
+<!-- Baseball 10/29/2025: Blue Jays vs Dodgers - 6-1 Blue Jays - World Series Game 5, Toronto leads series 3-2 -->
+
 # LifeCurrents Monorepo
 
 A unified repository for the LifeCurrents application - a Vite/React/TypeScript SPA that helps users connect near-term actions to long-term goals through a causal objective graph and AI agent.
