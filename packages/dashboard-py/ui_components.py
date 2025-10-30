@@ -113,8 +113,23 @@ class ModernJobCard(ctk.CTkFrame):
         # Metadata row (created time, PR number, etc.)
         self._create_metadata_row(content_frame)
         
-        # Verification steps (collapsible)
+        # Verification steps (collapsible) - if they exist
         self._create_verification_steps(content_frame)
+        
+        # "Verified?" button - ALWAYS show for jobs that can be verified (outside/below verification steps)
+        can_be_verified = self.job.get('status') == 'waiting_for_review' and self.job.get('preview_url')
+        if can_be_verified:
+            self.verified_button = ctk.CTkButton(
+                content_frame,
+                text="Verified?" if not self.is_verified else "Verified ✓",
+                command=self._toggle_verified,
+                fg_color="#f39c12" if not self.is_verified else self.COLORS['accent_green'],
+                hover_color="#e67e22" if not self.is_verified else self.COLORS['accent_green_hover'],
+                corner_radius=6,
+                height=36,
+                font=ctk.CTkFont(size=13, weight="bold")
+            )
+            self.verified_button.pack(fill="x", pady=(8, 0))
     
     def _create_metadata_row(self, parent):
         """Create metadata row with job info (selectable)."""
@@ -227,19 +242,6 @@ class ModernJobCard(ctk.CTkFrame):
             step_textbox.insert("1.0", step)
             step_textbox.configure(state="disabled")  # Read-only but selectable
             step_textbox.pack(side="left", fill="x", expand=True)
-        
-        # "Verified?" button - OUTSIDE the collapsible container (always visible)
-        self.verified_button = ctk.CTkButton(
-            parent,
-            text="Verified?" if not self.is_verified else "Verified ✓",
-            command=self._toggle_verified,
-            fg_color="#f39c12" if not self.is_verified else self.COLORS['accent_green'],
-            hover_color="#e67e22" if not self.is_verified else self.COLORS['accent_green_hover'],
-            corner_radius=6,
-            height=36,
-            font=ctk.CTkFont(size=13, weight="bold")
-        )
-        self.verified_button.pack(fill="x", pady=(8, 0))
     
     def _create_actions_section(self):
         """Create action buttons on the right - horizontal layout."""
