@@ -114,22 +114,17 @@ Use `**Verification Steps:**` (markdown bold with colon), followed by blank line
 
 ## Reviewing Job Changes
 
-Use the `get_job_diff` MCP tool to inspect changes from any completed job before integration:
+**Finding Jobs:**
+```
+list_all_jobs(limit: 20, status: "waiting_for_review")
+```
+Returns job metadata (ID, title, status, PR#, base_version). Omit `status` to see all jobs.
 
+**Getting Diffs:**
 ```
 get_job_diff(job_id: "uuid-here")
 ```
-
-**Returns:**
-- Filtered diff (output.txt excluded)
-- Integration summary
-- Job metadata (title, PR number, status, etc.)
-
-**Use this to:**
-- Understand what a job changed
-- Review code before integration
-- Check for conflicts with other changes
-- Verify job completed correctly
+Returns filtered diff (output.txt excluded), integration_summary, and job metadata. Use to review changes before integration or understand what a job changed.
 
 ## Job Reconciliation Workflow
 
