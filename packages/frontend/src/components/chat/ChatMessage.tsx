@@ -69,14 +69,144 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
         [handleActivation, isEditing, onActivate]
     );
 
+    /**
+     * Production-grade markdown copy with multi-layer fallback strategy
+     *
+     * Layer 1: Modern Clipboard API (Chrome 42+, Firefox 127+, Safari 13.1+)
+     * Layer 2: Legacy execCommand fallback (iOS Safari, older browsers)
+     * Layer 3: User notification on complete failure
+     *
+     * @returns Promise<void>
+     */
     const handleCopy = async () => {
+        let success = false;
+        let method = '';
+        let errorMsg = '';
+
+        // Layer 1: Try modern Clipboard API
         try {
-            await navigator.clipboard.writeText(message.content);
+            // Check if Clipboard API is available (requires HTTPS except localhost)
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                await navigator.clipboard.writeText(message.content);
+                success = true;
+                method = 'clipboard-api';
+                console.log('[Clipboard] Modern API succeeded');
+            } else {
+                throw new Error('Clipboard API not supported');
+            }
+        } catch (clipboardError) {
+            console.warn('[Clipboard] Modern API failed:', clipboardError);
+
+            // Layer 2: Fallback to execCommand
+            try {
+                success = copyMarkdownFallback(message.content);
+                if (success) {
+                    method = 'execCommand';
+                    console.log('[Clipboard] execCommand fallback succeeded');
+                } else {
+                    throw new Error('execCommand returned false');
+                }
+            } catch (fallbackError) {
+                console.error('[Clipboard] All copy methods failed:', fallbackError);
+                errorMsg = fallbackError instanceof Error ? fallbackError.message : 'Unknown error';
+                method = 'failed';
+            }
+        }
+
+        // Layer 3: User feedback
+        if (success) {
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
-        } catch (error) {
-            console.error('Failed to copy:', error);
+        } else {
+            // Show error feedback (could be replaced with toast notification)
+            console.error('[Clipboard] Copy failed - user may need to manually copy');
+            alert('Unable to copy automatically. Please select and copy the text manually (Ctrl+C or Cmd+C).');
         }
+
+        // Production metrics (ready for analytics integration)
+        logCopyEvent(success, method, errorMsg);
+    };
+
+    /**
+     * Legacy execCommand fallback for older browsers and iOS Safari
+     *
+     * @param text - The markdown text to copy
+     * @returns boolean - True if copy succeeded, false otherwise
+     */
+    const copyMarkdownFallback = (text: string): boolean => {
+        try {
+            // Create temporary textarea element
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+
+            // Position off-screen but ensure it's not display:none (iOS requirement)
+            textarea.style.position = 'fixed';
+            textarea.style.left = '-999999px';
+            textarea.style.top = '-999999px';
+            textarea.setAttribute('readonly', '');
+
+            // iOS Safari specific: requires contentEditable
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+            if (isIOS) {
+                textarea.contentEditable = 'true';
+                textarea.readOnly = false;
+            }
+
+            document.body.appendChild(textarea);
+
+            // iOS requires Range-based selection
+            if (isIOS) {
+                const range = document.createRange();
+                range.selectNodeContents(textarea);
+
+                const selection = window.getSelection();
+                if (selection) {
+                    selection.removeAllRanges();
+                    selection.addRange(range);
+                }
+
+                textarea.setSelectionRange(0, textarea.value.length);
+            } else {
+                // Standard browsers
+                textarea.select();
+                textarea.setSelectionRange(0, textarea.value.length);
+            }
+
+            // Execute copy command
+            const success = document.execCommand('copy');
+
+            // Cleanup
+            document.body.removeChild(textarea);
+
+            return success;
+
+        } catch (error) {
+            console.error('[Clipboard] Fallback error:', error);
+            return false;
+        }
+    };
+
+    /**
+     * Log copy events for production monitoring
+     *
+     * @param success - Whether copy succeeded
+     * @param method - Method used (clipboard-api, execCommand, failed)
+     * @param error - Error message if failed
+     */
+    const logCopyEvent = (success: boolean, method: string, error?: string) => {
+        const logData = {
+            success,
+            method,
+            error,
+            browser: navigator.userAgent,
+            timestamp: new Date().toISOString(),
+            contentLength: message.content.length,
+        };
+
+        console.log('[Clipboard] Event:', logData);
+
+        // TODO: Integrate with analytics platform
+        // analytics.track('Markdown Copy', logData);
     };
 
     const containerClasses = cn('flex w-full', message.role === 'user' ? 'justify-end' : 'justify-start');
