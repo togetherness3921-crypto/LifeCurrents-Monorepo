@@ -91,6 +91,20 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           },
           required: ["job_ids"]
         }
+      },
+      {
+        name: "get_job_diff",
+        description: "Fetch the diff for any specific job by job ID. Returns the filtered diff (without output.txt), integration summary, and job metadata. Useful for reviewing changes before integration or understanding what a job changed.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            job_id: {
+              type: "string",
+              description: "The UUID of the job to fetch the diff for"
+            }
+          },
+          required: ["job_id"]
+        }
       }
     ]
   };
@@ -234,6 +248,49 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       throw new McpError(
         ErrorCode.InternalError,
         `Failed to mark jobs as integrated: ${errorMessage}`
+      );
+    }
+  }
+
+  if (request.params.name === "get_job_diff") {
+    const { job_id } = request.params.arguments as {
+      job_id: string;
+    };
+
+    try {
+      const workerUrl = process.env.CLOUDFLARE_WORKER_URL;
+      if (!workerUrl) {
+        throw new McpError(ErrorCode.InternalError, "CLOUDFLARE_WORKER_URL environment variable is not set.");
+      }
+
+      const response = await fetch(`${workerUrl}/api/get-job-diff?job_id=${encodeURIComponent(job_id)}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${process.env.CLOUDFLARE_API_TOKEN}`
+        }
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`API call failed: ${response.statusText} - ${errorText}`);
+      }
+
+      const result = await response.json();
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result, null, 2)
+          }
+        ]
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
+      throw new McpError(
+        ErrorCode.InternalError,
+        `Failed to get job diff: ${errorMessage}`
       );
     }
   }

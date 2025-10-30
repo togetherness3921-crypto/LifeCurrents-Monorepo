@@ -93,13 +93,12 @@ When calling `dispatch_job`, provide three required fields:
 
 ---
 
-**IMPORTANT:** At the end of your work, create a file named `INTEGRATION_SUMMARY.md` in the repository root that contains:
+At the end of your work, create a file named `INTEGRATION_SUMMARY.md` in the repository root that contains:
 
-1. **What Changed**: List of files modified/created/deleted
-2. **Key Changes**: Bullet points of significant changes made
-3. **Rationale**: Why these changes accomplish the objective
-4. **Testing Performed**: What you tested to verify correctness
-5. **Integration Notes**: Any conflicts, edge cases, or important context for code review
+1. **Key Changes**: Bullet points of significant changes made
+2. **Rationale**: Why these changes accomplish the objective
+3. **Testing Performed**: What you tested to verify correctness
+4. **Integration Notes**: Any conflicts, edge cases, or important context for code review
 
 This summary will be included in the pull request for integration context.
 ```
@@ -117,6 +116,25 @@ Use `**Verification Steps:**` (markdown bold with colon), followed by blank line
 
 **Example integration_summary:**
 "Add blue (#2B5B84) background to Job Queue header frame (header_frame in create_job_list method). Purpose: Visual hierarchy - distinguish header from content area. Complements text styling changes to same element."
+
+## Reviewing Job Changes
+
+Use the `get_job_diff` MCP tool to inspect changes from any completed job before integration:
+
+```
+get_job_diff(job_id: "uuid-here")
+```
+
+**Returns:**
+- Filtered diff (output.txt excluded)
+- Integration summary
+- Job metadata (title, PR number, status, etc.)
+
+**Use this to:**
+- Understand what a job changed
+- Review code before integration
+- Check for conflicts with other changes
+- Verify job completed correctly
 
 ## Job Reconciliation Workflow
 
