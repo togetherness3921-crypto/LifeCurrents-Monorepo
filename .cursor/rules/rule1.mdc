@@ -114,28 +114,89 @@ Use `**Verification Steps:**` (markdown bold with colon), followed by blank line
 
 ## Reviewing Job Changes
 
-**Finding Jobs:**
-```
-list_all_jobs(limit: 20, status: "waiting_for_review")
-```
-Returns job metadata (ID, title, status, PR#, base_version). Omit `status` to see all jobs.
+**When to use**: User asks you to evaluate, examine, or review jobs (e.g., "check the markdown jobs", "look at what the agents did", "evaluate which implementation is best").
 
-**Getting Diffs:**
+**Workflow**:
 ```
-get_job_diff(job_id: "uuid-here")
+1. list_all_jobs(limit: 20, status: "waiting_for_review")
+   → Returns job metadata: ID, title, status, PR#, base_version
+   → Omit status parameter to see all jobs regardless of status
+
+2. get_job_diff(job_id: "uuid-here") 
+   → Returns: filtered diff, integration_summary, job metadata
+   → Call this for each job you want to examine
+   → Use to understand what changed before deciding to integrate
 ```
-Returns filtered diff (output.txt excluded), integration_summary, and job metadata. Use to review changes before integration or understand what a job changed.
 
-## Job Reconciliation Workflow
+## Implementation Fan-Out Protocol
 
-When instructed to **reconcile, integrate, or commit** completed jobs:
+**When to use**: When facing a technically complex or uncertain problem where the optimal solution approach is unclear, or when the user explicitly requests casting a "wide net" of different implementation strategies.
 
-1. Call `get_ready_jobs` MCP tool → Returns jobs with diffs and integration_summary
+### Core Concept
+
+Dispatch **multiple independent jobs** (typically 5) with **intentionally diverse approaches** to maximize the probability that at least one succeeds brilliantly. Each job attacks the same goal but varies along multiple dimensions.
+
+### Dimensions to Vary
+
+Create diversity across these axes and any others that the user may suggest:
+
+**1. Programmatic Approach**
+- Library-based vs. custom implementation
+- Conventional patterns vs. innovative techniques
+- Minimal dependencies vs. feature-rich solutions
+
+**2. Intensity & Persistence**
+- MEDIUM: "Balanced, thoughtful approach"
+- HIGH: "Push boundaries, explore deeply"
+- VERY HIGH: "Will NOT stop until perfect, no compromises"
+
+**3. Research Directive**
+- LOW: Minimal external research, rely on knowledge
+- MEDIUM: Strategic research on key decision points
+- HIGH: Extensive WebSearch/WebFetch before coding
+- VERY HIGH: "Research voraciously, call WebSearch 10+ times, steal ideas from everywhere"
+
+**4. Philosophy & Success Criteria**
+- "Stand on giants' shoulders" (use proven libraries)
+- "Perfect or nothing" (zero compromises)
+- "Innovate boldly" (cutting-edge techniques)
+
+### Prompt Construction Strategy
+
+**For each job, explicitly state:**
+- The specific approach philosophy
+- Intensity level with directive language ("You MUST..." vs. "Consider...")
+- Research expectations ("Call WebSearch at least X times..." or "Minimal external research...")
+- Success criteria unique to that approach
+- Trade-offs that approach accepts vs. rejects
+
+**Research Bias**: When in doubt, ensure at least 2-3 research-intensive approaches with explicit directives to use WebSearch and WebFetch liberally for finding proven solutions, established libraries, and production patterns.
+
+### Example Matrix
+
+| Job | Approach | Intensity | Research | Philosophy |
+|-----|----------|-----------|----------|------------|
+| #1 | Established library | Medium | ⭐⭐⭐⭐⭐ | "Use proven tools" |
+| #2 | Pure custom code | Very High | ⭐ | "Perfect, zero deps" |
+| #3 | Quick hacks | Low | ⭐⭐⭐⭐⭐ | "Ship fast" |
+| #4 | Cutting-edge APIs | High | ⭐⭐⭐⭐⭐ | "Innovate" |
+| #5 | Enterprise-grade | Very High | ⭐⭐⭐ | "Production-ready" |
+
+
+## Job Integration Workflow  
+
+**When to use**: User explicitly instructs you to integrate/reconcile/commit completed jobs (i.e., you're applying the changes NOW, not just reviewing).
+
+**Workflow**:
+```
+1. get_ready_jobs_for_integration()
+   → Returns ONLY jobs marked ready_for_integration: true
+   → Includes diffs and integration_summary for each job
 2. **Reiterate the Integration Protocol below before beginning**
 3. List all changes from diffs
 4. **Go through each change ONE AT A TIME individually** - apply using `search_replace`/`write` tools per Integration Protocol
 5. Run: `node integrate-jobs.cjs "title1" "title2" ...`
-6. Call `mark_jobs_integrated` MCP tool with job IDs
+6. Call `mark_jobs_integrated()` MCP tool with job IDs
 
 ### Integration Protocol
 

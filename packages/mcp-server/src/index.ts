@@ -69,8 +69,8 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         }
       },
       {
-        name: "get_ready_jobs",
-        description: "See rule1.mdc §Job Reconciliation",
+        name: "get_ready_jobs_for_integration",
+        description: "See rule1.mdc §Job Integration Workflow",
         inputSchema: {
           type: "object",
           properties: {},
@@ -79,7 +79,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: "mark_jobs_integrated",
-        description: "See rule1.mdc §Job Reconciliation",
+        description: "See rule1.mdc §Job Integration Workflow",
         inputSchema: {
           type: "object",
           properties: {
@@ -187,7 +187,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
   }
 
-  if (request.params.name === "get_ready_jobs") {
+  if (request.params.name === "get_ready_jobs_for_integration") {
     try {
       const workerUrl = process.env.CLOUDFLARE_WORKER_URL;
       if (!workerUrl) {

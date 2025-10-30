@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import FullScreenModal from './FullScreenModal';
+import useCopyAsMarkdown from '@nkzw/copy-as-markdown';
 
 interface ChatMessageProps {
     message: Message;
@@ -40,6 +41,14 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
     const [openContextActionId, setOpenContextActionId] = useState<string | null>(null);
     const [openDaySummaryId, setOpenDaySummaryId] = useState<string | null>(null);
     const [copied, setCopied] = useState(false);
+
+    // Configure copy-as-markdown to use GFM-style formatting (matches remarkGfm)
+    // This converts HTML back to markdown when users copy rendered content
+    const setMarkdownRef = useCopyAsMarkdown({
+        bulletListMarker: '-',  // Use '-' for unordered lists (GFM standard)
+        headingStyle: 'atx',    // Use '##' style headers
+        codeBlockStyle: 'fenced', // Use ``` for code blocks
+    });
 
     const handleActivation = useCallback(() => {
         if (!onActivate) return;
@@ -318,7 +327,10 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
                         ))}
                     </div>
                 )}
-                <div className="prose prose-invert prose-sm max-w-none prose-p:leading-relaxed prose-pre:bg-muted/50 prose-pre:text-foreground">
+                <div
+                    ref={setMarkdownRef}
+                    className="prose prose-invert prose-sm max-w-none prose-p:leading-relaxed prose-pre:bg-muted/50 prose-pre:text-foreground"
+                >
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>
                         {message.content}
                     </ReactMarkdown>

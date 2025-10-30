@@ -1097,32 +1097,32 @@ const ChatPane = () => {
                         onSubmit={handleSubmit}
                         className="relative z-10 flex w-full flex-col gap-3 p-4"
                     >
-                        <Textarea
-                            value={input}
-                            onChange={(e) => {
-                                let threadId = activeThreadId;
-                                if (!threadId) {
-                                    threadId = createThread();
-                                }
-                                const value = e.target.value;
-                                setInput(value);
-                                if (threadId) {
-                                    updateDraft(threadId, value);
-                                }
-                            }}
+                            <Textarea
+                                value={input}
+                                onChange={(e) => {
+                                    let threadId = activeThreadId;
+                                    if (!threadId) {
+                                        threadId = createThread();
+                                    }
+                                    const value = e.target.value;
+                                    setInput(value);
+                                    if (threadId) {
+                                        updateDraft(threadId, value);
+                                    }
+                                }}
                             placeholder="Reply to Claude..."
-                            disabled={isLoading}
+                                disabled={isLoading}
                             rows={3}
-                            className={cn(
+                                className={cn(
                                 'min-h-[80px] max-h-[160px] w-full resize-none rounded-2xl border-0 bg-muted text-base text-foreground placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-ring'
-                            )}
-                            onKeyDown={(event) => {
-                                if (event.key === 'Enter' && !event.shiftKey) {
-                                    event.preventDefault();
-                                    formRef.current?.requestSubmit();
-                                }
-                            }}
-                        />
+                                )}
+                                onKeyDown={(event) => {
+                                    if (event.key === 'Enter' && !event.shiftKey) {
+                                            event.preventDefault();
+                                            formRef.current?.requestSubmit();
+                                    }
+                                }}
+                            />
                         <div className="flex items-center justify-between">
                             <Button
                                 type="button"
