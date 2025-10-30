@@ -93,12 +93,7 @@ When calling `dispatch_job`, provide three required fields:
 
 ---
 
-At the end of your work, create a file named `INTEGRATION_SUMMARY.md` in the repository root that contains:
-
-1. **Key Changes**: Bullet points of significant changes made
-2. **Rationale**: Why these changes accomplish the objective
-3. **Testing Performed**: What you tested to verify correctness
-4. **Integration Notes**: Any conflicts, edge cases, or important context for code review
+At the end of your work, create a file named `INTEGRATION_SUMMARY.md` in the repository root that details what you did.
 
 This summary will be included in the pull request for integration context.
 ```
