@@ -1000,7 +1000,7 @@ const ChatPane = () => {
     }
 
     return (
-        <div className="relative flex h-full flex-col bg-background">
+        <div className="relative flex h-full flex-col bg-background border-t-2 border-t-blue-500">
             {/* Chat list button overlay */}
             <button
                 type="button"
@@ -1167,9 +1167,9 @@ const ChatPane = () => {
                                         type="submit"
                                         disabled={!input.trim()}
                                         className={cn(
-                                            "h-8 w-8 rounded-full p-0 transition-all duration-300 ease-in-out",
+                                            "h-8 w-8 rounded-full p-0 transition-all duration-300 ease-in-out shadow-md hover:shadow-lg active:scale-95",
                                             input.trim()
-                                                ? "bg-blue-500 hover:bg-blue-600"
+                                                ? "bg-blue-500 hover:bg-blue-600 shadow-blue-500/50"
                                                 : "bg-secondary hover:bg-secondary/80"
                                         )}
                                     >
