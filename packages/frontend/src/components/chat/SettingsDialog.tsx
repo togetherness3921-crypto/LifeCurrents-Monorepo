@@ -777,6 +777,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onOpenChange, pre
                             refresh={refreshPreviewBuilds}
                         />
                     </TabsContent>
+                    </div>
                 </Tabs>
             </DialogContent>
         </Dialog>
