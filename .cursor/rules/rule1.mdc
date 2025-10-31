@@ -61,8 +61,7 @@ alwaysApply: true/false        # Optional: always include in context
 - **Device Pixel Ratio (DPR)**: ~1.33x (1440/1080)
 - **Top Bar**: ~40-50 pixels (status bar + camera notch)
 - **Bottom Navigation**: ~80-100 pixels (Android navigation buttons)
-- **CSS Pixels vs Physical**: Design for CSS pixels; browser handles DPR scaling
-- **Viewport Units**: Use `vh` and `vw` sparingly; account for dynamic browser chrome
+
 
 **Development Guidelines:**
 - Test responsive behavior at viewport width breakpoints: 360px, 412px, 540px (common CSS widths for mobile)
