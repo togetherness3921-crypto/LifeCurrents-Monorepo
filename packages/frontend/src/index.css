@@ -27,7 +27,7 @@ All colors MUST be HSL.
     --muted: 220 13% 22%;
     --muted-foreground: 0 0% 100%;
 
-    --accent: 270 91% 65%;
+    --accent: 217 91% 65%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 75% 60%;
@@ -35,25 +35,25 @@ All colors MUST be HSL.
 
     --border: 220 13% 25%;
     --input: 220 13% 25%;
-    --ring: 217 91% 60%;
+    --ring: 217 91% 65%;
 
     /* Graph-specific colors - vibrant colors for dark background */
     --node-start: 0 75% 60%;
-    --node-objective: 217 91% 60%;
+    --node-objective: 217 91% 65%;
     --node-milestone: 45 95% 55%;
-    --node-validation: 270 91% 65%;
+    --node-validation: 217 91% 70%;
     --node-goal: 142 72% 50%;
 
     /* Status colors - maintain semantic meaning on dark background */
     --status-not-started: 220 9% 46%;
-    --status-in-progress: 217 91% 60%;
+    --status-in-progress: 217 91% 65%;
     --status-blocked: 0 75% 60%;
     --status-complete: 142 72% 50%;
 
     /* Graph colors */
     --graph-background: 220 13% 10%;
     --graph-grid: 220 13% 15%;
-    --graph-edge: 217 91% 60%;
+    --graph-edge: 217 91% 65%;
 
     --radius: 0.75rem;
 
@@ -87,7 +87,7 @@ All colors MUST be HSL.
     --muted: 220 13% 15%;
     --muted-foreground: 220 9% 46%;
 
-    --accent: 270 91% 65%;
+    --accent: 217 91% 65%;
     --accent-foreground: 220 13% 9%;
 
     --destructive: 0 75% 60%;
@@ -95,22 +95,22 @@ All colors MUST be HSL.
 
     --border: 220 13% 18%;
     --input: 220 13% 18%;
-    --ring: 217 91% 60%;
+    --ring: 217 91% 65%;
 
     --node-start: 0 75% 60%;
-    --node-objective: 217 91% 60%;
+    --node-objective: 217 91% 65%;
     --node-milestone: 25 95% 55%;
-    --node-validation: 270 91% 65%;
+    --node-validation: 217 91% 70%;
     --node-goal: 142 72% 50%;
 
     --status-not-started: 220 9% 46%;
-    --status-in-progress: 217 91% 60%;
+    --status-in-progress: 217 91% 65%;
     --status-blocked: 0 75% 60%;
     --status-complete: 142 72% 50%;
 
     --graph-background: 220 13% 8%;
     --graph-grid: 220 13% 12%;
-    --graph-edge: 217 91% 60%;
+    --graph-edge: 217 91% 65%;
 
     --sidebar-background: 0 0% 12%;
     --sidebar-foreground: 220 13% 91%;
