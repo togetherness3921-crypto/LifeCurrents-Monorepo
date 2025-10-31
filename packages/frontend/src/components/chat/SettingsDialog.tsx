@@ -416,7 +416,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onOpenChange, pre
                 onOpenChange(nextOpen);
             }}
         >
-            <DialogContent className="max-w-4xl">
+            <DialogContent className="max-w-4xl max-h-[85vh] backdrop-blur-xl bg-card/95 shadow-2xl border-blue-500/20">
                 <DialogHeader>
                     <DialogTitle>Settings</DialogTitle>
                     <DialogDescription>
@@ -443,7 +443,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onOpenChange, pre
                                 >
                                     <Plus className="h-4 w-4" aria-hidden="true" />
                                 </button>
-                                <ScrollArea className="max-h-56 rounded-md border">
+                                <ScrollArea className="max-h-56 rounded-md border relative before:pointer-events-none before:absolute before:top-0 before:left-0 before:right-0 before:h-8 before:bg-gradient-to-b before:from-background before:to-transparent before:opacity-0 before:transition-opacity before:duration-300 hover:before:opacity-100 after:pointer-events-none after:absolute after:bottom-0 after:left-0 after:right-0 after:h-8 after:bg-gradient-to-t after:from-background after:to-transparent after:opacity-0 after:transition-opacity after:duration-300 hover:after:opacity-100">
                                     <div className="flex flex-col divide-y">
                                         {sortedInstructions.map((instruction) => {
                                             const isSelected = instruction.id === (selectedInstructionId ?? resolvedInstruction?.id ?? activeInstructionId ?? '');
@@ -454,14 +454,14 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onOpenChange, pre
                                                     type="button"
                                                     onClick={() => handleSelectInstruction(instruction.id)}
                                                     className={cn(
-                                                        'flex items-center justify-between gap-3 px-4 py-3 text-left text-sm transition-colors hover:bg-muted/80',
-                                                        isSelected ? 'bg-primary/10' : ''
+                                                        'flex items-center justify-between gap-3 px-4 py-3 text-left text-sm transition-all duration-300 hover:bg-blue-500/10 hover:scale-[1.02]',
+                                                        isSelected ? 'bg-blue-500/20 shadow-lg shadow-blue-500/20' : ''
                                                     )}
                                                 >
                                                     <span className="truncate font-medium">
                                                         {instruction.title || 'Untitled Instruction'}
                                                     </span>
-                                                    {isActive && <Check className="h-4 w-4 text-primary" aria-hidden="true" />}
+                                                    {isActive && <Check className="h-4 w-4 text-blue-500" aria-hidden="true" />}
                                                 </button>
                                             );
                                         })}
@@ -713,7 +713,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onOpenChange, pre
                                         {modelError}
                                     </div>
                                 ) : (
-                                    <ScrollArea className="h-full">
+                                    <ScrollArea className="h-full relative before:pointer-events-none before:absolute before:top-0 before:left-0 before:right-0 before:h-8 before:bg-gradient-to-b before:from-background before:to-transparent before:opacity-0 before:transition-opacity before:duration-300 hover:before:opacity-100 after:pointer-events-none after:absolute after:bottom-0 after:left-0 after:right-0 after:h-8 after:bg-gradient-to-t after:from-background after:to-transparent after:opacity-0 after:transition-opacity after:duration-300 hover:after:opacity-100">
                                         <div className="flex flex-col gap-3 pr-2">
                                             {filteredModels.map((model) => {
                                                 const intentEnabled = getToolIntentCheck(model.id);

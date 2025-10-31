@@ -130,14 +130,14 @@ export default function DailyCalendarPanel({
     return (
         <div className="h-full w-full flex flex-col bg-card text-card-foreground border-l border-border">
             <div className="px-2 py-1 border-b border-border flex items-center justify-between bg-card">
-                <span className="font-semibold text-[0.6rem] text-foreground uppercase tracking-wider">Calendar</span>
+                <span className="font-semibold text-[0.6rem] text-transparent bg-gradient-to-r from-blue-400 to-blue-600 bg-clip-text uppercase tracking-wider animate-fade-in">Calendar</span>
                 <div className="flex items-center gap-1">
                     <Button
                         type="button"
                         onClick={onPreviousDay}
                         variant="outline"
                         size="icon"
-                        className="h-7 w-7"
+                        className="h-7 w-7 transition-all duration-300 hover:scale-110 hover:bg-blue-500/10 hover:border-blue-400 hover:shadow-md"
                         aria-label="Previous day"
                     >
                         <ChevronLeft className="h-3 w-3" />
@@ -148,7 +148,7 @@ export default function DailyCalendarPanel({
                                 type="button"
                                 variant="outline"
                                 size="sm"
-                                className="h-7 px-2 text-[10px] font-medium gap-1"
+                                className="h-7 px-2 text-[10px] font-medium gap-1 transition-all duration-300 hover:scale-105 hover:bg-blue-500/10 hover:border-blue-400 hover:shadow-md"
                                 aria-label="Select date"
                             >
                                 <CalendarIcon className="h-3 w-3" />
@@ -174,7 +174,7 @@ export default function DailyCalendarPanel({
                         onClick={onNextDay}
                         variant="outline"
                         size="icon"
-                        className="h-7 w-7"
+                        className="h-7 w-7 transition-all duration-300 hover:scale-110 hover:bg-blue-500/10 hover:border-blue-400 hover:shadow-md"
                         aria-label="Next day"
                     >
                         <ChevronRight className="h-3 w-3" />
@@ -184,7 +184,7 @@ export default function DailyCalendarPanel({
                         onClick={onGoToToday}
                         variant="outline"
                         size="sm"
-                        className="ml-1 h-7 px-2 text-[10px] font-medium"
+                        className="ml-1 h-7 px-2 text-[10px] font-medium transition-all duration-300 hover:scale-105 hover:bg-blue-500/10 hover:border-blue-400 hover:shadow-md disabled:opacity-40"
                         aria-label="Go to today"
                         disabled={isToday}
                     >
