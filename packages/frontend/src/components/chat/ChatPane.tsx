@@ -249,11 +249,6 @@ const ChatPane = () => {
     const { mode, summaryPrompt, applyContextToMessages, transforms, forcedRecentMessages } = useConversationContext();
     const { registerLatestMessage, revertToMessage, applyPatchResult, activeMessageId, isViewingHistorical, syncToThread } = useGraphHistory();
 
-    useEffect(() => {
-        if (typeof window === 'undefined') return;
-        window.localStorage.setItem('life-currents.chat.font-scale', fontScale.toString());
-    }, [fontScale]);
-
     // BUG FIX 1: Explicitly memoize activeThread, selectedLeafId, and messages to prevent invisible message bug
     // This ensures that the message chain is always recomputed when the underlying state changes,
     // preventing race conditions in long conversations with multiple forks
