@@ -1000,7 +1000,7 @@ const ChatPane = () => {
     }
 
     return (
-        <div className="relative flex h-full flex-col bg-background">
+        <div className="relative flex h-full flex-col bg-background border-t-2 border-blue-500">
             {/* Chat list button overlay */}
             <button
                 type="button"
@@ -1128,7 +1128,7 @@ const ChatPane = () => {
                                 type="button"
                                 variant="ghost"
                                 onClick={() => setSettingsDialogOpen(true)}
-                                className={cn('relative h-8 w-8 rounded-full p-0', hasUnseenBuilds ? 'border-primary text-primary' : '')}
+                                className={cn('relative h-8 w-8 rounded-full p-0 -mb-2 shadow-md hover:shadow-lg transition-shadow', hasUnseenBuilds ? 'border-primary text-primary' : '')}
                                 title={settingsButtonLabel}
                                 aria-label={settingsButtonLabel}
                             >
@@ -1139,12 +1139,12 @@ const ChatPane = () => {
                                     </span>
                                 )}
                             </Button>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 -mb-2">
                                 <Button
                                     type="button"
                                     onClick={toggleRecording}
                                     variant={isRecording ? 'destructive' : 'ghost'}
-                                    className="h-8 w-8 rounded-full p-0"
+                                    className="h-8 w-8 rounded-full p-0 shadow-md hover:shadow-lg transition-shadow"
                                     title={recordingTooltip}
                                     aria-label={
                                         isRecording
@@ -1159,7 +1159,7 @@ const ChatPane = () => {
                                     {recordingButtonDisabled ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
                                 </Button>
                                 {isLoading ? (
-                                    <Button type="button" onClick={handleCancel} variant="destructive" className="h-8 w-8 rounded-full p-0">
+                                    <Button type="button" onClick={handleCancel} variant="destructive" className="h-8 w-8 rounded-full p-0 shadow-md hover:shadow-lg transition-shadow">
                                         <Square className="h-4 w-4" />
                                     </Button>
                                 ) : (
@@ -1167,7 +1167,7 @@ const ChatPane = () => {
                                         type="submit"
                                         disabled={!input.trim()}
                                         className={cn(
-                                            "h-8 w-8 rounded-full p-0 transition-all duration-300 ease-in-out",
+                                            "h-8 w-8 rounded-full p-0 transition-all duration-300 ease-in-out shadow-md hover:shadow-lg",
                                             input.trim()
                                                 ? "bg-blue-500 hover:bg-blue-600"
                                                 : "bg-secondary hover:bg-secondary/80"
