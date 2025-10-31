@@ -1062,95 +1062,98 @@ const ChatPane = () => {
                 className="sticky bottom-0 left-0 right-0 z-10 rounded-t-3xl border-t bg-card shadow-lg"
             >
                 <div className="relative flex w-full flex-col">
+                    {/* Floating button group */}
+                    <div className="absolute -top-12 right-2 z-20 flex items-center gap-1 rounded-tl-2xl rounded-bl-2xl bg-card/30 p-2 shadow-md border-l-2 border-t-2 border-b-2 border-border">
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            onClick={() => setSettingsDialogOpen(true)}
+                            className={cn('relative h-8 w-8 rounded-full p-0 bg-transparent', hasUnseenBuilds ? 'border-primary text-primary' : '')}
+                            title={settingsButtonLabel}
+                            aria-label={settingsButtonLabel}
+                        >
+                            <Cog className="h-4 w-4" />
+                            {hasUnseenBuilds && (
+                                <span className="pointer-events-none absolute -top-1 -right-1 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-destructive px-1 text-[0.6rem] font-semibold leading-none text-destructive-foreground">
+                                    {displaySettingsBadge}
+                                </span>
+                            )}
+                        </Button>
+                        <Button
+                            type="button"
+                            onClick={toggleRecording}
+                            variant={isRecording ? 'destructive' : 'ghost'}
+                            className="h-8 w-8 rounded-full p-0 bg-transparent"
+                            title={recordingTooltip}
+                            aria-label={
+                                isRecording
+                                    ? 'Stop recording audio'
+                                    : isRecordingProcessing
+                                        ? 'Audio transcription in progress'
+                                        : 'Start recording audio'
+                            }
+                            aria-pressed={isRecording}
+                            disabled={recordingButtonDisabled || isRecording || isRecordingProcessing}
+                        >
+                            {recordingButtonDisabled ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                        </Button>
+                        {isLoading ? (
+                            <Button type="button" onClick={handleCancel} variant="destructive" className="h-8 w-8 rounded-full p-0">
+                                <Square className="h-4 w-4" />
+                            </Button>
+                        ) : (
+                            <Button
+                                type="submit"
+                                disabled={!input.trim()}
+                                className={cn(
+                                    "h-8 w-8 rounded-full p-0 transition-all duration-300 ease-in-out",
+                                    input.trim()
+                                        ? "bg-blue-500 hover:bg-blue-600"
+                                        : "bg-secondary hover:bg-secondary/80"
+                                )}
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    formRef.current?.requestSubmit();
+                                }}
+                            >
+                                <Send className={cn(
+                                    "h-4 w-4 transition-transform duration-300 ease-in-out",
+                                    input.trim() ? "rotate-[-90deg]" : "rotate-0"
+                                )} />
+                            </Button>
+                        )}
+                    </div>
                     <form
                         ref={formRef}
                         onSubmit={handleSubmit}
                         className="relative z-10 flex w-full flex-col p-2"
                     >
-                        <div className="relative">
-                            <Textarea
-                                value={input}
-                                onChange={(e) => {
-                                    let threadId = activeThreadId;
-                                    if (!threadId) {
-                                        threadId = createThread();
-                                    }
-                                    const value = e.target.value;
-                                    setInput(value);
-                                    if (threadId) {
-                                        updateDraft(threadId, value);
-                                    }
-                                }}
+                        <Textarea
+                            value={input}
+                            onChange={(e) => {
+                                let threadId = activeThreadId;
+                                if (!threadId) {
+                                    threadId = createThread();
+                                }
+                                const value = e.target.value;
+                                setInput(value);
+                                if (threadId) {
+                                    updateDraft(threadId, value);
+                                }
+                            }}
                             placeholder="Reply to Claude..."
-                                disabled={isLoading}
+                            disabled={isLoading}
                             rows={1}
-                                className={cn(
-                                'min-h-[44px] max-h-[160px] w-full resize-none rounded-2xl border-0 bg-muted pr-32 text-base text-foreground placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-ring'
-                                )}
-                                onKeyDown={(event) => {
-                                    if (event.key === 'Enter' && !event.shiftKey) {
-                                            event.preventDefault();
-                                            formRef.current?.requestSubmit();
-                                    }
-                                }}
-                            />
-                            <div className="absolute bottom-1 right-1 flex items-center gap-1">
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                onClick={() => setSettingsDialogOpen(true)}
-                                className={cn('relative h-8 w-8 rounded-full p-0', hasUnseenBuilds ? 'border-primary text-primary' : '')}
-                                title={settingsButtonLabel}
-                                aria-label={settingsButtonLabel}
-                            >
-                                <Cog className="h-4 w-4" />
-                                {hasUnseenBuilds && (
-                                    <span className="pointer-events-none absolute -top-1 -right-1 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-destructive px-1 text-[0.6rem] font-semibold leading-none text-destructive-foreground">
-                                        {displaySettingsBadge}
-                                    </span>
-                                )}
-                            </Button>
-                                <Button
-                                    type="button"
-                                    onClick={toggleRecording}
-                                    variant={isRecording ? 'destructive' : 'ghost'}
-                                    className="h-8 w-8 rounded-full p-0"
-                                    title={recordingTooltip}
-                                    aria-label={
-                                        isRecording
-                                            ? 'Stop recording audio'
-                                            : isRecordingProcessing
-                                                ? 'Audio transcription in progress'
-                                                : 'Start recording audio'
-                                    }
-                                    aria-pressed={isRecording}
-                                    disabled={recordingButtonDisabled || isRecording || isRecordingProcessing}
-                                >
-                                    {recordingButtonDisabled ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-                                </Button>
-                                {isLoading ? (
-                                    <Button type="button" onClick={handleCancel} variant="destructive" className="h-8 w-8 rounded-full p-0">
-                                        <Square className="h-4 w-4" />
-                                    </Button>
-                                ) : (
-                                    <Button
-                                        type="submit"
-                                        disabled={!input.trim()}
-                                        className={cn(
-                                            "h-8 w-8 rounded-full p-0 transition-all duration-300 ease-in-out",
-                                            input.trim()
-                                                ? "bg-blue-500 hover:bg-blue-600"
-                                                : "bg-secondary hover:bg-secondary/80"
-                                        )}
-                                    >
-                                        <Send className={cn(
-                                            "h-4 w-4 transition-transform duration-300 ease-in-out",
-                                            input.trim() ? "rotate-[-90deg]" : "rotate-0"
-                                        )} />
-                                    </Button>
-                                )}
-                            </div>
-                        </div>
+                            className={cn(
+                                'min-h-[44px] max-h-[160px] w-full resize-none rounded-2xl border-0 bg-muted text-base text-foreground placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-ring'
+                            )}
+                            onKeyDown={(event) => {
+                                if (event.key === 'Enter' && !event.shiftKey) {
+                                    event.preventDefault();
+                                    formRef.current?.requestSubmit();
+                                }
+                            }}
+                        />
                     </form>
                     {(microphonePermission === 'denied' || microphonePermission === 'unsupported' || recordingError) && (
                         <p className="mt-2 text-xs text-destructive">
