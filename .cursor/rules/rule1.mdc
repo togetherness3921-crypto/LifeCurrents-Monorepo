@@ -39,6 +39,29 @@ alwaysApply: true/false        # Optional: always include in context
 2. Changes take effect immediately in new AI conversations
 3. Use numbered prefixes (e.g., `001-`, `100-`, `200-`) to control priority when using multiple rule files
 
+## Mobile Target Specifications
+
+### Samsung Galaxy S25+ Viewport Specifications
+
+**Physical Display:**
+- Resolution: 1440 x 3120 pixels (device pixels)
+- Screen Size: 6.7 inches
+- Pixel Density: ~513 PPI
+
+**CSS Viewport (Logical Pixels):**
+- Width: 480px (in portrait mode)
+- Height: 1040px (in portrait mode)
+
+**Device Pixel Ratio (DPR):**
+- DPR: 3.0
+- This means 1 CSS pixel = 3x3 = 9 physical pixels
+
+**Key Takeaways for Development:**
+- When developing responsive layouts, target CSS viewport width of 480px for mobile S25+
+- Physical resolution (1440x3120) is NOT the same as CSS viewport (480x1040)
+- Use `width=device-width` in meta viewport to match screen width in device-independent pixels
+- High DPR provides sharp display while allowing standard CSS pixel dimensions across devices
+
 ## Modifying System Instructions
 - To modify system instructions, edit the corresponding file in the `synced_files/system_instructions/` directory. These changes are automatically synced with the Supabase database via the `auto-sync` script.
 
