@@ -513,7 +513,7 @@ function CausalGraphContent() {
                 }}
               >
                 <Controls
-                  className="bg-card border-border text-foreground p-1 [&>button]:w-10 [&>button]:h-10 [&>button]:rounded-md scale-50 origin-bottom-left !left-2 !bottom-2 shadow-sm"
+                  className="bg-card border-border text-foreground rounded-tr-2xl shadow-lg p-2 [&>button]:w-12 [&>button]:h-12 [&>button]:rounded-lg [&>button]:transition-all [&>button]:hover:shadow-md [&>button]:active:scale-95 scale-75 origin-bottom-left !left-0 !bottom-0"
                   showZoom={false}
                   showFitView={true}
                   showInteractive={false}
@@ -529,11 +529,11 @@ function CausalGraphContent() {
                         : 'Showing all scheduled nodes'
                     }
                     className={cn(
-                      'bg-background border-border',
+                      'bg-background border-border min-w-[48px] min-h-[48px]',
                       filterToSelectedDay && 'bg-primary text-primary-foreground border-primary hover:bg-primary/90'
                     )}
                   >
-                    <CalendarIcon className="w-3 h-3" />
+                    <CalendarIcon className="w-5 h-5" />
                   </Button>
                   <Button
                     onClick={() => {
@@ -547,10 +547,10 @@ function CausalGraphContent() {
                     }}
                     variant="outline"
                     size="icon"
-                    className="bg-background border-border"
+                    className="bg-background border-border min-w-[48px] min-h-[48px]"
                     disabled={activeGraphId === 'main'}
                   >
-                    <ArrowLeft className="w-3 h-3" />
+                    <ArrowLeft className="w-5 h-5" />
                   </Button>
                   <Button
                     onClick={() => {
@@ -565,9 +565,9 @@ function CausalGraphContent() {
                     }}
                     variant="outline"
                     size="icon"
-                    className="bg-background border-border"
+                    className="bg-background border-border min-w-[48px] min-h-[48px]"
                   >
-                    <RefreshCw className="w-3 h-3" />
+                    <RefreshCw className="w-5 h-5" />
                   </Button>
                 </Controls>
                 <Background

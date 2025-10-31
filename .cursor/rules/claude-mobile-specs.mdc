@@ -1,0 +1,176 @@
+---
+description: Claude mobile app design specifications and implementation guidelines
+globs: packages/frontend/src/components/chat/**/*
+---
+
+# Claude Mobile Reference Specs
+
+## Overview
+This document defines the design specifications for matching Claude mobile app's layout and spacing on the Samsung Galaxy S25+ (1080x2120 device pixels).
+
+## Design Philosophy
+The implementation follows Claude mobile's design language precisely, prioritizing:
+- Clean, minimal padding
+- Full-width content for maximum space usage
+- Material Design compliance (Android guidelines)
+- Accessibility-first design (48dp minimum touch targets)
+- System font respect (no custom font scaling)
+
+## Viewport Configuration
+```html
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+```
+
+**Rationale**: Prevents cutoff and ensures smooth responsive behavior at all mobile sizes, matching Claude's approach.
+
+## Chat Interface Specifications
+
+### 1. Chat Area Spacing
+- **Top padding**: 8px (minimal, like Claude)
+- **Bottom padding**: 8px
+- **Horizontal padding**: 16px
+- **Message gap**: 16px between messages
+
+**Implementation**: `px-4 pt-2 pb-2` with `gap-4` on message container
+
+### 2. Chat List Button
+- **Position**: Flush left (left: 0) for easy thumb access
+- **Size**: 48px × 48px minimum (Material Design touch target)
+- **Corner radius**: rounded-r-2xl (right side only)
+- **Elevation**: shadow-lg with hover:shadow-xl
+- **Icon size**: 20px (5 in Tailwind units)
+
+**Implementation**:
+```tsx
+className="absolute left-0 top-3 z-20 rounded-r-2xl bg-card p-3 shadow-lg transition-all hover:shadow-xl active:scale-95 min-w-[48px] min-h-[48px]"
+```
+
+### 3. Message Layout
+- **Width**: 100% full-width (no bubbles, no width restrictions)
+- **Border radius**: None (sharp edges like Claude)
+- **Alignment**: All messages left-aligned, full-width
+- **User message background**: bg-primary
+- **Assistant message background**: transparent
+
+**Key change**: Removed `justify-end` and `justify-start`, removed `rounded-lg`, removed width restrictions.
+
+### 4. Input Bar
+- **Default state**: Single line (rows={1})
+- **Min height**: 44px (Material Design minimum)
+- **Max height**: 160px (allows expansion)
+- **Transition**: duration-200 for smooth expansion
+- **Corner radius**: rounded-2xl
+- **Placeholder**: "Reply to Claude..."
+
+**Implementation**:
+```tsx
+rows={1}
+className="min-h-[44px] max-h-[160px] w-full resize-none rounded-2xl border-0 bg-muted text-base text-foreground placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-ring transition-all duration-200"
+```
+
+### 5. Bottom Action Icons
+Following Material Design guidelines:
+- **Button size**: 48px × 48px (12 in Tailwind units)
+- **Icon size**: 20px (5 in Tailwind units)
+- **Spacing**: 8px gap (gap-2 in Tailwind)
+- **Touch target**: Minimum 48dp for accessibility
+- **Active states**: active:scale-95 for tactile feedback
+
+**Buttons**:
+- Settings: h-12 w-12 with h-5 w-5 icon
+- Microphone: h-12 w-12 with h-5 w-5 icon
+- Send: h-12 w-12 with h-5 w-5 icon, blue-500 when active
+
+### 6. Font Scaling
+**REMOVED** - Claude respects system font sizes rather than providing custom font scaling. This follows platform conventions and accessibility best practices.
+
+## Graph Controls Styling
+
+### Position and Layout
+- **Position**: Lower-left corner (left: 0, bottom: 0)
+- **Corner treatment**: rounded-tr-2xl (top-right corner only)
+- **Elevation**: shadow-lg
+- **Scale**: 75% to match mobile proportions
+
+### Button Specifications
+- **Size**: 48px × 48px minimum touch target
+- **Icon size**: 20px (5 in Tailwind units)
+- **Corner radius**: rounded-lg
+- **Transitions**: hover:shadow-md, active:scale-95
+- **Spacing**: 8px padding (p-2)
+
+**Implementation**:
+```tsx
+className="bg-card border-border text-foreground rounded-tr-2xl shadow-lg p-2 [&>button]:w-12 [&>button]:h-12 [&>button]:rounded-lg [&>button]:transition-all [&>button]:hover:shadow-md [&>button]:active:scale-95 scale-75 origin-bottom-left !left-0 !bottom-0"
+```
+
+### Individual Control Buttons
+Each button includes:
+- `min-w-[48px] min-h-[48px]` for accessibility
+- `w-5 h-5` icons (20px)
+- Consistent styling with Claude's card elevation and borders
+
+## Color Palette
+Following Claude's design system:
+- **Primary action**: blue-500 (#3B82F6)
+- **Card background**: hsl(var(--card))
+- **Muted background**: hsl(var(--muted))
+- **Foreground text**: hsl(var(--foreground))
+- **Borders**: hsl(var(--border))
+
+## Material Design Compliance
+
+### Touch Targets
+- **Minimum size**: 48dp × 48dp (Android Material Design)
+- **Minimum spacing**: 8dp between interactive elements
+- **Physical size**: 7-10mm on screen
+
+### Elevation System
+- **Level 1 (subtle)**: shadow-sm
+- **Level 2 (cards)**: shadow-md
+- **Level 3 (floating)**: shadow-lg
+- **Level 4 (modal)**: shadow-xl
+
+### Motion Design
+- **Standard duration**: 200-300ms
+- **Easing**: ease-in-out
+- **Scale feedback**: 0.95 for active state
+- **Rotation**: -90deg for send icon when active
+
+## Accessibility Features
+1. **ARIA labels**: All interactive elements have descriptive aria-labels
+2. **Keyboard navigation**: Full keyboard support with visible focus states
+3. **Screen reader support**: Proper semantic HTML and ARIA attributes
+4. **Touch targets**: Minimum 48dp for all interactive elements
+5. **Color contrast**: WCAG AA compliant contrast ratios
+6. **System fonts**: Respects user's system font size preferences
+
+## Implementation Files
+- `packages/frontend/index.html` - Viewport meta tag
+- `packages/frontend/src/components/chat/ChatPane.tsx` - Main chat interface
+- `packages/frontend/src/components/chat/ChatMessage.tsx` - Message layout
+- `packages/frontend/src/components/CausalGraph.tsx` - Graph controls
+
+## Testing Checklist
+- [ ] No horizontal cutoff at any mobile width
+- [ ] Chat list button easily accessible with thumb
+- [ ] All messages display full-width
+- [ ] Input bar starts as single line, expands smoothly
+- [ ] All touch targets meet 48px minimum
+- [ ] Icons are consistently 20px
+- [ ] Smooth animations and transitions
+- [ ] No font slider visible (removed)
+- [ ] Graph controls styled with rounded-tr-2xl
+- [ ] Matches Claude mobile screenshots pixel-for-pixel (where possible)
+
+## Future Considerations
+- Monitor Claude mobile updates for design changes
+- Maintain consistency with Material Design guidelines
+- Consider adding haptic feedback on supported devices
+- Optimize for foldable devices if needed
+
+---
+
+**Last Updated**: 2025-10-31
+**Target Device**: Samsung Galaxy S25+ (1080x2120)
+**Reference**: Claude Mobile App (Android)
