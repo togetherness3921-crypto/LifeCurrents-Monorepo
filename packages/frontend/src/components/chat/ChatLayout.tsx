@@ -51,7 +51,7 @@ const ChatLayout = () => {
                                 )}
 
                                 {/* Main chat area */}
-                                <div className="relative z-10 flex-1">
+                                <div className="relative z-10 flex-1 border-t-2 border-blue-500 rounded-t-lg">
                                     <ChatPane />
                                 </div>
                             </div>

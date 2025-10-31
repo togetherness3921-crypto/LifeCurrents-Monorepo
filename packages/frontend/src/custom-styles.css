@@ -3,7 +3,7 @@ This file contains custom CSS overrides for library styles that are too specific
 handled by Tailwind's utility classes alone.
 */
 
-/* 
+/*
 Force a larger font size on the progress graph's axis labels.
 The default React Flow styles override inline styles and utility classes,
 so we need a more specific rule with !important to ensure this is applied.
@@ -11,4 +11,11 @@ The SVG scales, so we need a larger base font size to ensure readability.
 */
 .progress-graph-svg text {
     font-size: 28px !important;
+}
+
+/* Fix ReactFlow fit view button icon display */
+.react-flow__controls-fitview svg {
+    display: block;
+    width: 100%;
+    height: 100%;
 }

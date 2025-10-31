@@ -27,7 +27,7 @@ All colors MUST be HSL.
     --muted: 220 13% 22%;
     --muted-foreground: 0 0% 100%;
 
-    --accent: 270 91% 65%;
+    --accent: 217 91% 60%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 75% 60%;
@@ -41,7 +41,7 @@ All colors MUST be HSL.
     --node-start: 0 75% 60%;
     --node-objective: 217 91% 60%;
     --node-milestone: 45 95% 55%;
-    --node-validation: 270 91% 65%;
+    --node-validation: 217 91% 60%;
     --node-goal: 142 72% 50%;
 
     /* Status colors - maintain semantic meaning on dark background */
@@ -87,7 +87,7 @@ All colors MUST be HSL.
     --muted: 220 13% 15%;
     --muted-foreground: 220 9% 46%;
 
-    --accent: 270 91% 65%;
+    --accent: 217 91% 60%;
     --accent-foreground: 220 13% 9%;
 
     --destructive: 0 75% 60%;
@@ -100,7 +100,7 @@ All colors MUST be HSL.
     --node-start: 0 75% 60%;
     --node-objective: 217 91% 60%;
     --node-milestone: 25 95% 55%;
-    --node-validation: 270 91% 65%;
+    --node-validation: 217 91% 60%;
     --node-goal: 142 72% 50%;
 
     --status-not-started: 220 9% 46%;
