@@ -1145,8 +1145,7 @@ const ChatPane = () => {
                             disabled={isLoading}
                             rows={1}
                             className={cn(
-                                'min-h-[44px] max-h-[160px] w-full resize-none rounded-2xl border-0 bg-muted text-base text-foreground placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-ring',
-                                '[&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-thumb]:rounded-full'
+                                'min-h-[44px] max-h-[160px] w-full resize-none rounded-2xl border-0 bg-muted text-base text-foreground placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-ring [&::-webkit-scrollbar]:hidden'
                             )}
                             onKeyDown={(event) => {
                                 if (event.key === 'Enter' && !event.shiftKey) {
