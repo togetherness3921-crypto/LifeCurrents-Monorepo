@@ -1,0 +1,374 @@
+# Mobile Viewport & Responsive Design Guide
+
+## Overview
+This guide documents the mobile viewport configuration and responsive design patterns used in the LifeCurrents frontend application, optimized for devices like the Samsung Galaxy S25+ (1080x2120 device pixels) and other modern mobile devices.
+
+## Viewport Configuration
+
+### Meta Tag Setup
+Located in `/packages/frontend/index.html`:
+
+```html
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=yes, maximum-scale=5.0" />
+```
+
+**Parameters explained:**
+- `width=device-width` - Match screen width in device-independent pixels
+- `initial-scale=1.0` - No initial zoom
+- `viewport-fit=cover` - Extend content to screen edges (for notched devices)
+- `user-scalable=yes` - Allow pinch-to-zoom (accessibility)
+- `maximum-scale=5.0` - Allow up to 5x zoom (accessibility)
+
+### Safe Area Insets
+
+For devices with notches, rounded corners, or gesture areas, safe area insets are applied globally:
+
+```css
+body {
+  padding-top: env(safe-area-inset-top);
+  padding-right: env(safe-area-inset-right);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+}
+```
+
+**When to use:**
+- Applied automatically to body element
+- Individual components can override if needed
+- Bottom-positioned elements (input bars, nav bars) should use `padding-bottom: env(safe-area-inset-bottom)`
+
+## Viewport Units
+
+### Standard Units
+- `vh` - Viewport height (old standard, may cause issues with mobile browser UI)
+- `vw` - Viewport width
+
+### Modern Viewport Units (2025+)
+Located in `/packages/frontend/src/index.css`:
+
+```css
+/* Small viewport (browser UI visible) */
+height: 100svh;
+
+/* Large viewport (browser UI hidden) */
+height: 100lvh;
+
+/* Dynamic viewport (adjusts as browser UI changes) */
+height: 100dvh;
+```
+
+**Browser Support:**
+- ✅ Chrome/Edge 108+ (Desktop & Mobile)
+- ✅ Safari 15.4+ (Desktop & iOS)
+- ✅ Firefox 101+ (Desktop)
+- ⚠️ Chrome/Firefox on iOS - svh behaves like dvh (WebKit limitation)
+
+**Best Practice:**
+```css
+/* Provide fallback for older browsers */
+height: 100vh; /* Fallback */
+height: 100svh; /* Modern browsers */
+```
+
+**When to use each:**
+- `svh` - For consistent UI that should never resize (headers, modals)
+- `lvh` - For full-screen experiences (splash screens)
+- `dvh` - For scroll containers that adapt to browser UI (chat panes)
+
+## Responsive Breakpoints
+
+Defined in Tailwind config (`tailwind.config.ts`):
+
+| Breakpoint | Pixels | Usage |
+|-----------|--------|-------|
+| `sm:` | 640px+ | Small tablets, landscape phones |
+| `md:` | 768px+ | Tablets, small desktops |
+| `lg:` | 1024px+ | Desktops |
+| `xl:` | 1280px+ | Large desktops |
+| `2xl:` | 1400px+ | Extra large desktops |
+
+### Mobile Detection Hook
+Located in `/src/hooks/use-mobile.tsx`:
+
+```typescript
+import { useIsMobile } from '@/hooks/use-mobile';
+
+function MyComponent() {
+  const isMobile = useIsMobile(); // true if < 768px
+
+  return (
+    <div className={isMobile ? 'mobile-layout' : 'desktop-layout'}>
+      {/* ... */}
+    </div>
+  );
+}
+```
+
+## GPU-Accelerated Animations
+
+### Best Practices
+
+1. **Use GPU-friendly properties:**
+   ```css
+   /* ✅ GPU-accelerated */
+   transform: translateX(10px);
+   opacity: 0.5;
+
+   /* ❌ CPU-bound (avoid for animations) */
+   left: 10px;
+   margin-top: 10px;
+   ```
+
+2. **Apply GPU acceleration:**
+   ```tsx
+   <div className="gpu-accelerated">
+     {/* Content with smooth animations */}
+   </div>
+   ```
+
+3. **Use will-change selectively:**
+   ```css
+   /* Only for elements that will animate soon */
+   .about-to-animate {
+     will-change: transform;
+   }
+
+   /* Remove after animation */
+   .animation-done {
+     will-change: auto;
+   }
+   ```
+
+### Animation Timing Guidelines
+
+Based on Material Design and iOS Human Interface Guidelines:
+
+| Duration | Use Case |
+|----------|----------|
+| 100-150ms | Micro-interactions (button press, checkbox) |
+| 200-300ms | UI transitions (menu open, modal appear) |
+| 300-500ms | Complex animations (page transition) |
+| 2s+ | Ambient animations (pulse, breathing effects) |
+
+**Easing Functions:**
+- `cubic-bezier(0.25, 0.46, 0.45, 0.94)` - Smooth ease-out (default)
+- `cubic-bezier(0.4, 0, 0.2, 1)` - Material Design standard
+- `cubic-bezier(0.4, 0, 0.6, 1)` - Subtle deceleration
+
+## Available Animation Classes
+
+Located in `/src/index.css`:
+
+### Touch Interactions
+```tsx
+// Ripple effect for button taps
+<Button className="animate-ripple" />
+
+// Scale feedback on press
+<Button className="animate-scale-bounce" />
+```
+
+### Message Animations
+```tsx
+// Smooth appearance for new messages
+<div className="animate-fade-in-scale">
+  <Message content={text} />
+</div>
+
+// Slide in from right (user messages)
+<div className="animate-slide-in-right">
+  <UserMessage />
+</div>
+
+// Slide in from left (AI messages)
+<div className="animate-slide-in-left">
+  <AIMessage />
+</div>
+```
+
+### Focus & Attention
+```tsx
+// Pulsing glow on input focus
+<Input className="focus:animate-pulse-glow" />
+
+// Icon pulse for notifications
+<Icon className="animate-icon-pulse" />
+
+// Chevron bounce for expandable UI
+<ChevronIcon className="animate-chevron-bounce" />
+```
+
+### UI Elements
+```tsx
+// Backdrop blur fade-in
+<Modal className="animate-backdrop-fade-in" />
+
+// Smooth spinner
+<LoadingSpinner className="animate-spin-smooth" />
+```
+
+## Scrolling Optimization
+
+### Momentum Scrolling (iOS)
+```tsx
+<ScrollArea className="momentum-scroll">
+  {/* Content */}
+</ScrollArea>
+```
+
+### Custom Scrollbar
+```tsx
+<div className="custom-scrollbar overflow-y-auto">
+  {/* Scrollable content */}
+</div>
+```
+
+### Fade Gradient Indicator
+```tsx
+<div className="fade-gradient-top">
+  <ScrollArea>
+    {/* Top fade indicates more content above */}
+  </ScrollArea>
+</div>
+```
+
+## Accessibility
+
+### Reduced Motion Support
+Automatically applied via CSS:
+
+```css
+@media (prefers-reduced-motion: reduce) {
+  /* All animations reduced to minimal duration */
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+```
+
+Users who enable "Reduce Motion" in their OS settings will see:
+- Near-instant transitions (0.01ms)
+- No looping animations
+- Smooth scrolling disabled
+
+### Touch Target Sizes
+Minimum recommended: 44x44px (iOS) or 48x48px (Material Design)
+
+```tsx
+// Good: Large enough touch target
+<Button className="h-12 w-12" /> // 48px
+
+// Bad: Too small for touch
+<Button className="h-6 w-6" /> // 24px
+```
+
+## Common Patterns
+
+### Full-Screen Chat Layout
+```tsx
+<div className="h-svh flex flex-col">
+  <Header />
+  <div className="flex-1 overflow-y-auto momentum-scroll custom-scrollbar fade-gradient-top">
+    {messages.map(msg => (
+      <div key={msg.id} className="animate-fade-in-scale">
+        <Message content={msg.content} />
+      </div>
+    ))}
+  </div>
+  <InputBar className="pb-[env(safe-area-inset-bottom)]" />
+</div>
+```
+
+### Expandable Input Bar
+```tsx
+<Textarea
+  rows={1}
+  className="smooth-height-transition resize-none"
+  onInput={(e) => {
+    e.target.style.height = 'auto';
+    e.target.style.height = e.target.scrollHeight + 'px';
+  }}
+/>
+```
+
+### Touch-Optimized Button
+```tsx
+<Button
+  className="h-12 w-12 gpu-accelerated active:animate-scale-bounce"
+  onClick={handleClick}
+>
+  <Icon className="h-6 w-6" />
+</Button>
+```
+
+## Performance Tips
+
+1. **Limit will-change usage**
+   - Only apply to elements that will animate
+   - Remove after animation completes
+   - Overuse causes memory issues
+
+2. **Use transform over position**
+   ```css
+   /* ✅ Good */
+   transform: translateX(100px);
+
+   /* ❌ Bad */
+   left: 100px;
+   ```
+
+3. **Batch DOM updates**
+   - Use React state updates efficiently
+   - Leverage `requestAnimationFrame` for manual DOM manipulation
+
+4. **Test on actual devices**
+   - Chrome DevTools mobile emulation is not accurate for performance
+   - Test on low-end devices (not just flagship phones)
+
+## Debug Mode (Development Only)
+
+Add to your component to log viewport changes:
+
+```tsx
+useEffect(() => {
+  const logViewport = () => {
+    console.log({
+      width: window.innerWidth,
+      height: window.innerHeight,
+      devicePixelRatio: window.devicePixelRatio,
+      orientation: window.screen.orientation?.type,
+    });
+  };
+
+  window.addEventListener('resize', logViewport);
+  window.addEventListener('orientationchange', logViewport);
+  logViewport();
+
+  return () => {
+    window.removeEventListener('resize', logViewport);
+    window.removeEventListener('orientationchange', logViewport);
+  };
+}, []);
+```
+
+## Resources
+
+- [MDN: Using the viewport meta tag](https://developer.mozilla.org/en-US/docs/Web/HTML/Viewport_meta_tag)
+- [CSS Viewport Units (svh, lvh, dvh)](https://web.dev/blog/viewport-units)
+- [Material Design: Motion](https://material.io/design/motion)
+- [iOS Human Interface Guidelines: Animation](https://developer.apple.com/design/human-interface-guidelines/motion)
+- [GPU Acceleration in CSS](https://www.smashingmagazine.com/2016/12/gpu-animation-doing-it-right/)
+
+## Testing Checklist
+
+- [ ] Test on Samsung Galaxy S25+ (1080x2120)
+- [ ] Test on iPhone 15 Pro (iOS Safari)
+- [ ] Test on older devices (iPhone X, Galaxy S10)
+- [ ] Test with browser UI visible and hidden
+- [ ] Test portrait and landscape orientations
+- [ ] Test with "Reduce Motion" enabled
+- [ ] Test with "Large Text" accessibility setting
+- [ ] Verify safe area insets on notched devices
+- [ ] Check scroll performance (60fps)
+- [ ] Verify touch targets are 44x44px minimum

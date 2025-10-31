@@ -134,6 +134,11 @@ All colors MUST be HSL.
     overscroll-behavior: none;
     -webkit-touch-callout: none;
     -webkit-tap-highlight-color: transparent;
+    /* Safe area insets for notched devices */
+    padding-top: env(safe-area-inset-top);
+    padding-right: env(safe-area-inset-right);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
   }
 }
 
@@ -211,4 +216,235 @@ All colors MUST be HSL.
 
 .react-flow__controls-attribution {
   display: none !important;
+}
+
+/* Premium Mobile Animation Utilities - GPU Accelerated */
+
+/* Ripple effect for touch interactions */
+@keyframes ripple {
+  0% {
+    transform: scale(0);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(4);
+    opacity: 0;
+  }
+}
+
+.animate-ripple {
+  animation: ripple 600ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Scale bounce for interactive elements */
+@keyframes scale-bounce {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(0.95);
+  }
+}
+
+.animate-scale-bounce {
+  animation: scale-bounce 150ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Smooth fade-in scale for message appearance */
+@keyframes fade-in-scale {
+  from {
+    opacity: 0;
+    transform: scale(0.98) translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.animate-fade-in-scale {
+  animation: fade-in-scale 250ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* Slide in from right for chat elements */
+@keyframes slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 300ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* Slide in from left for UI elements */
+@keyframes slide-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-slide-in-left {
+  animation: slide-in-left 300ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* Pulse glow for focus states */
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 hsl(var(--ring) / 0.7);
+  }
+  50% {
+    box-shadow: 0 0 0 4px hsl(var(--ring) / 0);
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Smooth rotation for loading indicators */
+@keyframes spin-smooth {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin-smooth {
+  animation: spin-smooth 1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+/* Icon pulse for attention */
+@keyframes icon-pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+.animate-icon-pulse {
+  animation: icon-pulse 2s ease-in-out infinite;
+}
+
+/* Subtle chevron bounce */
+@keyframes chevron-bounce {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(-3px);
+  }
+}
+
+.animate-chevron-bounce {
+  animation: chevron-bounce 1s ease-in-out infinite;
+}
+
+/* Backdrop blur fade-in */
+@keyframes backdrop-fade-in {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0px);
+  }
+  to {
+    opacity: 1;
+    backdrop-filter: blur(12px);
+  }
+}
+
+.animate-backdrop-fade-in {
+  animation: backdrop-fade-in 300ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* Smooth height transition for expanding textarea */
+.smooth-height-transition {
+  transition: height 200ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* GPU-accelerated transforms */
+.gpu-accelerated {
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+/* Momentum scrolling for iOS */
+.momentum-scroll {
+  -webkit-overflow-scrolling: touch;
+  overflow-y: auto;
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .animate-ripple,
+  .animate-scale-bounce,
+  .animate-fade-in-scale,
+  .animate-slide-in-right,
+  .animate-slide-in-left,
+  .animate-pulse-glow,
+  .animate-spin-smooth,
+  .animate-icon-pulse,
+  .animate-chevron-bounce,
+  .animate-backdrop-fade-in {
+    animation: none !important;
+  }
+}
+
+/* Custom scrollbar styling for webkit browsers */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: hsl(var(--background));
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted));
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
+}
+
+/* Fade gradient overlay for scrollable areas */
+.fade-gradient-top {
+  position: relative;
+}
+
+.fade-gradient-top::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 40px;
+  background: linear-gradient(to bottom, hsl(var(--background)), transparent);
+  pointer-events: none;
+  z-index: 10;
 }

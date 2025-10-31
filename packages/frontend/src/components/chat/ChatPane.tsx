@@ -1001,32 +1001,32 @@ const ChatPane = () => {
 
     return (
         <div className="relative flex h-full flex-col bg-background">
-            {/* Chat list button overlay */}
+            {/* Chat list button overlay - premium mobile polish */}
             <button
                 type="button"
-                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                className="absolute left-4 top-4 z-20 rounded-br-2xl bg-card p-3 shadow-md transition-all hover:shadow-lg"
+                onClick={(e) => {
+                    setIsSidebarOpen(!isSidebarOpen);
+                    // Haptic feedback for mobile
+                    if ('vibrate' in navigator) {
+                        navigator.vibrate(10);
+                    }
+                    // Ripple effect
+                    const btn = e.currentTarget;
+                    const ripple = document.createElement('span');
+                    ripple.className = 'absolute inset-0 rounded-br-2xl bg-white/30 animate-ripple pointer-events-none';
+                    btn.appendChild(ripple);
+                    setTimeout(() => ripple.remove(), 600);
+                }}
+                className="absolute left-0 top-4 z-20 rounded-br-2xl rounded-tl-none bg-card/95 backdrop-blur-sm p-3 shadow-lg transition-all duration-300 hover:shadow-xl hover:bg-card hover:scale-105 active:scale-95 gpu-accelerated group"
                 aria-label="Toggle chat list"
             >
-                <ChevronLeft className="h-5 w-5 text-foreground" />
+                <ChevronLeft className="h-6 w-6 text-foreground transition-transform duration-300 group-hover:animate-chevron-bounce" />
             </button>
 
             <ScrollArea
-                className="flex-1 min-h-0 p-4"
+                className="flex-1 min-h-0 momentum-scroll custom-scrollbar fade-gradient-top"
                 ref={scrollAreaRef}
             >
-                <div className="mb-4 flex w-full max-w-[220px] items-center gap-3 text-xs text-muted-foreground">
-                    <span className="font-semibold uppercase tracking-wide">Font</span>
-                    <Slider
-                        value={[fontScale]}
-                        onValueChange={handleFontScaleChange}
-                        min={0.25}
-                        max={1.0}
-                        step={0.05}
-                        aria-label="Adjust chat font size"
-                    />
-                    <span className="w-10 text-right font-medium">{Math.round(fontScale * 100)}%</span>
-                </div>
                 <div className="flex flex-col gap-4" style={{ fontSize: `${fontScale}rem`, lineHeight: 1.5 }}>
                     {messages.map((msg) => {
                         let branchInfo;
@@ -1089,7 +1089,7 @@ const ChatPane = () => {
                 />
             </div>
             <div
-                className="sticky bottom-0 left-0 right-0 z-10 rounded-t-3xl border-t bg-card shadow-lg"
+                className="sticky bottom-0 left-0 right-0 z-10 rounded-t-3xl border-t bg-card/95 backdrop-blur-md shadow-lg pb-[env(safe-area-inset-bottom)]"
             >
                 <div className="relative flex w-full flex-col">
                     <form
@@ -1109,12 +1109,17 @@ const ChatPane = () => {
                                     if (threadId) {
                                         updateDraft(threadId, value);
                                     }
+                                    // Auto-resize with smooth transition
+                                    const target = e.target;
+                                    target.style.height = 'auto';
+                                    const newHeight = Math.min(Math.max(target.scrollHeight, 44), 160);
+                                    target.style.height = `${newHeight}px`;
                                 }}
                             placeholder="Reply to Claude..."
                                 disabled={isLoading}
-                            rows={3}
+                            rows={1}
                                 className={cn(
-                                'min-h-[80px] max-h-[160px] w-full resize-none rounded-2xl border-0 bg-muted text-base text-foreground placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-ring'
+                                'min-h-[44px] max-h-[160px] w-full resize-none rounded-2xl border-0 bg-muted text-base text-foreground placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:animate-pulse-glow smooth-height-transition gpu-accelerated transition-shadow duration-300'
                                 )}
                                 onKeyDown={(event) => {
                                     if (event.key === 'Enter' && !event.shiftKey) {
@@ -1128,13 +1133,16 @@ const ChatPane = () => {
                                 type="button"
                                 variant="ghost"
                                 onClick={() => setSettingsDialogOpen(true)}
-                                className={cn('relative h-8 w-8 rounded-full p-0', hasUnseenBuilds ? 'border-primary text-primary' : '')}
+                                className={cn(
+                                    'relative h-12 w-12 rounded-full p-0 gpu-accelerated transition-all duration-200 hover:scale-110 active:scale-95',
+                                    hasUnseenBuilds ? 'border-primary text-primary' : ''
+                                )}
                                 title={settingsButtonLabel}
                                 aria-label={settingsButtonLabel}
                             >
-                                <Cog className="h-4 w-4" />
+                                <Cog className="h-6 w-6 transition-transform duration-500 hover:rotate-90" />
                                 {hasUnseenBuilds && (
-                                    <span className="pointer-events-none absolute -top-1 -right-1 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-destructive px-1 text-[0.6rem] font-semibold leading-none text-destructive-foreground">
+                                    <span className="pointer-events-none absolute -top-1 -right-1 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-destructive px-1 text-[0.6rem] font-semibold leading-none text-destructive-foreground animate-icon-pulse">
                                         {displaySettingsBadge}
                                     </span>
                                 )}
@@ -1144,7 +1152,10 @@ const ChatPane = () => {
                                     type="button"
                                     onClick={toggleRecording}
                                     variant={isRecording ? 'destructive' : 'ghost'}
-                                    className="h-8 w-8 rounded-full p-0"
+                                    className={cn(
+                                        "h-12 w-12 rounded-full p-0 gpu-accelerated transition-all duration-200 hover:scale-110 active:scale-95",
+                                        isRecording && "animate-icon-pulse"
+                                    )}
                                     title={recordingTooltip}
                                     aria-label={
                                         isRecording
@@ -1156,25 +1167,30 @@ const ChatPane = () => {
                                     aria-pressed={isRecording}
                                     disabled={recordingButtonDisabled || isRecording || isRecordingProcessing}
                                 >
-                                    {recordingButtonDisabled ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                                    {recordingButtonDisabled ? <MicOff className="h-6 w-6" /> : <Mic className="h-6 w-6" />}
                                 </Button>
                                 {isLoading ? (
-                                    <Button type="button" onClick={handleCancel} variant="destructive" className="h-8 w-8 rounded-full p-0">
-                                        <Square className="h-4 w-4" />
+                                    <Button
+                                        type="button"
+                                        onClick={handleCancel}
+                                        variant="destructive"
+                                        className="h-12 w-12 rounded-full p-0 gpu-accelerated transition-all duration-200 hover:scale-110 active:scale-95"
+                                    >
+                                        <Square className="h-6 w-6" />
                                     </Button>
                                 ) : (
                                     <Button
                                         type="submit"
                                         disabled={!input.trim()}
                                         className={cn(
-                                            "h-8 w-8 rounded-full p-0 transition-all duration-300 ease-in-out",
+                                            "h-12 w-12 rounded-full p-0 gpu-accelerated transition-all duration-300 ease-in-out hover:scale-110 active:scale-95",
                                             input.trim()
-                                                ? "bg-blue-500 hover:bg-blue-600"
+                                                ? "bg-blue-500 hover:bg-blue-600 animate-icon-pulse"
                                                 : "bg-secondary hover:bg-secondary/80"
                                         )}
                                     >
                                         <Send className={cn(
-                                            "h-4 w-4 transition-transform duration-300 ease-in-out",
+                                            "h-6 w-6 gpu-accelerated transition-transform duration-300 ease-in-out",
                                             input.trim() ? "rotate-[-90deg]" : "rotate-0"
                                         )} />
                                     </Button>
