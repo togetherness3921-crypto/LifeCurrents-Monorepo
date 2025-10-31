@@ -130,8 +130,10 @@ export default function DailyCalendarPanel({
     return (
         <div className="h-full w-full flex flex-col bg-card text-card-foreground border-l border-border">
             <div className="px-2 py-1 border-b border-border flex items-center justify-between bg-card">
-                <span className="font-semibold text-[0.6rem] text-foreground uppercase tracking-wider">Calendar</span>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-2">
+                    <span className="font-semibold text-[0.6rem] text-foreground uppercase tracking-wider">Calendar</span>
+                </div>
+                <div className="flex items-center gap-2">
                     <Button
                         type="button"
                         onClick={onPreviousDay}
@@ -184,7 +186,7 @@ export default function DailyCalendarPanel({
                         onClick={onGoToToday}
                         variant="outline"
                         size="sm"
-                        className="ml-1 h-7 px-2 text-[10px] font-medium"
+                        className="h-7 px-2 text-[10px] font-medium"
                         aria-label="Go to today"
                         disabled={isToday}
                     >
