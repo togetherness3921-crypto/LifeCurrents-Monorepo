@@ -347,21 +347,22 @@ const ChatPane = () => {
 
     useEffect(() => {
         const scrollArea = scrollAreaRef.current;
+        // Find the actual scrollable viewport (ScrollArea uses Radix UI)
+        const viewport = scrollArea?.querySelector('[data-radix-scroll-area-viewport]') as HTMLElement;
         const messageContainer = scrollArea?.querySelector('.flex.flex-col.gap-4');
-        if (!messageContainer) return;
+        
+        if (!viewport || !messageContainer) return;
 
         // Function to scroll to the bottom.
         const scrollToBottom = () => {
-            if (scrollArea) {
-                scrollArea.scrollTo({
-                    top: scrollArea.scrollHeight,
-                    behavior: 'auto',
-                });
-            }
+            viewport.scrollTo({
+                top: viewport.scrollHeight,
+                behavior: 'auto',
+            });
         };
 
-        // Initial scroll to bottom on load.
-        scrollToBottom();
+        // Initial scroll to bottom on load with a slight delay to ensure content is rendered
+        setTimeout(() => scrollToBottom(), 50);
 
         // Use a MutationObserver to scroll whenever new messages are added.
         const observer = new MutationObserver((mutations) => {
