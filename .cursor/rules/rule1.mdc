@@ -56,13 +56,6 @@ alwaysApply: true/false        # Optional: always include in context
 
 ### Primary Target: Samsung Galaxy S25 Plus
 
-**Display Specifications:**
-- **Physical Resolution**: 1440 x 3120 pixels
-- **Screen Size**: 6.7 inches (diagonal)
-- **Pixel Density**: 513 PPI
-- **Aspect Ratio**: 19.5:9
-- **Technology**: Dynamic LTPO AMOLED 2X, 120Hz
-
 **Viewport Considerations:**
 - **Renderable Area**: ~1080 x 2120 pixels (after system UI bars)
 - **Device Pixel Ratio (DPR)**: ~1.33x (1440/1080)
