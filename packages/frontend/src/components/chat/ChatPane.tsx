@@ -1144,7 +1144,7 @@ const ChatPane = () => {
                                     type="button"
                                     onClick={toggleRecording}
                                     variant={isRecording ? 'destructive' : 'ghost'}
-                                    className="h-8 w-8 rounded-full p-0"
+                                    className="h-8 w-8 rounded-full p-0 shadow-md -mt-1"
                                     title={recordingTooltip}
                                     aria-label={
                                         isRecording
@@ -1167,7 +1167,7 @@ const ChatPane = () => {
                                         type="submit"
                                         disabled={!input.trim()}
                                         className={cn(
-                                            "h-8 w-8 rounded-full p-0 transition-all duration-300 ease-in-out",
+                                            "h-8 w-8 rounded-full p-0 transition-all duration-300 ease-in-out shadow-md -mt-1",
                                             input.trim()
                                                 ? "bg-blue-500 hover:bg-blue-600"
                                                 : "bg-secondary hover:bg-secondary/80"
