@@ -513,7 +513,7 @@ function CausalGraphContent() {
                 }}
               >
                 <Controls
-                  className="bg-card border-border text-foreground p-1 [&>button]:w-10 [&>button]:h-10 [&>button]:rounded-md scale-50 origin-bottom-left !left-2 !bottom-2 shadow-sm"
+                  className="bg-card/95 backdrop-blur-sm border-border text-foreground p-2 rounded-tr-3xl shadow-xl [&>button]:w-10 [&>button]:h-10 [&>button]:rounded-lg scale-50 origin-bottom-left !left-0 !bottom-0 transition-all duration-300 hover:shadow-2xl gpu-accelerated"
                   showZoom={false}
                   showFitView={true}
                   showInteractive={false}
@@ -529,7 +529,7 @@ function CausalGraphContent() {
                         : 'Showing all scheduled nodes'
                     }
                     className={cn(
-                      'bg-background border-border',
+                      'bg-background border-border tap-scale transition-all duration-200',
                       filterToSelectedDay && 'bg-primary text-primary-foreground border-primary hover:bg-primary/90'
                     )}
                   >
@@ -547,7 +547,7 @@ function CausalGraphContent() {
                     }}
                     variant="outline"
                     size="icon"
-                    className="bg-background border-border"
+                    className="bg-background border-border tap-scale transition-all duration-200"
                     disabled={activeGraphId === 'main'}
                   >
                     <ArrowLeft className="w-3 h-3" />
@@ -565,9 +565,9 @@ function CausalGraphContent() {
                     }}
                     variant="outline"
                     size="icon"
-                    className="bg-background border-border"
+                    className="bg-background border-border tap-scale transition-all duration-200"
                   >
-                    <RefreshCw className="w-3 h-3" />
+                    <RefreshCw className="w-3 h-3 transition-transform duration-300 hover:rotate-180" />
                   </Button>
                 </Controls>
                 <Background

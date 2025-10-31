@@ -88,12 +88,12 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
         }
     };
 
-    const containerClasses = cn('flex w-full', message.role === 'user' ? 'justify-end' : 'justify-start');
+    const containerClasses = cn('flex w-full animate-slide-up', message.role === 'user' ? 'justify-end' : 'justify-start');
     const bubbleClasses = cn(
-        'relative w-full rounded-lg px-4 py-3 transition-shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
-        message.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-transparent text-foreground',
-        onActivate ? 'cursor-pointer focus-visible:ring-primary/60 focus-visible:ring-offset-background' : '',
-        isActiveSnapshot ? 'ring-2 ring-primary/60 ring-offset-2 ring-offset-background' : ''
+        'relative w-full px-4 py-3 transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 gpu-accelerated',
+        message.role === 'user' ? 'bg-primary text-primary-foreground rounded-2xl' : 'bg-transparent text-foreground',
+        onActivate ? 'cursor-pointer focus-visible:ring-primary/60 focus-visible:ring-offset-background hover:shadow-lg' : '',
+        isActiveSnapshot ? 'ring-2 ring-primary/60 ring-offset-2 ring-offset-background shadow-xl' : ''
     );
 
     const ariaLabel = onActivate
@@ -120,18 +120,18 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
 
     if (isEditing) {
         return (
-            <div className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className="w-[75%] space-y-2">
+            <div className={cn('flex w-full animate-scale-in', message.role === 'user' ? 'justify-end' : 'justify-start')}>
+                <div className="w-full space-y-2">
                     <Textarea
                         value={editText}
                         onChange={(e) => setEditText(e.target.value)}
-                        className="w-full"
+                        className="w-full min-h-[100px] transition-all duration-300"
                     />
                     <div className="flex justify-end gap-2">
-                        <Button onClick={handleCancel} variant="ghost" size="sm">
+                        <Button onClick={handleCancel} variant="ghost" size="sm" className="tap-scale">
                             <X className="mr-1 h-4 w-4" /> Cancel
                         </Button>
-                        <Button onClick={handleSave} size="sm">
+                        <Button onClick={handleSave} size="sm" className="tap-scale">
                             <Save className="mr-1 h-4 w-4" /> Save & Submit
                         </Button>
                     </div>
