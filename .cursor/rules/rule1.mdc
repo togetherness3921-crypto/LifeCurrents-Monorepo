@@ -210,3 +210,30 @@ Create diversity across these axes and any others that the user may suggest:
 - **STRONGLY FAVOR reusing existing work over rewriting**
 - After all changes applied, report any conflicts encountered
 - **CRITICAL: Go through each change from each diff individually, one at a time, without reimplementing.**
+
+## Mobile Target Specifications
+
+### Samsung Galaxy S25+ Display Specifications
+
+**Physical Resolution**: 1440 x 3120 pixels (QHD+)
+**Display Size**: 6.7 inches
+**Pixel Density**: ~513 PPI
+
+**Note**: Some Samsung devices support FHD+ mode (1080 x 2340) as a battery-saving option.
+
+### Device Pixel Ratio (DPR) and Viewport
+
+**Device Pixel Ratio (DPR)**: The relationship between physical pixels and CSS/logical pixels.
+
+- **Physical/Device Resolution**: What appears in device specifications (e.g., 1440 x 3120)
+- **Viewport/CSS Pixels**: Calculated by dividing physical pixels by DPR
+- **S25+ Estimated DPR**: ~3.5 to 3.75
+- **S25+ Viewport Resolution**: Approximately **412 x 891 CSS pixels** (excluding system bars)
+
+### Key Considerations for Mobile Development
+
+1. **Viewport pixels** (CSS pixels) are what you work with in web development, not physical device pixels
+2. Android devices typically use **system UI bars** (status bar, navigation bar) that reduce the available viewport
+3. The DPR scales content appropriately for high-density displays
+4. Test at viewport widths around **360-428px** for modern Android devices
+5. Use responsive design with relative units (`%`, `vh`, `vw`) instead of hardcoded pixel widths
