@@ -329,7 +329,11 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
                 )}
                 <div
                     ref={setMarkdownRef}
-                    className="prose prose-invert prose-sm max-w-none prose-p:leading-relaxed prose-pre:bg-muted/50 prose-pre:text-foreground"
+                    className={cn(
+                        "prose prose-invert prose-sm max-w-none prose-p:leading-relaxed prose-pre:bg-muted/50 prose-pre:text-foreground",
+                        message.role === 'assistant' && "font-serif"
+                    )}
+                    style={message.role === 'assistant' ? { fontFamily: 'Georgia, "Times New Roman", serif' } : undefined}
                 >
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>
                         {message.content}
