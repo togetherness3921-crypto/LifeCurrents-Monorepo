@@ -513,14 +513,14 @@ function CausalGraphContent() {
                 }}
               >
                 <Controls
-                  className="bg-card border-border text-foreground p-1 [&>button]:w-10 [&>button]:h-10 [&>button]:rounded-md scale-50 origin-bottom-left !left-2 !bottom-2 shadow-sm"
+                  className="bg-card border border-border text-foreground p-2 rounded-tr-2xl shadow-md !left-0 !bottom-0 flex gap-1 [&>button]:min-w-[48px] [&>button]:min-h-[48px]"
                   showZoom={false}
                   showFitView={true}
                   showInteractive={false}
                 >
                   <Button
                     onClick={toggleFilterToSelectedDay}
-                    variant="outline"
+                    variant="ghost"
                     size="icon"
                     aria-pressed={filterToSelectedDay}
                     title={
@@ -529,11 +529,11 @@ function CausalGraphContent() {
                         : 'Showing all scheduled nodes'
                     }
                     className={cn(
-                      'bg-background border-border',
-                      filterToSelectedDay && 'bg-primary text-primary-foreground border-primary hover:bg-primary/90'
+                      'bg-card hover:bg-muted transition-colors rounded-md',
+                      filterToSelectedDay && 'bg-primary text-primary-foreground hover:bg-primary/90'
                     )}
                   >
-                    <CalendarIcon className="w-3 h-3" />
+                    <CalendarIcon className="w-5 h-5" />
                   </Button>
                   <Button
                     onClick={() => {
@@ -545,12 +545,12 @@ function CausalGraphContent() {
                         setActiveGraphId('main');
                       }
                     }}
-                    variant="outline"
+                    variant="ghost"
                     size="icon"
-                    className="bg-background border-border"
+                    className="bg-card hover:bg-muted transition-colors rounded-md"
                     disabled={activeGraphId === 'main'}
                   >
-                    <ArrowLeft className="w-3 h-3" />
+                    <ArrowLeft className="w-5 h-5" />
                   </Button>
                   <Button
                     onClick={() => {
@@ -563,11 +563,11 @@ function CausalGraphContent() {
                       // Cache-busting reload
                       window.location.href = window.location.href + '?_t=' + Date.now();
                     }}
-                    variant="outline"
+                    variant="ghost"
                     size="icon"
-                    className="bg-background border-border"
+                    className="bg-card hover:bg-muted transition-colors rounded-md"
                   >
-                    <RefreshCw className="w-3 h-3" />
+                    <RefreshCw className="w-5 h-5" />
                   </Button>
                 </Controls>
                 <Background
