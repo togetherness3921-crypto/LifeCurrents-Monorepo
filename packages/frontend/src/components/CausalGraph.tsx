@@ -513,7 +513,7 @@ function CausalGraphContent() {
                 }}
               >
                 <Controls
-                  className="bg-card border-border text-foreground p-1 [&>button]:w-10 [&>button]:h-10 [&>button]:rounded-md scale-50 origin-bottom-left !left-2 !bottom-2 shadow-sm"
+                  className="bg-card border border-border text-foreground p-1.5 [&>button]:w-10 [&>button]:h-10 [&>button]:rounded-lg scale-50 origin-bottom-left !left-2 !bottom-2 shadow-md"
                   showZoom={false}
                   showFitView={true}
                   showInteractive={false}
