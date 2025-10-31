@@ -21,7 +21,6 @@ import { useConversationContext } from '@/hooks/useConversationContext';
 import { useGraphHistory } from '@/hooks/graphHistoryProvider';
 import { cn } from '@/lib/utils';
 import { parseGraphToolResult } from '@/lib/mcp/graphResult';
-import { Slider } from '../ui/slider';
 import { useAudioTranscriptionRecorder } from '@/hooks/useAudioTranscriptionRecorder';
 import RecordingStatusBar from './RecordingStatusBar';
 import ConnectivityStatusBar from './ConnectivityStatusBar';
@@ -241,13 +240,8 @@ const ChatPane = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
     const [isSettingsDialogOpen, setSettingsDialogOpen] = useState(false);
-    const [fontScale, setFontScale] = useState(() => {
-        if (typeof window === 'undefined') return 1;
-        const stored = window.localStorage.getItem('life-currents.chat.font-scale');
-        if (!stored) return 1;
-        const parsed = parseFloat(stored);
-        return Number.isFinite(parsed) ? parsed : 1;
-    });
+    const [isScrolled, setIsScrolled] = useState(false);
+    const [isInputExpanded, setIsInputExpanded] = useState(false);
     const abortControllerRef = useRef<AbortController | null>(null);
     const scrollAreaRef = useRef<HTMLDivElement>(null);
     const formRef = useRef<HTMLFormElement>(null);
@@ -257,10 +251,12 @@ const ChatPane = () => {
     const { mode, summaryPrompt, applyContextToMessages, transforms, forcedRecentMessages } = useConversationContext();
     const { registerLatestMessage, revertToMessage, applyPatchResult, activeMessageId, isViewingHistorical, syncToThread } = useGraphHistory();
 
+    // Clean up legacy font-scale localStorage
     useEffect(() => {
-        if (typeof window === 'undefined') return;
-        window.localStorage.setItem('life-currents.chat.font-scale', fontScale.toString());
-    }, [fontScale]);
+        if (typeof window !== 'undefined') {
+            window.localStorage.removeItem('life-currents.chat.font-scale');
+        }
+    }, []);
 
     // BUG FIX 1: Explicitly memoize activeThread, selectedLeafId, and messages to prevent invisible message bug
     // This ensures that the message chain is always recomputed when the underlying state changes,
@@ -358,6 +354,20 @@ const ChatPane = () => {
         setInput(drafts[activeThreadId] ?? '');
     }, [activeThreadId, drafts]);
 
+    // Scroll detection for fade gradient
+    useEffect(() => {
+        const scrollArea = scrollAreaRef.current;
+        if (!scrollArea) return;
+
+        const handleScroll = () => {
+            const scrollTop = scrollArea.scrollTop;
+            setIsScrolled(scrollTop > 20);
+        };
+
+        scrollArea.addEventListener('scroll', handleScroll);
+        return () => scrollArea.removeEventListener('scroll', handleScroll);
+    }, []);
+
     useEffect(() => {
         const scrollArea = scrollAreaRef.current;
         const messageContainer = scrollArea?.querySelector('.flex.flex-col.gap-4');
@@ -405,9 +415,31 @@ const ChatPane = () => {
         return () => window.removeEventListener('keydown', handler);
     }, [toggleRecording]);
 
-    const handleFontScaleChange = useCallback((value: number[]) => {
-        const scale = value[0];
-        setFontScale(scale);
+    // Haptic feedback helper (mobile devices)
+    const triggerHaptic = useCallback(() => {
+        if ('vibrate' in navigator) {
+            navigator.vibrate(10); // 10ms subtle haptic
+        }
+    }, []);
+
+    // Ripple effect helper
+    const createRipple = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
+        const button = event.currentTarget;
+        const ripple = document.createElement('span');
+        const diameter = Math.max(button.clientWidth, button.clientHeight);
+        const radius = diameter / 2;
+
+        const rect = button.getBoundingClientRect();
+        ripple.style.width = ripple.style.height = `${diameter}px`;
+        ripple.style.left = `${event.clientX - rect.left - radius}px`;
+        ripple.style.top = `${event.clientY - rect.top - radius}px`;
+        ripple.classList.add('absolute', 'rounded-full', 'bg-current', 'opacity-30', 'animate-ripple', 'pointer-events-none');
+
+        button.appendChild(ripple);
+
+        setTimeout(() => {
+            ripple.remove();
+        }, 600);
     }, []);
 
     const recordingButtonDisabled =
@@ -1001,33 +1033,29 @@ const ChatPane = () => {
 
     return (
         <div className="relative flex h-full flex-col bg-background">
-            {/* Chat list button overlay */}
+            {/* Chat list button - premium positioning at left edge */}
             <button
                 type="button"
-                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                className="absolute left-4 top-4 z-20 rounded-br-2xl bg-card p-3 shadow-md transition-all hover:shadow-lg"
+                onClick={(e) => {
+                    setIsSidebarOpen(!isSidebarOpen);
+                    createRipple(e);
+                    triggerHaptic();
+                }}
+                className="absolute left-0 top-4 z-20 rounded-r-2xl bg-card/95 backdrop-blur-sm px-3 py-3 shadow-lg transition-all duration-200 hover:shadow-xl hover:px-4 tap-scale gpu-accelerated group"
                 aria-label="Toggle chat list"
             >
-                <ChevronLeft className="h-5 w-5 text-foreground" />
+                <ChevronLeft className="h-6 w-6 text-foreground transition-transform duration-200 group-hover:animate-chevron-pulse" />
             </button>
 
             <ScrollArea
-                className="flex-1 min-h-0 p-4"
+                className={cn(
+                    "flex-1 min-h-0 scroll-fade-top gpu-accelerated",
+                    "px-4 pb-4 pt-16"
+                )}
                 ref={scrollAreaRef}
+                data-scrolled={isScrolled}
             >
-                <div className="mb-4 flex w-full max-w-[220px] items-center gap-3 text-xs text-muted-foreground">
-                    <span className="font-semibold uppercase tracking-wide">Font</span>
-                    <Slider
-                        value={[fontScale]}
-                        onValueChange={handleFontScaleChange}
-                        min={0.25}
-                        max={1.0}
-                        step={0.05}
-                        aria-label="Adjust chat font size"
-                    />
-                    <span className="w-10 text-right font-medium">{Math.round(fontScale * 100)}%</span>
-                </div>
-                <div className="flex flex-col gap-4" style={{ fontSize: `${fontScale}rem`, lineHeight: 1.5 }}>
+                <div className="flex flex-col gap-4">
                     {messages.map((msg) => {
                         let branchInfo;
                         if (msg.parentId) {
@@ -1089,7 +1117,8 @@ const ChatPane = () => {
                 />
             </div>
             <div
-                className="sticky bottom-0 left-0 right-0 z-10 rounded-t-3xl border-t bg-card shadow-lg"
+                className="sticky bottom-0 left-0 right-0 z-10 rounded-t-3xl border-t bg-card/95 backdrop-blur-sm shadow-lg"
+                style={{ paddingBottom: 'env(safe-area-inset-bottom, 0)' }}
             >
                 <div className="relative flex w-full flex-col">
                     <form
@@ -1106,15 +1135,18 @@ const ChatPane = () => {
                                     }
                                     const value = e.target.value;
                                     setInput(value);
+                                    setIsInputExpanded(value.length > 50);
                                     if (threadId) {
                                         updateDraft(threadId, value);
                                     }
                                 }}
                             placeholder="Reply to Claude..."
                                 disabled={isLoading}
-                            rows={3}
+                            rows={1}
                                 className={cn(
-                                'min-h-[80px] max-h-[160px] w-full resize-none rounded-2xl border-0 bg-muted text-base text-foreground placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-ring'
+                                'w-full resize-none rounded-2xl border-0 bg-muted text-base text-foreground placeholder:text-muted-foreground transition-all duration-300 ease-out gpu-accelerated',
+                                'focus-visible:ring-2 focus-visible:ring-ring focus-visible:shadow-lg focus-visible:shadow-ring/20',
+                                isInputExpanded ? 'min-h-[120px]' : 'min-h-[44px]'
                                 )}
                                 onKeyDown={(event) => {
                                     if (event.key === 'Enter' && !event.shiftKey) {
@@ -1127,14 +1159,20 @@ const ChatPane = () => {
                             <Button
                                 type="button"
                                 variant="ghost"
-                                onClick={() => setSettingsDialogOpen(true)}
-                                className={cn('relative h-8 w-8 rounded-full p-0', hasUnseenBuilds ? 'border-primary text-primary' : '')}
+                                onClick={(e) => {
+                                    setSettingsDialogOpen(true);
+                                    triggerHaptic();
+                                }}
+                                className={cn(
+                                    'relative h-10 w-10 rounded-full p-0 tap-scale gpu-accelerated transition-all duration-200',
+                                    hasUnseenBuilds ? 'border-primary text-primary' : ''
+                                )}
                                 title={settingsButtonLabel}
                                 aria-label={settingsButtonLabel}
                             >
-                                <Cog className="h-4 w-4" />
+                                <Cog className="h-5 w-5 transition-transform duration-300 hover:rotate-45" />
                                 {hasUnseenBuilds && (
-                                    <span className="pointer-events-none absolute -top-1 -right-1 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-destructive px-1 text-[0.6rem] font-semibold leading-none text-destructive-foreground">
+                                    <span className="pointer-events-none absolute -top-1 -right-1 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-destructive px-1 text-[0.6rem] font-semibold leading-none text-destructive-foreground animate-subtle-pulse">
                                         {displaySettingsBadge}
                                     </span>
                                 )}
@@ -1142,9 +1180,15 @@ const ChatPane = () => {
                             <div className="flex items-center gap-2">
                                 <Button
                                     type="button"
-                                    onClick={toggleRecording}
+                                    onClick={(e) => {
+                                        toggleRecording();
+                                        triggerHaptic();
+                                    }}
                                     variant={isRecording ? 'destructive' : 'ghost'}
-                                    className="h-8 w-8 rounded-full p-0"
+                                    className={cn(
+                                        "h-10 w-10 rounded-full p-0 tap-scale gpu-accelerated transition-all duration-200",
+                                        isRecording && "animate-subtle-pulse"
+                                    )}
                                     title={recordingTooltip}
                                     aria-label={
                                         isRecording
@@ -1156,25 +1200,35 @@ const ChatPane = () => {
                                     aria-pressed={isRecording}
                                     disabled={recordingButtonDisabled || isRecording || isRecordingProcessing}
                                 >
-                                    {recordingButtonDisabled ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                                    {recordingButtonDisabled ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
                                 </Button>
                                 {isLoading ? (
-                                    <Button type="button" onClick={handleCancel} variant="destructive" className="h-8 w-8 rounded-full p-0">
-                                        <Square className="h-4 w-4" />
+                                    <Button
+                                        type="button"
+                                        onClick={handleCancel}
+                                        variant="destructive"
+                                        className="h-10 w-10 rounded-full p-0 tap-scale gpu-accelerated"
+                                    >
+                                        <Square className="h-5 w-5" />
                                     </Button>
                                 ) : (
                                     <Button
                                         type="submit"
                                         disabled={!input.trim()}
+                                        onClick={(e) => {
+                                            if (input.trim()) {
+                                                triggerHaptic();
+                                            }
+                                        }}
                                         className={cn(
-                                            "h-8 w-8 rounded-full p-0 transition-all duration-300 ease-in-out",
+                                            "h-10 w-10 rounded-full p-0 tap-scale gpu-accelerated transition-all duration-300 ease-in-out",
                                             input.trim()
-                                                ? "bg-blue-500 hover:bg-blue-600"
+                                                ? "bg-blue-500 hover:bg-blue-600 animate-subtle-pulse"
                                                 : "bg-secondary hover:bg-secondary/80"
                                         )}
                                     >
                                         <Send className={cn(
-                                            "h-4 w-4 transition-transform duration-300 ease-in-out",
+                                            "h-5 w-5 transition-transform duration-300 ease-in-out",
                                             input.trim() ? "rotate-[-90deg]" : "rotate-0"
                                         )} />
                                     </Button>
