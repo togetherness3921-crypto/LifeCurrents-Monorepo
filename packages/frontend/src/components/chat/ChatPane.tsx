@@ -1065,8 +1065,9 @@ const ChatPane = () => {
                     <form
                         ref={formRef}
                         onSubmit={handleSubmit}
-                        className="relative z-10 flex w-full flex-col gap-3 p-4"
+                        className="relative z-10 flex w-full flex-col py-2 px-4"
                     >
+                        <div className="relative">
                             <Textarea
                                 value={input}
                                 onChange={(e) => {
@@ -1084,7 +1085,7 @@ const ChatPane = () => {
                                 disabled={isLoading}
                             rows={1}
                                 className={cn(
-                                'min-h-[44px] max-h-[160px] w-full resize-none rounded-2xl border-0 bg-muted text-base text-foreground placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-ring'
+                                'min-h-[44px] max-h-[160px] w-full resize-none rounded-2xl border-0 bg-muted pr-32 text-base text-foreground placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-ring'
                                 )}
                                 onKeyDown={(event) => {
                                     if (event.key === 'Enter' && !event.shiftKey) {
@@ -1093,7 +1094,7 @@ const ChatPane = () => {
                                     }
                                 }}
                             />
-                        <div className="flex items-center justify-between">
+                            <div className="absolute bottom-1 right-1 flex items-center gap-1">
                             <Button
                                 type="button"
                                 variant="ghost"
@@ -1109,7 +1110,6 @@ const ChatPane = () => {
                                     </span>
                                 )}
                             </Button>
-                            <div className="flex items-center gap-2">
                                 <Button
                                     type="button"
                                     onClick={toggleRecording}
