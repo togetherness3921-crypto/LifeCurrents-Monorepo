@@ -424,14 +424,14 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onOpenChange, pre
                         request, and manage preview builds.
                     </DialogDescription>
                 </DialogHeader>
-                <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as SettingsTab)}>
-                    <TabsList className="grid w-full grid-cols-4">
+                <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as SettingsTab)} className="flex flex-col min-h-0 flex-1">
+                    <TabsList className="grid w-full grid-cols-4 flex-shrink-0">
                         <TabsTrigger value="system">Instructions</TabsTrigger>
                         <TabsTrigger value="context">Context</TabsTrigger>
                         <TabsTrigger value="model">Model</TabsTrigger>
                         <TabsTrigger value="builds">Builds</TabsTrigger>
                     </TabsList>
-                    <TabsContent value="system" className="mt-6">
+                    <TabsContent value="system" className="mt-6 overflow-y-auto">
                         <div className="flex flex-col gap-6">
                             <div className="flex flex-col gap-3">
                                 <button
