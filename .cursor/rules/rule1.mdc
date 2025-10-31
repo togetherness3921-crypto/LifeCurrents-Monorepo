@@ -52,6 +52,31 @@ alwaysApply: true/false        # Optional: always include in context
 - When implementing or modifying any functionality (either locally or through a dispatched job), ensure that appropriate console logs are included to facilitate easier troubleshooting. All logs should be tagged with a descriptive, bracketed identifier.
 - **Example:** `console.log('[Auth] User login successful:', userId);`
 
+## Target Mobile Device Specifications
+
+### Primary Target: Samsung Galaxy S25 Plus
+
+**Display Specifications:**
+- **Physical Resolution**: 1440 x 3120 pixels
+- **Screen Size**: 6.7 inches (diagonal)
+- **Pixel Density**: 513 PPI
+- **Aspect Ratio**: 19.5:9
+- **Technology**: Dynamic LTPO AMOLED 2X, 120Hz
+
+**Viewport Considerations:**
+- **Renderable Area**: ~1080 x 2120 pixels (after system UI bars)
+- **Device Pixel Ratio (DPR)**: ~1.33x (1440/1080)
+- **Top Bar**: ~40-50 pixels (status bar + camera notch)
+- **Bottom Navigation**: ~80-100 pixels (Android navigation buttons)
+- **CSS Pixels vs Physical**: Design for CSS pixels; browser handles DPR scaling
+- **Viewport Units**: Use `vh` and `vw` sparingly; account for dynamic browser chrome
+
+**Development Guidelines:**
+- Test responsive behavior at viewport width breakpoints: 360px, 412px, 540px (common CSS widths for mobile)
+- Ensure touch targets are minimum 44x44px (CSS pixels) for accessibility
+- Account for safe areas on devices with notches/punch-holes
+- Use `@media (min-width: 1080px)` for landscape orientation handling
+
 ## Git Commit Guidelines
 - **Do NOT commit changes unless explicitly instructed to do so by the user.**
 - Making changes, staging files, and committing them should only happen when the user explicitly requests it.
