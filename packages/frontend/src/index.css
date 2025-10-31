@@ -135,6 +135,18 @@ All colors MUST be HSL.
     -webkit-touch-callout: none;
     -webkit-tap-highlight-color: transparent;
   }
+
+  /* Prevent horizontal overflow on mobile */
+  html, body {
+    overflow-x: hidden;
+    max-width: 100vw;
+  }
+
+  /* Ensure all direct children respect viewport width */
+  #root {
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
 }
 
 /* Custom animations for the graph */
