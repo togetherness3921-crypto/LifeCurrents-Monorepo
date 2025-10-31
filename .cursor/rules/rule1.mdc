@@ -210,3 +210,112 @@ Create diversity across these axes and any others that the user may suggest:
 - **STRONGLY FAVOR reusing existing work over rewriting**
 - After all changes applied, report any conflicts encountered
 - **CRITICAL: Go through each change from each diff individually, one at a time, without reimplementing.**
+
+## Mobile Device Specifications and Testing Guidelines
+
+### Primary Target Device
+
+**Samsung Galaxy S25+**
+- Display Resolution: 1080 x 2120 pixels (device pixels)
+- Physical Screen Size: 6.7 inches
+- Pixel Density: ~393 PPI
+- Viewport: Responsive (uses standard viewport meta tag)
+- Default viewport width: 360-412 CSS pixels (depending on device DPI scaling)
+
+### Secondary Target Devices
+
+**Desktop Browsers**
+- Minimum width: 1280px
+- Typical widths: 1280px, 1366px, 1920px, 2560px
+- Must maintain all functionality from mobile
+
+### Testing Breakpoints
+
+Test at the following viewport widths to ensure proper responsive behavior:
+
+**Mobile (Portrait)**
+- 360px - Small mobile devices
+- 414px - iPhone Plus/Max devices
+- 393px - Samsung Galaxy S25+ effective width
+
+**Tablet**
+- 768px - iPad portrait
+- 1024px - iPad landscape
+
+**Desktop**
+- 1280px - HD laptop
+- 1920px - Full HD desktop
+- 2560px - QHD desktop
+
+### Responsive Design Requirements
+
+**Viewport Configuration**
+```html
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+```
+
+**Overflow Prevention**
+- Apply `overflow-x: hidden` to html, body, and #root
+- Use `min-width: 0` on flex/grid children to prevent overflow
+- Avoid fixed pixel widths on mobile; use percentages, vw, or flexbox
+- Apply `max-width: 100%` to images and media elements
+
+**Touch Targets**
+- Minimum touch target size: 44x44px (iOS) or 48x48px (Android Material Design)
+- Icons in button contexts: 20px (h-5 w-5) with adequate padding
+- Ensure adequate spacing between interactive elements
+
+**Safe Areas**
+- Account for device notches and rounded corners
+- Test positioning of fixed/absolute elements near screen edges
+- Ensure critical UI elements are not obscured by system UI
+
+### Mobile-Specific Optimizations
+
+**Chat Interface**
+- Single-line input by default (rows={1}) with auto-expansion
+- Full-width messages for better space utilization
+- Minimal padding on scroll containers (pt-0 pb-0)
+- Edge-aligned navigation buttons (left: 0)
+
+**Typography**
+- Base font size: 16px (to prevent iOS zoom on input focus)
+- Line height: 1.5 for readability
+- Relative units (rem, em) for scalability
+
+**Performance**
+- Minimize layout shifts during loading
+- Use CSS transforms for animations (GPU-accelerated)
+- Debounce resize/scroll handlers
+- Lazy load off-screen content where applicable
+
+### Cross-Platform Considerations
+
+**Landscape vs Portrait**
+- Test both orientations on mobile devices
+- Account for reduced vertical space in landscape
+- Ensure input fields remain accessible when keyboard appears
+
+**Browser Differences**
+- Test on Chrome (Android), Safari (iOS), and Firefox
+- Account for browser-specific behaviors (e.g., iOS Safari address bar)
+- Test with and without browser chrome visible
+
+**Accessibility**
+- Maintain keyboard navigation on desktop
+- Ensure touch targets are accessible on mobile
+- Test with screen readers (VoiceOver on iOS, TalkBack on Android)
+- Maintain adequate color contrast ratios
+
+### Verified Mobile Fixes (2025-10-31)
+
+The following mobile layout issues have been addressed:
+
+1. **Viewport Overflow**: Added overflow-x: hidden to html, body, and #root
+2. **Chat Spacing**: Removed unnecessary top/bottom padding from ScrollArea
+3. **Navigation**: Moved chat list button to left edge (left-0)
+4. **Messages**: Full-width with subtle rounded corners (rounded-sm)
+5. **Input**: Single-line default (rows={1}) with auto-expansion
+6. **Icons**: Increased to 20px (h-5 w-5) for better touch accessibility
+7. **Graph Controls**: Added rounded-tr-2xl for top-right corner styling
+8. **Font Slider**: Removed to simplify UI and improve space utilization
