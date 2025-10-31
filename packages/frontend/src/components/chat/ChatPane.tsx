@@ -392,11 +392,6 @@ const ChatPane = () => {
         return () => window.removeEventListener('keydown', handler);
     }, [toggleRecording]);
 
-    const handleFontScaleChange = useCallback((value: number[]) => {
-        const scale = value[0];
-        setFontScale(scale);
-    }, []);
-
     const recordingButtonDisabled =
         !isRecordingSupported || microphonePermission === 'denied' || microphonePermission === 'unsupported';
     const recordingTooltip = !isRecordingSupported
