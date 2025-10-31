@@ -1062,7 +1062,7 @@ const ChatPane = () => {
                 />
             </div>
             <div
-                className="sticky bottom-0 left-0 right-0 z-10 rounded-t-3xl border-t-2 border-t-accent bg-card shadow-lg"
+                className="sticky bottom-0 left-0 right-0 z-10 rounded-t-3xl border-t bg-card shadow-lg"
             >
                 <div className="relative flex w-full flex-col">
                     {/* Floating button group */}
@@ -1071,11 +1071,11 @@ const ChatPane = () => {
                             type="button"
                             variant="ghost"
                             onClick={() => setSettingsDialogOpen(true)}
-                            className={cn('relative h-8 w-8 rounded-full p-0 bg-transparent', hasUnseenBuilds ? 'border-primary text-primary' : '')}
+                            className={cn('relative h-10 w-10 rounded-full p-0 bg-transparent', hasUnseenBuilds ? 'border-primary text-primary' : '')}
                             title={settingsButtonLabel}
                             aria-label={settingsButtonLabel}
                         >
-                            <Cog className="h-4 w-4" />
+                            <Cog className="h-5 w-5" />
                             {hasUnseenBuilds && (
                                 <span className="pointer-events-none absolute -top-1 -right-1 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-destructive px-1 text-[0.6rem] font-semibold leading-none text-destructive-foreground">
                                     {displaySettingsBadge}
@@ -1086,7 +1086,7 @@ const ChatPane = () => {
                             type="button"
                             onClick={toggleRecording}
                             variant={isRecording ? 'destructive' : 'ghost'}
-                            className="h-8 w-8 rounded-full p-0 bg-transparent"
+                            className="h-10 w-10 rounded-full p-0 bg-transparent"
                             title={recordingTooltip}
                             aria-label={
                                 isRecording
@@ -1098,18 +1098,18 @@ const ChatPane = () => {
                             aria-pressed={isRecording}
                             disabled={recordingButtonDisabled || isRecording || isRecordingProcessing}
                         >
-                            {recordingButtonDisabled ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                            {recordingButtonDisabled ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
                         </Button>
                         {isLoading ? (
-                            <Button type="button" onClick={handleCancel} variant="destructive" className="h-8 w-8 rounded-full p-0">
-                                <Square className="h-4 w-4" />
+                            <Button type="button" onClick={handleCancel} variant="destructive" className="h-10 w-10 rounded-full p-0">
+                                <Square className="h-5 w-5" />
                             </Button>
                         ) : (
                             <Button
                                 type="submit"
                                 disabled={!input.trim()}
                                 className={cn(
-                                    "h-8 w-8 rounded-full p-0 transition-all duration-300 ease-in-out",
+                                    "h-10 w-10 rounded-full p-0 transition-all duration-300 ease-in-out",
                                     input.trim()
                                         ? "bg-blue-500 hover:bg-blue-600"
                                         : "bg-secondary hover:bg-secondary/80"
@@ -1120,7 +1120,7 @@ const ChatPane = () => {
                                 }}
                             >
                                 <Send className={cn(
-                                    "h-4 w-4 transition-transform duration-300 ease-in-out",
+                                    "h-5 w-5 transition-transform duration-300 ease-in-out",
                                     input.trim() ? "rotate-[-90deg]" : "rotate-0"
                                 )} />
                             </Button>
