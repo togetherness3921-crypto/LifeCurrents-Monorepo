@@ -450,6 +450,7 @@ class ModernApp(ctk.CTk):
         This prevents disruption during user interaction.
         """
         needs_full_rerender = False
+        jobs_to_recreate = []
         
         # Remove deleted jobs
         for job_id in removed_ids:
@@ -472,19 +473,25 @@ class ModernApp(ctk.CTk):
                 new_can_select = new_job.get('status') == 'waiting_for_review' and new_has_preview
                 
                 if old_has_preview != new_has_preview or old_can_select != new_can_select:
-                    # Structural change - need full re-render for this job's group
-                    print(f"[UI] Job {job_id} has structural changes (preview/checkbox), flagging for re-render")
-                    needs_full_rerender = True
+                    # Structural change - recreate just this widget
+                    print(f"[UI] Job {job_id} has structural changes, will recreate widget")
+                    jobs_to_recreate.append(job_id)
                 else:
                     # Just text/color changes
                     widget = self.job_widgets[job_id]
                     widget.update_job_data(new_job)
                     print(f"[UI] Updated widget for job {job_id}")
         
-        # If we added/removed jobs or had structural changes, do full re-render
-        if added_ids or removed_ids or needs_full_rerender:
-            print(f"[UI] Doing full re-render (added={len(added_ids)}, removed={len(removed_ids)}, structural_changes={needs_full_rerender})")
+        # Recreate specific widgets with structural changes
+        for job_id in jobs_to_recreate:
+            self.recreate_job_widget(job_id)
+        
+        # Only do full re-render if jobs added/removed
+        if added_ids or removed_ids:
+            print(f"[UI] Doing full re-render (added={len(added_ids)}, removed={len(removed_ids)})")
             self.render_all_jobs()
+        else:
+            print(f"[UI] Incremental update complete ({len(jobs_to_recreate)} recreated, {len(changed_ids) - len(jobs_to_recreate)} updated)")
     
     def play_completion_sound(self):
         """Play the job completion sound."""
@@ -512,6 +519,43 @@ class ModernApp(ctk.CTk):
             if self.async_thread:
                 self.async_thread.mark_as_ready([job_id])
         
+
+    def recreate_job_widget(self, job_id):
+        """Recreate a specific job widget in place (for structural changes)."""
+        if job_id not in self.jobs:
+            return
+        
+        old_widget = self.job_widgets.get(job_id)
+        if not old_widget:
+            return
+        
+        # Find the parent and grid position
+        parent = old_widget.master
+        grid_info = old_widget.grid_info()
+        
+        # Destroy old widget
+        old_widget.destroy()
+        
+        # Create new widget with updated data
+        new_job = self.jobs[job_id]
+        new_widget = ModernJobCard(
+            parent,
+            new_job,
+            on_toggle_ready=self.on_toggle_ready,
+            on_delete=self.delete_job
+        )
+        
+        # Place in same position
+        new_widget.grid(
+            row=grid_info.get('row', 0),
+            column=grid_info.get('column', 0),
+            sticky=grid_info.get('sticky', 'ew'),
+            pady=grid_info.get('pady', (0, 10))
+        )
+        
+        # Update reference
+        self.job_widgets[job_id] = new_widget
+        print(f"[UI] Recreated widget for job {job_id}")
 
     def delete_job(self, job_id):
         """Delete a job (optimistic UI update + async database delete)."""
