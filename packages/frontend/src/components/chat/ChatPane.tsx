@@ -1144,7 +1144,7 @@ const ChatPane = () => {
                                     type="button"
                                     onClick={toggleRecording}
                                     variant={isRecording ? 'destructive' : 'ghost'}
-                                    className="h-8 w-8 rounded-full p-0"
+                                    className="h-10 w-10 rounded-full p-0"
                                     title={recordingTooltip}
                                     aria-label={
                                         isRecording
@@ -1156,25 +1156,25 @@ const ChatPane = () => {
                                     aria-pressed={isRecording}
                                     disabled={recordingButtonDisabled || isRecording || isRecordingProcessing}
                                 >
-                                    {recordingButtonDisabled ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                                    {recordingButtonDisabled ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
                                 </Button>
                                 {isLoading ? (
-                                    <Button type="button" onClick={handleCancel} variant="destructive" className="h-8 w-8 rounded-full p-0">
-                                        <Square className="h-4 w-4" />
+                                    <Button type="button" onClick={handleCancel} variant="destructive" className="h-10 w-10 rounded-full p-0">
+                                        <Square className="h-5 w-5" />
                                     </Button>
                                 ) : (
                                     <Button
                                         type="submit"
                                         disabled={!input.trim()}
                                         className={cn(
-                                            "h-8 w-8 rounded-full p-0 transition-all duration-300 ease-in-out",
+                                            "h-10 w-10 rounded-full p-0 transition-all duration-300 ease-in-out",
                                             input.trim()
                                                 ? "bg-blue-500 hover:bg-blue-600"
                                                 : "bg-secondary hover:bg-secondary/80"
                                         )}
                                     >
                                         <Send className={cn(
-                                            "h-4 w-4 transition-transform duration-300 ease-in-out",
+                                            "h-5 w-5 transition-transform duration-300 ease-in-out",
                                             input.trim() ? "rotate-[-90deg]" : "rotate-0"
                                         )} />
                                     </Button>
