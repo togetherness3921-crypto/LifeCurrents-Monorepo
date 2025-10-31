@@ -8,6 +8,15 @@
             "env": {
                 "CLOUDFLARE_WORKER_URL": "http://127.0.0.1:8787"
             }
+        },
+        "exa-search": {
+            "command": "node",
+            "args": [
+                "C:\\LifeCurrents\\packages\\mcp-exa-search\\build\\index.js"
+            ],
+            "env": {
+                "EXA_API_KEY": "12ba7230-10e6-4c0e-999f-a120ee307aae"
+            }
         }
     }
 }
