@@ -416,7 +416,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onOpenChange, pre
                 onOpenChange(nextOpen);
             }}
         >
-            <DialogContent className="max-w-4xl">
+            <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col overflow-hidden">
                 <DialogHeader>
                     <DialogTitle>Settings</DialogTitle>
                     <DialogDescription>
@@ -424,14 +424,14 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onOpenChange, pre
                         request, and manage preview builds.
                     </DialogDescription>
                 </DialogHeader>
-                <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as SettingsTab)}>
-                    <TabsList className="grid w-full grid-cols-4">
+                <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as SettingsTab)} className="flex flex-col flex-1 overflow-hidden">
+                    <TabsList className="grid w-full grid-cols-4 flex-shrink-0">
                         <TabsTrigger value="system">Instructions</TabsTrigger>
                         <TabsTrigger value="context">Context</TabsTrigger>
                         <TabsTrigger value="model">Model</TabsTrigger>
                         <TabsTrigger value="builds">Builds</TabsTrigger>
                     </TabsList>
-                    <TabsContent value="system" className="mt-6">
+                    <TabsContent value="system" className="mt-6 overflow-y-auto flex-1">
                         <div className="flex flex-col gap-6">
                             <div className="flex flex-col gap-3">
                                 <button
@@ -562,7 +562,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onOpenChange, pre
                             </div>
                         </div>
                     </TabsContent>
-                    <TabsContent value="context" className="mt-6">
+                    <TabsContent value="context" className="mt-6 overflow-y-auto flex-1">
                         <div className="space-y-6">
                             <RadioGroup value={mode} onValueChange={(value) => setMode(value as ConversationContextMode)}>
                                 <div
@@ -696,7 +696,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onOpenChange, pre
                             </RadioGroup>
                         </div>
                     </TabsContent>
-                    <TabsContent value="model" className="mt-6">
+                    <TabsContent value="model" className="mt-6 overflow-y-auto flex-1">
                         <div className="flex flex-col gap-4">
                             <Input
                                 placeholder="Search models..."
@@ -766,7 +766,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onOpenChange, pre
                             </div>
                         </div>
                     </TabsContent>
-                    <TabsContent value="builds" className="mt-6">
+                    <TabsContent value="builds" className="mt-6 overflow-y-auto flex-1">
                         <PreviewBuildsPanel
                             builds={previewBuildList}
                             loading={previewBuildLoading}
