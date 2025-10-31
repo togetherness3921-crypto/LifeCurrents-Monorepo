@@ -1015,19 +1015,7 @@ const ChatPane = () => {
                 className="flex-1 min-h-0 p-4"
                 ref={scrollAreaRef}
             >
-                <div className="mb-4 flex w-full max-w-[220px] items-center gap-3 text-xs text-muted-foreground">
-                    <span className="font-semibold uppercase tracking-wide">Font</span>
-                    <Slider
-                        value={[fontScale]}
-                        onValueChange={handleFontScaleChange}
-                        min={0.25}
-                        max={1.0}
-                        step={0.05}
-                        aria-label="Adjust chat font size"
-                    />
-                    <span className="w-10 text-right font-medium">{Math.round(fontScale * 100)}%</span>
-                </div>
-                <div className="flex flex-col gap-4" style={{ fontSize: `${fontScale}rem`, lineHeight: 1.5 }}>
+                <div className="flex flex-col gap-4">
                     {messages.map((msg) => {
                         let branchInfo;
                         if (msg.parentId) {
