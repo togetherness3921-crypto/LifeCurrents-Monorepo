@@ -91,7 +91,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
     const containerClasses = cn('flex w-full', message.role === 'user' ? 'justify-start' : 'justify-start');
     const bubbleClasses = cn(
         'relative w-full rounded-lg px-4 py-3 transition-shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
-        message.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-transparent text-foreground',
+        message.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-transparent text-foreground border border-border',
         onActivate ? 'cursor-pointer focus-visible:ring-primary/60 focus-visible:ring-offset-background' : '',
         isActiveSnapshot ? 'ring-2 ring-primary/60 ring-offset-2 ring-offset-background' : ''
     );
@@ -348,7 +348,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
                     </div>
                 )}
 
-                <div className="absolute bottom-0 right-1 flex translate-y-1/2 items-center gap-0.5 rounded-md bg-muted p-0.5 text-xs text-foreground/70 shadow-sm">
+                <div className="absolute bottom-0 left-1 flex translate-y-1/2 items-center gap-0.5 rounded-md bg-muted p-0.5 text-xs text-foreground/70 shadow-sm">
                     <Button
                         variant="ghost"
                         size="icon"
