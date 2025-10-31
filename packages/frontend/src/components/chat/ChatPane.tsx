@@ -1065,7 +1065,7 @@ const ChatPane = () => {
                     <form
                         ref={formRef}
                         onSubmit={handleSubmit}
-                        className="relative z-10 flex w-full flex-col py-2 px-4"
+                        className="relative z-10 flex w-full flex-col p-2"
                     >
                         <div className="relative">
                             <Textarea
