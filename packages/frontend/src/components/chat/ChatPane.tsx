@@ -999,7 +999,7 @@ const ChatPane = () => {
                 ref={scrollAreaRef}
             >
                 {/* Gradient fade at top */}
-                <div className="absolute top-0 left-0 right-0 h-8 bg-gradient-to-b from-background to-transparent pointer-events-none z-10" />
+                <div className="absolute -top-px left-0 right-0 h-8 bg-gradient-to-b from-background to-transparent pointer-events-none z-10" />
                 <div className="flex flex-col gap-4 pt-8">
                     {messages.map((msg) => {
                         let branchInfo;
