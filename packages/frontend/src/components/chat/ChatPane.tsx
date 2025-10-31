@@ -1089,7 +1089,7 @@ const ChatPane = () => {
                 />
             </div>
             <div
-                className="sticky bottom-0 left-0 right-0 z-10 rounded-t-3xl border-t bg-card shadow-lg"
+                className="sticky bottom-0 left-0 right-0 z-10 rounded-t-3xl border-t-2 border-t-blue-500 bg-card shadow-lg"
             >
                 <div className="relative flex w-full flex-col">
                     <form
@@ -1112,9 +1112,9 @@ const ChatPane = () => {
                                 }}
                             placeholder="Reply to Claude..."
                                 disabled={isLoading}
-                            rows={3}
+                            rows={1}
                                 className={cn(
-                                'min-h-[80px] max-h-[160px] w-full resize-none rounded-2xl border-0 bg-muted text-base text-foreground placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-ring'
+                                'min-h-[44px] max-h-[160px] w-full resize-none rounded-2xl border-0 bg-muted text-base text-foreground placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-ring'
                                 )}
                                 onKeyDown={(event) => {
                                     if (event.key === 'Enter' && !event.shiftKey) {
@@ -1128,11 +1128,11 @@ const ChatPane = () => {
                                 type="button"
                                 variant="ghost"
                                 onClick={() => setSettingsDialogOpen(true)}
-                                className={cn('relative h-8 w-8 rounded-full p-0', hasUnseenBuilds ? 'border-primary text-primary' : '')}
+                                className={cn('relative h-10 w-10 rounded-full p-0', hasUnseenBuilds ? 'border-primary text-primary' : '')}
                                 title={settingsButtonLabel}
                                 aria-label={settingsButtonLabel}
                             >
-                                <Cog className="h-4 w-4" />
+                                <Cog className="h-5 w-5" />
                                 {hasUnseenBuilds && (
                                     <span className="pointer-events-none absolute -top-1 -right-1 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-destructive px-1 text-[0.6rem] font-semibold leading-none text-destructive-foreground">
                                         {displaySettingsBadge}
