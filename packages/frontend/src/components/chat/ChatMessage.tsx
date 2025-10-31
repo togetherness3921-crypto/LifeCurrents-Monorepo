@@ -162,10 +162,10 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
                             }}
                             className="w-full mb-2 rounded-md border border-muted-foreground/20 bg-background/80 px-3 py-2 text-left transition-colors hover:bg-background"
                         >
-                            <div className="flex items-center gap-2">
-                                <Badge variant="secondary" className="uppercase tracking-wide text-[0.75em]">Thinking</Badge>
+                                    <div className="flex items-center gap-2">
+                                        <Badge variant="secondary" className="uppercase tracking-wide text-[0.75em]">Thinking</Badge>
                                 <span className="text-muted-foreground text-[0.875em]">View reasoning</span>
-                            </div>
+                                    </div>
                         </button>
                         <FullScreenModal
                             isOpen={isThinkingModalOpen}
@@ -173,7 +173,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
                             title="Thinking Process"
                         >
                             <div className="whitespace-pre-wrap text-foreground">
-                                {message.thinking?.trim().length ? message.thinking : 'The model is generating a response...'}
+                                    {message.thinking?.trim().length ? message.thinking : 'The model is generating a response...'}
                             </div>
                         </FullScreenModal>
                     </div>
@@ -186,25 +186,25 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
                                     onClick={() => setOpenContextActionId(action.id)}
                                     className="w-full rounded-md border border-muted-foreground/20 bg-background/80 px-3 py-2 hover:bg-background transition-colors"
                                 >
-                                    <div className="flex w-full flex-col gap-1 text-left sm:flex-row sm:items-center sm:justify-between sm:gap-2">
-                                        <div className="flex items-center gap-2">
-                                            <Badge variant="secondary" className="uppercase tracking-wide text-[0.75em]">
-                                                Summarize
-                                            </Badge>
-                                            <span className="text-muted-foreground text-[0.875em]">
-                                                {action.label}
+                                        <div className="flex w-full flex-col gap-1 text-left sm:flex-row sm:items-center sm:justify-between sm:gap-2">
+                                            <div className="flex items-center gap-2">
+                                                <Badge variant="secondary" className="uppercase tracking-wide text-[0.75em]">
+                                                    Summarize
+                                                </Badge>
+                                                <span className="text-muted-foreground text-[0.875em]">
+                                                    {action.label}
+                                                </span>
+                                            </div>
+                                            <span className="text-[0.75em] text-muted-foreground">
+                                                {action.status === 'running'
+                                                    ? 'Generating summary…'
+                                                    : action.status === 'error'
+                                                        ? 'Failed'
+                                                        : action.status === 'success'
+                                                            ? 'Ready'
+                                                            : 'Queued'}
                                             </span>
                                         </div>
-                                        <span className="text-[0.75em] text-muted-foreground">
-                                            {action.status === 'running'
-                                                ? 'Generating summary…'
-                                                : action.status === 'error'
-                                                    ? 'Failed'
-                                                    : action.status === 'success'
-                                                        ? 'Ready'
-                                                        : 'Queued'}
-                                        </span>
-                                    </div>
                                 </button>
                                 <FullScreenModal
                                     isOpen={openContextActionId === action.id}
@@ -275,16 +275,16 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
                                         onClick={() => setOpenDaySummaryId(summary.id)}
                                         className="w-full rounded-md border border-muted-foreground/20 bg-background/80 px-3 py-2 hover:bg-background transition-colors"
                                     >
-                                        <div className="flex w-full flex-col gap-1 text-left sm:flex-row sm:items-center sm:justify-between sm:gap-2">
-                                            <div className="flex items-center gap-2">
-                                                <Badge variant="secondary" className="uppercase tracking-wide text-[0.75em]">
-                                                    {summary.summary_level}
-                                                </Badge>
-                                                <span className="text-muted-foreground text-[0.875em]">
-                                                    {dateDisplay}
-                                                </span>
+                                            <div className="flex w-full flex-col gap-1 text-left sm:flex-row sm:items-center sm:justify-between sm:gap-2">
+                                                <div className="flex items-center gap-2">
+                                                    <Badge variant="secondary" className="uppercase tracking-wide text-[0.75em]">
+                                                        {summary.summary_level}
+                                                    </Badge>
+                                                    <span className="text-muted-foreground text-[0.875em]">
+                                                        {dateDisplay}
+                                                    </span>
+                                                </div>
                                             </div>
-                                        </div>
                                     </button>
                                     <FullScreenModal
                                         isOpen={openDaySummaryId === summary.id}
@@ -311,17 +311,17 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
                                     }}
                                     className="w-full rounded-md border border-muted-foreground/20 bg-background/80 px-3 py-2 text-left transition-colors hover:bg-background"
                                 >
-                                    <div className="flex items-center gap-2">
-                                        <Badge variant="secondary" className="uppercase tracking-wide text-[0.75em]">Tool</Badge>
-                                        <span className="text-muted-foreground">{call.name || 'Tool call'}</span>
-                                    </div>
+                                        <div className="flex items-center gap-2">
+                                            <Badge variant="secondary" className="uppercase tracking-wide text-[0.75em]">Tool</Badge>
+                                            <span className="text-muted-foreground">{call.name || 'Tool call'}</span>
+                                        </div>
                                 </button>
                                 <FullScreenModal
                                     isOpen={openToolCallIndex === index}
                                     onClose={() => setOpenToolCallIndex(null)}
                                     title={`Tool: ${call.name || 'Tool call'}`}
                                 >
-                                    <ToolCallDetails call={call} />
+                                        <ToolCallDetails call={call} />
                                 </FullScreenModal>
                             </div>
                         ))}

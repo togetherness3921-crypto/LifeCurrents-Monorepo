@@ -11,7 +11,6 @@ const SUPABASE_SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzd
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
 console.log('[Worker] Initializing LifeCurrents Worker - Deployed to remote-mcp-server-authless');
-console.log('[Worker] Test deployment - build verification');
 
 type JSONPatch = Operation[];
 
