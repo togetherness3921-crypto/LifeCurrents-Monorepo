@@ -1000,12 +1000,12 @@ const ChatPane = () => {
     }
 
     return (
-        <div className="relative flex h-full flex-col bg-background">
+        <div className="relative flex h-full flex-col bg-background border-t-2 border-blue-500 shadow-[0_-2px_12px_rgba(59,130,246,0.3)]">
             {/* Chat list button overlay */}
             <button
                 type="button"
                 onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                className="absolute left-4 top-4 z-20 rounded-br-2xl bg-card p-3 shadow-md transition-all hover:shadow-lg"
+                className="absolute left-4 top-4 z-20 rounded-br-2xl bg-card p-3 shadow-md transition-all duration-300 hover:shadow-lg hover:scale-105"
                 aria-label="Toggle chat list"
             >
                 <ChevronLeft className="h-5 w-5 text-foreground" />
@@ -1089,7 +1089,8 @@ const ChatPane = () => {
                 />
             </div>
             <div
-                className="sticky bottom-0 left-0 right-0 z-10 rounded-t-3xl border-t bg-card shadow-lg"
+                className="sticky bottom-0 left-0 right-0 z-10 rounded-t-3xl border-t bg-card shadow-[0_-8px_32px_rgba(0,0,0,0.3),0_-2px_8px_rgba(59,130,246,0.2)] transform translate-y-2 will-change-transform"
+                style={{ boxShadow: '0 -8px 32px rgba(0,0,0,0.3), 0 -4px 16px rgba(59,130,246,0.15), 0 -1px 4px rgba(59,130,246,0.1)' }}
             >
                 <div className="relative flex w-full flex-col">
                     <form

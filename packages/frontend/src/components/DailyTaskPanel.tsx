@@ -53,7 +53,7 @@ export default function DailyTaskPanel({ nodesById, onToggleComplete, onZoomToNo
 
     return (
         <div className="h-full w-full flex flex-col bg-card text-card-foreground border-l border-border">
-            <div className="px-2 py-1 border-b border-border font-semibold text-[0.6rem] text-muted-foreground uppercase tracking-wider">In Progress</div>
+            <div className="px-2 py-1 border-b border-border font-semibold text-[0.6rem] text-center text-transparent bg-gradient-to-r from-blue-400 to-blue-600 bg-clip-text uppercase tracking-wider animate-fade-in">In Progress</div>
             <div className="flex-1 overflow-auto p-3">
                 {inProgressToday.length > 0 && (
                     <ul className="space-y-2">
@@ -89,7 +89,7 @@ export default function DailyTaskPanel({ nodesById, onToggleComplete, onZoomToNo
                     </ul>
                 )}
             </div>
-            <div className="px-2 py-1 border-t border-border font-semibold text-[0.6rem] text-muted-foreground uppercase tracking-wider">Completed</div>
+            <div className="px-2 py-1 border-t border-border font-semibold text-[0.6rem] text-center text-transparent bg-gradient-to-r from-blue-400 to-blue-600 bg-clip-text uppercase tracking-wider">Completed</div>
             <div className="max-h-[40%] overflow-auto p-3">
                 {completedToday.length > 0 && (
                     <ul className="space-y-2">
