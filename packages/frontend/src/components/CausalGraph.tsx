@@ -513,7 +513,7 @@ function CausalGraphContent() {
                 }}
               >
                 <Controls
-                  className="bg-card border-border text-foreground p-1 [&>button]:w-10 [&>button]:h-10 [&>button]:rounded-md scale-50 origin-bottom-left !left-2 !bottom-2 shadow-sm"
+                  className="bg-card border-border text-foreground p-1 [&>button]:w-10 [&>button]:h-10 [&>button]:rounded-md [&>button]:shadow-md [&>button]:hover:shadow-lg [&>button]:active:scale-95 [&>button]:transition-all scale-50 origin-bottom-left !left-2 !bottom-2 shadow-sm"
                   showZoom={false}
                   showFitView={true}
                   showInteractive={false}
@@ -529,7 +529,7 @@ function CausalGraphContent() {
                         : 'Showing all scheduled nodes'
                     }
                     className={cn(
-                      'bg-background border-border',
+                      'bg-background border-border shadow-md hover:shadow-lg active:scale-95 transition-all',
                       filterToSelectedDay && 'bg-primary text-primary-foreground border-primary hover:bg-primary/90'
                     )}
                   >
@@ -547,7 +547,7 @@ function CausalGraphContent() {
                     }}
                     variant="outline"
                     size="icon"
-                    className="bg-background border-border"
+                    className="bg-background border-border shadow-md hover:shadow-lg active:scale-95 transition-all"
                     disabled={activeGraphId === 'main'}
                   >
                     <ArrowLeft className="w-3 h-3" />
@@ -565,7 +565,7 @@ function CausalGraphContent() {
                     }}
                     variant="outline"
                     size="icon"
-                    className="bg-background border-border"
+                    className="bg-background border-border shadow-md hover:shadow-lg active:scale-95 transition-all"
                   >
                     <RefreshCw className="w-3 h-3" />
                   </Button>

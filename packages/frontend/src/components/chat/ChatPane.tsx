@@ -1000,7 +1000,7 @@ const ChatPane = () => {
     }
 
     return (
-        <div className="relative flex h-full flex-col bg-background">
+        <div className="relative flex h-full flex-col bg-background border-t-2 border-t-blue-500">
             {/* Chat list button overlay */}
             <button
                 type="button"
@@ -1144,7 +1144,7 @@ const ChatPane = () => {
                                     type="button"
                                     onClick={toggleRecording}
                                     variant={isRecording ? 'destructive' : 'ghost'}
-                                    className="h-8 w-8 rounded-full p-0"
+                                    className="h-8 w-8 rounded-full p-0 shadow-md hover:shadow-lg active:scale-95 transition-all"
                                     title={recordingTooltip}
                                     aria-label={
                                         isRecording
@@ -1159,7 +1159,7 @@ const ChatPane = () => {
                                     {recordingButtonDisabled ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
                                 </Button>
                                 {isLoading ? (
-                                    <Button type="button" onClick={handleCancel} variant="destructive" className="h-8 w-8 rounded-full p-0">
+                                    <Button type="button" onClick={handleCancel} variant="destructive" className="h-8 w-8 rounded-full p-0 shadow-md hover:shadow-lg active:scale-95 transition-all">
                                         <Square className="h-4 w-4" />
                                     </Button>
                                 ) : (
@@ -1167,7 +1167,7 @@ const ChatPane = () => {
                                         type="submit"
                                         disabled={!input.trim()}
                                         className={cn(
-                                            "h-8 w-8 rounded-full p-0 transition-all duration-300 ease-in-out",
+                                            "h-8 w-8 rounded-full p-0 transition-all duration-300 ease-in-out shadow-md hover:shadow-lg active:scale-95",
                                             input.trim()
                                                 ? "bg-blue-500 hover:bg-blue-600"
                                                 : "bg-secondary hover:bg-secondary/80"
