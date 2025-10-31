@@ -88,9 +88,9 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
         }
     };
 
-    const containerClasses = cn('flex w-full', message.role === 'user' ? 'justify-end' : 'justify-start');
+    const containerClasses = cn('flex w-full');
     const bubbleClasses = cn(
-        'relative w-full rounded-lg px-4 py-3 transition-shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
+        'relative w-full px-4 py-3 transition-shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
         message.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-transparent text-foreground',
         onActivate ? 'cursor-pointer focus-visible:ring-primary/60 focus-visible:ring-offset-background' : '',
         isActiveSnapshot ? 'ring-2 ring-primary/60 ring-offset-2 ring-offset-background' : ''
@@ -120,8 +120,8 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
 
     if (isEditing) {
         return (
-            <div className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className="w-[75%] space-y-2">
+            <div className="flex w-full">
+                <div className="w-full space-y-2">
                     <Textarea
                         value={editText}
                         onChange={(e) => setEditText(e.target.value)}

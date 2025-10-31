@@ -39,6 +39,50 @@ alwaysApply: true/false        # Optional: always include in context
 2. Changes take effect immediately in new AI conversations
 3. Use numbered prefixes (e.g., `001-`, `100-`, `200-`) to control priority when using multiple rule files
 
+## Mobile-First Design Principles
+
+### Viewport Configuration
+- **Always use**: `<meta name="viewport" content="width=device-width, initial-scale=1.0">`
+- Device pixels ≠ CSS pixels: Samsung Galaxy S25+ has 1440x3120 physical pixels but ~360-412 CSS viewport pixels due to device pixel ratio (DPR) of ~3-4
+- Use responsive units (vw, vh, %, rem, em) instead of fixed px for layouts
+- Avoid fixed widths that don't respect viewport boundaries
+
+### Touch Target Standards (Material Design 3)
+- **Minimum touch target size**: 48x48 CSS pixels (equivalent to 48x48dp on Android)
+- Translates to ~9mm physical size, optimal for thumb interaction
+- Maintain 8-12px spacing between interactive elements
+- Icon sizes within buttons: 20-24px for good visibility and touch feedback
+- Examples in codebase:
+  - Chat list button: `min-w-[48px] min-h-[48px]` (packages/frontend/src/components/chat/ChatPane.tsx:992)
+  - Bottom input icons: `min-h-[48px] min-w-[48px]` with `h-6 w-6` icons (ChatPane.tsx:1103-1152)
+
+### Mobile Chat Interface Best Practices
+- **Message bubbles**: Full-width design maximizes screen real estate on mobile (ChatMessage.tsx:91-96)
+- **Spacing**: Remove rounded corners and width restrictions for mobile optimization
+- **Padding**: Use consistent padding (4px/1rem) for readability while keeping scrollable area edge-to-edge
+- **Input field**: Single row default (rows={1}) with min-h-[44px], expands as user types (ChatPane.tsx:1087-1089)
+- **Font sizing**: Respect system font settings, avoid custom font sliders
+
+### Mobile Layout Optimization
+- **Chat area**: Remove top-level padding from ScrollArea, add padding to inner container (p-4 pt-16) for proper spacing
+- **Button positioning**: Place frequently-used controls at screen edges for thumb reachability
+  - Chat list toggle: `left-0 top-0` for easy left-thumb access (ChatPane.tsx:989-996)
+  - Graph controls: `!left-0 !bottom-0 rounded-tr-2xl` in lower-left corner (CausalGraph.tsx:516)
+- **Icon sizing**: Increase from 16px to 20-24px for better visibility on mobile displays
+
+### Preventing Mobile UI Cutoff
+- Avoid `width: 100vw` (causes horizontal scrollbars), use `width: 100%` instead
+- Use `max-width` properties on images/containers to prevent overflow
+- Implement `overflow-x: hidden` carefully to avoid hiding content
+- Use flexbox/grid for fluid layouts over fixed positioning
+- Test at multiple viewport widths: 360px (small phones), 414px (iPhone), 768px (tablets), 1080px (large phones)
+
+### Mobile Performance Considerations
+- Use CSS transforms over position changes for animations
+- Implement smooth scrolling with `scroll-behavior: smooth`
+- Optimize for 60fps touch interactions
+- Consider safe area insets for devices with notches/camera cutouts
+
 ## Modifying System Instructions
 - To modify system instructions, edit the corresponding file in the `synced_files/system_instructions/` directory. These changes are automatically synced with the Supabase database via the `auto-sync` script.
 
