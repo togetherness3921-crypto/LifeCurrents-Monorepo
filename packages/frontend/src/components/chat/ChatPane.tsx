@@ -994,7 +994,7 @@ const ChatPane = () => {
             </button>
 
             <ScrollArea
-                className="flex-1 min-h-0 p-4"
+                className="flex-1 min-h-0 px-4"
                 ref={scrollAreaRef}
             >
                 <div className="flex flex-col gap-4">
