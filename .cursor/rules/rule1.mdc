@@ -210,3 +210,87 @@ Create diversity across these axes and any others that the user may suggest:
 - **STRONGLY FAVOR reusing existing work over rewriting**
 - After all changes applied, report any conflicts encountered
 - **CRITICAL: Go through each change from each diff individually, one at a time, without reimplementing.**
+
+---
+
+# Mobile Device Specifications for Testing
+
+## Primary Target Device: Samsung Galaxy S25+
+
+### Physical Display Specifications
+- **Screen Size**: 6.7 inches
+- **Display Technology**: Dynamic AMOLED 2X
+- **Physical Resolution**: 1440 x 3120 pixels
+- **Pixel Density**: ~513 PPI
+- **Aspect Ratio**: 19.5:9
+
+### CSS Viewport Dimensions (Web Browser)
+The CSS viewport dimensions differ from physical resolution due to device pixel ratio:
+- **CSS Viewport Width**: ~480px (portrait mode)
+- **CSS Viewport Height**: ~1040px (portrait mode)
+- **Device Pixel Ratio**: ~3.0
+
+### Key Considerations for Responsive Design
+
+1. **Viewport Meta Tag**: Already configured correctly in `index.html`
+   ```html
+   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+   ```
+
+2. **Touch Targets**: Minimum touch target size should be 44x44 CSS pixels (132x132 device pixels)
+
+3. **Safe Areas**: Consider safe area insets for devices with notches/punch-holes
+
+4. **Orientation Changes**: Support both portrait and landscape orientations
+
+## Secondary Target Breakpoints
+
+### Mobile Devices
+- **Small Phones**: 360px - 414px width
+- **Medium Phones**: 414px - 480px width (S25+ range)
+- **Large Phones**: 480px - 768px width
+
+### Tablet Devices
+- **Small Tablets**: 768px - 1024px width
+- **Large Tablets**: 1024px - 1280px width
+
+### Desktop Devices
+- **Laptop/Desktop**: 1280px - 1920px width
+- **Large Displays**: 1920px+ width
+
+## Testing Strategy
+
+### Required Test Points
+1. **Mobile Portrait**: 360px, 414px, 480px (S25+), 768px
+2. **Mobile Landscape**: 640px, 800px, 960px
+3. **Tablet**: 768px, 1024px
+4. **Desktop**: 1280px, 1440px, 1920px
+
+### Critical UI Elements to Test
+- Chat message containers (should not cause horizontal overflow)
+- Input bar (should expand naturally with content)
+- Touch targets (buttons should be at least 44x44px in CSS)
+- Sidebar overlay (should slide in smoothly)
+- Graph controls (should scale proportionally on very small screens)
+
+## Known Issues Resolved
+1. ✅ Fixed horizontal overflow on mobile using `overflow-x: hidden` and `max-width: 100vw`
+2. ✅ Reduced chat container padding from `p-4` to `px-4 py-2` for better space utilization
+3. ✅ Moved chat list button to left edge (from `left-4` to `left-0`)
+4. ✅ Made user messages full width with subtle rounded corners
+5. ✅ Set input bar to single line default (from 3 rows to 1 row)
+6. ✅ Increased bottom icon sizes to 20px (h-5 w-5)
+7. ✅ Applied rounded top-right corner to graph controls
+8. ✅ Removed font size slider for consistent UI
+
+## Browser Compatibility
+- Chrome/Edge (Chromium): Full support
+- Safari (iOS): Full support
+- Firefox: Full support
+- Samsung Internet: Full support
+
+## Performance Considerations
+- Use CSS transforms for animations (hardware-accelerated)
+- Minimize reflows and repaints
+- Use `will-change` sparingly for critical animations
+- Lazy load images and heavy components
