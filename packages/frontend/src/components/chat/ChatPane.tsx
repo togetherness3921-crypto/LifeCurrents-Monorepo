@@ -240,13 +240,6 @@ const ChatPane = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
     const [isSettingsDialogOpen, setSettingsDialogOpen] = useState(false);
-    const [fontScale, setFontScale] = useState(() => {
-        if (typeof window === 'undefined') return 1;
-        const stored = window.localStorage.getItem('life-currents.chat.font-scale');
-        if (!stored) return 1;
-        const parsed = parseFloat(stored);
-        return Number.isFinite(parsed) ? parsed : 1;
-    });
     const abortControllerRef = useRef<AbortController | null>(null);
     const scrollAreaRef = useRef<HTMLDivElement>(null);
     const formRef = useRef<HTMLFormElement>(null);
