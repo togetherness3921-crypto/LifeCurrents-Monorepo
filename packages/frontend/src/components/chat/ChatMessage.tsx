@@ -88,9 +88,10 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
         }
     };
 
-    const containerClasses = cn('flex w-full', message.role === 'user' ? 'justify-end' : 'justify-start');
+    // Mobile-first: Full width messages for maximum content space
+    const containerClasses = cn('flex w-full');
     const bubbleClasses = cn(
-        'relative w-full rounded-lg px-4 py-3 transition-shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
+        'relative w-full px-4 py-3 transition-shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
         message.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-transparent text-foreground',
         onActivate ? 'cursor-pointer focus-visible:ring-primary/60 focus-visible:ring-offset-background' : '',
         isActiveSnapshot ? 'ring-2 ring-primary/60 ring-offset-2 ring-offset-background' : ''

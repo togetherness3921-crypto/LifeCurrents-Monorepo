@@ -39,6 +39,94 @@ alwaysApply: true/false        # Optional: always include in context
 2. Changes take effect immediately in new AI conversations
 3. Use numbered prefixes (e.g., `001-`, `100-`, `200-`) to control priority when using multiple rule files
 
+## Mobile-First Development Guidelines
+
+### Overview
+LifeCurrents is designed with a mobile-first philosophy. All UI components must work seamlessly on mobile devices before desktop optimization.
+
+### Target Devices
+- **Primary**: Samsung Galaxy S25+ (1440x3120 device pixels, ~480x960 CSS pixels @ 3x DPR)
+- **Secondary**: Standard Android devices (360px-414px viewport width)
+- **Tertiary**: iOS devices (375px-430px viewport width)
+
+### Viewport Configuration
+Always use the following viewport meta tag in `index.html`:
+```html
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
+```
+
+**Key Concepts:**
+- Device pixels ≠ CSS pixels (most phones use 2-3x pixel ratio)
+- `width=device-width` sets CSS pixel width to device's "ideal viewport"
+- Samsung Galaxy S25+ reports ~480px CSS width despite 1440px physical width
+- Always design using CSS pixels (px), not device pixels
+
+### Touch Target Guidelines
+**Minimum Touch Target Size**: 48x48px (CSS pixels)
+- Based on Material Design 3 guidelines for Android
+- Equivalent to ~9mm physical size across all screen densities
+- Minimum spacing between touch targets: 8-12px
+
+**Implementation:**
+```tsx
+// Use inline styles for exact touch target sizing
+<button style={{ width: '48px', height: '48px' }}>
+  <Icon className="h-6 w-6" />
+</button>
+```
+
+### Responsive Design Best Practices
+
+**1. Use Relative Units**
+- Prefer `%`, `vw`, `vh`, `rem`, `em` over fixed `px`
+- Use `clamp()` for responsive sizing: `font-size: clamp(14px, 2.5vw, 18px)`
+- Set `max-width` instead of `width` for flexibility
+
+**2. Mobile-First CSS**
+- Write base styles for mobile (smallest viewport)
+- Use `@media (min-width: X)` for larger screens
+- Avoid `@media (max-width: X)` queries
+
+**3. Content Optimization**
+- Maximize content visibility on small screens
+- Remove buffer zones and unnecessary padding in scrollable areas
+- Full-width messages preferred over constrained widths
+- Single-line inputs by default (expand on user interaction)
+
+**4. Layout Patterns for Mobile**
+- Edge-to-edge content in scrollable areas
+- Bottom navigation/input bars with 44-48px height
+- Corner-positioned controls for thumb accessibility
+- Avoid horizontal scrolling entirely
+
+### Chat Interface Mobile Patterns
+
+Based on WhatsApp/Telegram best practices:
+- **Message padding**: 20px top, 10px sides, 15px bottom
+- **Bubble alignment**: Full-width for maximum content space on mobile
+- **Input height**: Single line default (44-48px), auto-expand on typing
+- **Icon sizes**: 20-24px within 48x48px touch targets
+- **Button spacing**: Minimum 8-12px between interactive elements
+
+### Performance Considerations
+- Use `transform` and `opacity` for animations (GPU-accelerated)
+- Implement `will-change` sparingly for performance-critical elements
+- Lazy-load images and heavy components below the fold
+- Test on actual devices, not just browser dev tools
+
+### Testing Requirements
+Before considering mobile work complete, test at:
+1. 360px width (small Android phones)
+2. 414px width (standard iPhone)
+3. 768px width (tablets)
+4. 1080px width (large phones in landscape)
+
+Verify:
+- No horizontal scrolling
+- All touch targets meet 48x48px minimum
+- Text remains readable without zoom
+- Smooth scrolling performance
+
 ## Modifying System Instructions
 - To modify system instructions, edit the corresponding file in the `synced_files/system_instructions/` directory. These changes are automatically synced with the Supabase database via the `auto-sync` script.
 
