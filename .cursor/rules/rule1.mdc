@@ -183,7 +183,29 @@ Create diversity across these axes and any others that the user may suggest:
 | #5 | Enterprise-grade | Very High | ⭐⭐⭐ | "Production-ready" |
 
 
-## Job Integration Workflow  
+## Mobile Target Specifications
+
+### Samsung Galaxy S25+ Viewport Details
+
+**Device Specifications:**
+- Physical screen: 6.7-inch display
+- Device pixels (physical resolution): 1440 x 3120 pixels
+- Pixel density: ~513 PPI
+- Device Pixel Ratio (DPR): ~3.75
+
+**CSS Viewport (for web development):**
+- Viewport width: **384 CSS pixels** (1440 ÷ 3.75)
+- Viewport height: **832 CSS pixels** (3120 ÷ 3.75)
+
+**Key Takeaway:** While the Samsung Galaxy S25+ has 1440 x 3120 hardware pixels, web developers working with CSS and responsive design should target a viewport of approximately **384 x 832 CSS pixels**. The browser automatically handles the scaling between CSS pixels and device pixels.
+
+**Note on the 1080px Target:** The objective mentions testing at 1080px viewport width. This is significantly wider than the S25+'s actual 384px CSS viewport, suggesting either:
+1. Testing should account for the actual 384px viewport, or
+2. The 1080px refers to a different testing scenario (landscape orientation, tablet, etc.)
+
+For accurate mobile testing on the S25+, use **384px width** as the primary target.
+
+## Job Integration Workflow
 
 **When to use**: User explicitly instructs you to integrate/reconcile/commit completed jobs (i.e., you're applying the changes NOW, not just reviewing).
 
