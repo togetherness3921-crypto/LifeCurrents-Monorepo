@@ -987,7 +987,7 @@ const ChatPane = () => {
             <button
                 type="button"
                 onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                className="absolute left-0 top-0 z-20 rounded-br-2xl bg-card/30 backdrop-blur-sm p-3 shadow-md transition-all hover:bg-card hover:shadow-lg border-r border-b border-border/30"
+                className="absolute left-0 top-0 z-20 rounded-br-2xl bg-card/30 p-3 shadow-md transition-all hover:bg-card hover:shadow-lg border-r-2 border-b-2 border-border"
                 aria-label="Toggle chat list"
             >
                 <ChevronLeft className="h-5 w-5 text-foreground" />
