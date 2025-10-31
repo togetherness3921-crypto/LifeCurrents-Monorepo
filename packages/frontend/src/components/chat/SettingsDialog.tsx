@@ -562,7 +562,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onOpenChange, pre
                             </div>
                         </div>
                     </TabsContent>
-                    <TabsContent value="context" className="mt-6">
+                    <TabsContent value="context" className="mt-6 overflow-y-auto">
                         <div className="space-y-6">
                             <RadioGroup value={mode} onValueChange={(value) => setMode(value as ConversationContextMode)}>
                                 <div
@@ -696,7 +696,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onOpenChange, pre
                             </RadioGroup>
                         </div>
                     </TabsContent>
-                    <TabsContent value="model" className="mt-6">
+                    <TabsContent value="model" className="mt-6 overflow-y-auto">
                         <div className="flex flex-col gap-4">
                             <Input
                                 placeholder="Search models..."
@@ -766,7 +766,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onOpenChange, pre
                             </div>
                         </div>
                     </TabsContent>
-                    <TabsContent value="builds" className="mt-6">
+                    <TabsContent value="builds" className="mt-6 overflow-y-auto">
                         <PreviewBuildsPanel
                             builds={previewBuildList}
                             loading={previewBuildLoading}
