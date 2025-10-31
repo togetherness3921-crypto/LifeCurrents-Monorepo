@@ -93,7 +93,8 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
         'relative w-full rounded-lg px-4 py-3 transition-shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
         message.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-transparent text-foreground',
         onActivate ? 'cursor-pointer focus-visible:ring-primary/60 focus-visible:ring-offset-background' : '',
-        isActiveSnapshot ? 'ring-2 ring-primary/60 ring-offset-2 ring-offset-background' : ''
+        isActiveSnapshot ? 'ring-2 ring-primary/60 ring-offset-2 ring-offset-background' : '',
+        message.role === 'assistant' ? 'font-serif' : ''
     );
 
     const ariaLabel = onActivate
@@ -329,7 +330,12 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
                 )}
                 <div
                     ref={setMarkdownRef}
-                    className="prose prose-invert prose-sm max-w-none prose-p:leading-relaxed prose-pre:bg-muted/50 prose-pre:text-foreground"
+                    className={cn(
+                        "prose prose-invert prose-sm max-w-none prose-pre:bg-muted/50 prose-pre:text-foreground",
+                        message.role === 'assistant'
+                            ? "prose-p:font-serif prose-p:leading-[1.8] prose-p:tracking-[0.01em] prose-headings:font-serif prose-headings:tracking-tight prose-li:font-serif prose-li:leading-relaxed"
+                            : "prose-p:leading-relaxed"
+                    )}
                 >
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>
                         {message.content}

@@ -416,21 +416,25 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onOpenChange, pre
                 onOpenChange(nextOpen);
             }}
         >
-            <DialogContent className="max-w-4xl">
-                <DialogHeader>
-                    <DialogTitle>Settings</DialogTitle>
-                    <DialogDescription>
+            <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col overflow-hidden backdrop-blur-xl bg-card/95 border-2 border-blue-500/20 shadow-2xl shadow-blue-500/10">
+                <DialogHeader className="flex-shrink-0">
+                    <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent">Settings</DialogTitle>
+                    <DialogDescription className="text-muted-foreground/80">
                         Configure the assistant&apos;s system prompt, control how much of the conversation history is sent with each
                         request, and manage preview builds.
                     </DialogDescription>
                 </DialogHeader>
-                <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as SettingsTab)}>
-                    <TabsList className="grid w-full grid-cols-4">
-                        <TabsTrigger value="system">Instructions</TabsTrigger>
-                        <TabsTrigger value="context">Context</TabsTrigger>
-                        <TabsTrigger value="model">Model</TabsTrigger>
-                        <TabsTrigger value="builds">Builds</TabsTrigger>
+                <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as SettingsTab)} className="flex-1 flex flex-col overflow-hidden">
+                    <TabsList className="grid w-full grid-cols-4 flex-shrink-0 bg-muted/50 backdrop-blur-sm">
+                        <TabsTrigger value="system" className="data-[state=active]:bg-blue-500/20 data-[state=active]:text-blue-400 transition-all duration-300">Instructions</TabsTrigger>
+                        <TabsTrigger value="context" className="data-[state=active]:bg-blue-500/20 data-[state=active]:text-blue-400 transition-all duration-300">Context</TabsTrigger>
+                        <TabsTrigger value="model" className="data-[state=active]:bg-blue-500/20 data-[state=active]:text-blue-400 transition-all duration-300">Model</TabsTrigger>
+                        <TabsTrigger value="builds" className="data-[state=active]:bg-blue-500/20 data-[state=active]:text-blue-400 transition-all duration-300">Builds</TabsTrigger>
                     </TabsList>
+                    <div className="flex-1 overflow-y-auto relative scroll-smooth">
+                        {/* Fade indicators */}
+                        <div className="absolute top-0 left-0 right-0 h-8 bg-gradient-to-b from-card to-transparent pointer-events-none z-10"></div>
+                        <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-card to-transparent pointer-events-none z-10"></div>
                     <TabsContent value="system" className="mt-6">
                         <div className="flex flex-col gap-6">
                             <div className="flex flex-col gap-3">
@@ -776,6 +780,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onOpenChange, pre
                             refresh={refreshPreviewBuilds}
                         />
                     </TabsContent>
+                    </div>
                 </Tabs>
             </DialogContent>
         </Dialog>

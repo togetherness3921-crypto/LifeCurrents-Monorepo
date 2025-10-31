@@ -513,7 +513,7 @@ function CausalGraphContent() {
                 }}
               >
                 <Controls
-                  className="bg-card border-border text-foreground p-1 [&>button]:w-10 [&>button]:h-10 [&>button]:rounded-md scale-50 origin-bottom-left !left-2 !bottom-2 shadow-sm"
+                  className="bg-card/95 backdrop-blur-md border-border/50 text-foreground p-2 [&>button]:w-12 [&>button]:h-12 [&>button]:rounded-lg [&>button]:transition-all [&>button]:duration-300 [&>button]:hover:scale-110 [&>button]:hover:shadow-lg [&>button]:hover:shadow-blue-500/20 [&>button]:hover:bg-blue-500/10 [&>button]:hover:border-blue-500/50 scale-50 origin-bottom-left !left-2 !bottom-2 shadow-xl shadow-black/20"
                   showZoom={false}
                   showFitView={true}
                   showInteractive={false}
@@ -529,11 +529,11 @@ function CausalGraphContent() {
                         : 'Showing all scheduled nodes'
                     }
                     className={cn(
-                      'bg-background border-border',
-                      filterToSelectedDay && 'bg-primary text-primary-foreground border-primary hover:bg-primary/90'
+                      'bg-background/80 backdrop-blur-sm border-border transition-all duration-300 hover:scale-110 hover:shadow-lg',
+                      filterToSelectedDay && 'bg-blue-500 text-white border-blue-500 hover:bg-blue-600 shadow-lg shadow-blue-500/30'
                     )}
                   >
-                    <CalendarIcon className="w-3 h-3" />
+                    <CalendarIcon className="w-4 h-4" />
                   </Button>
                   <Button
                     onClick={() => {
@@ -547,10 +547,10 @@ function CausalGraphContent() {
                     }}
                     variant="outline"
                     size="icon"
-                    className="bg-background border-border"
+                    className="bg-background/80 backdrop-blur-sm border-border transition-all duration-300 hover:scale-110 hover:shadow-lg hover:border-blue-500/50 hover:bg-blue-500/10 disabled:opacity-40 disabled:hover:scale-100 disabled:hover:shadow-none"
                     disabled={activeGraphId === 'main'}
                   >
-                    <ArrowLeft className="w-3 h-3" />
+                    <ArrowLeft className="w-4 h-4" />
                   </Button>
                   <Button
                     onClick={() => {
@@ -565,9 +565,9 @@ function CausalGraphContent() {
                     }}
                     variant="outline"
                     size="icon"
-                    className="bg-background border-border"
+                    className="bg-background/80 backdrop-blur-sm border-border transition-all duration-300 hover:scale-110 hover:shadow-lg hover:border-blue-500/50 hover:bg-blue-500/10"
                   >
-                    <RefreshCw className="w-3 h-3" />
+                    <RefreshCw className="w-4 h-4" />
                   </Button>
                 </Controls>
                 <Background
