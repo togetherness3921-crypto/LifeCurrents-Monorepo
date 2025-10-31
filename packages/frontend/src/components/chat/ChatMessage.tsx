@@ -88,12 +88,17 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
         }
     };
 
-    const containerClasses = cn('flex w-full', message.role === 'user' ? 'justify-end' : 'justify-start');
+    const containerClasses = cn(
+        'flex w-full animate-fade-in-scale',
+        message.role === 'user' ? 'justify-end animate-slide-in-right' : 'justify-start animate-slide-in-left'
+    );
     const bubbleClasses = cn(
-        'relative w-full rounded-lg px-4 py-3 transition-shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
-        message.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-transparent text-foreground',
-        onActivate ? 'cursor-pointer focus-visible:ring-primary/60 focus-visible:ring-offset-background' : '',
-        isActiveSnapshot ? 'ring-2 ring-primary/60 ring-offset-2 ring-offset-background' : ''
+        'relative w-full px-4 py-3 gpu-accelerated transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
+        message.role === 'user'
+            ? 'bg-primary text-primary-foreground rounded-lg'
+            : 'bg-transparent text-foreground rounded-lg',
+        onActivate ? 'cursor-pointer focus-visible:ring-primary/60 focus-visible:ring-offset-background hover:shadow-md' : '',
+        isActiveSnapshot ? 'ring-2 ring-primary/60 ring-offset-2 ring-offset-background shadow-lg' : ''
     );
 
     const ariaLabel = onActivate

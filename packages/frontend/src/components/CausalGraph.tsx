@@ -513,7 +513,7 @@ function CausalGraphContent() {
                 }}
               >
                 <Controls
-                  className="bg-card border-border text-foreground p-1 [&>button]:w-10 [&>button]:h-10 [&>button]:rounded-md scale-50 origin-bottom-left !left-2 !bottom-2 shadow-sm"
+                  className="bg-card/95 backdrop-blur-md border-border text-foreground p-2 [&>button]:w-10 [&>button]:h-10 [&>button]:rounded-lg [&>button]:transition-all [&>button]:duration-200 [&>button]:hover:scale-110 [&>button]:active:scale-95 [&>button]:gpu-accelerated scale-50 origin-bottom-left !left-0 !bottom-0 shadow-xl rounded-tr-3xl animate-backdrop-fade-in hover:shadow-2xl"
                   showZoom={false}
                   showFitView={true}
                   showInteractive={false}
@@ -529,8 +529,8 @@ function CausalGraphContent() {
                         : 'Showing all scheduled nodes'
                     }
                     className={cn(
-                      'bg-background border-border',
-                      filterToSelectedDay && 'bg-primary text-primary-foreground border-primary hover:bg-primary/90'
+                      'bg-background border-border gpu-accelerated transition-all duration-200',
+                      filterToSelectedDay && 'bg-primary text-primary-foreground border-primary hover:bg-primary/90 shadow-md'
                     )}
                   >
                     <CalendarIcon className="w-3 h-3" />
@@ -547,7 +547,7 @@ function CausalGraphContent() {
                     }}
                     variant="outline"
                     size="icon"
-                    className="bg-background border-border"
+                    className="bg-background border-border gpu-accelerated transition-all duration-200 hover:shadow-md"
                     disabled={activeGraphId === 'main'}
                   >
                     <ArrowLeft className="w-3 h-3" />
@@ -565,9 +565,9 @@ function CausalGraphContent() {
                     }}
                     variant="outline"
                     size="icon"
-                    className="bg-background border-border"
+                    className="bg-background border-border gpu-accelerated transition-all duration-200 hover:shadow-md"
                   >
-                    <RefreshCw className="w-3 h-3" />
+                    <RefreshCw className="w-3 h-3 transition-transform duration-300 hover:rotate-180" />
                   </Button>
                 </Controls>
                 <Background
