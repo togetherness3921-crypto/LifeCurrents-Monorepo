@@ -21,7 +21,6 @@ import { useConversationContext } from '@/hooks/useConversationContext';
 import { useGraphHistory } from '@/hooks/graphHistoryProvider';
 import { cn } from '@/lib/utils';
 import { parseGraphToolResult } from '@/lib/mcp/graphResult';
-import { Slider } from '../ui/slider';
 import { useAudioTranscriptionRecorder } from '@/hooks/useAudioTranscriptionRecorder';
 import RecordingStatusBar from './RecordingStatusBar';
 import ConnectivityStatusBar from './ConnectivityStatusBar';
