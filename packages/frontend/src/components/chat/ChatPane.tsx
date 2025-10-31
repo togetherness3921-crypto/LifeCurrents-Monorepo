@@ -21,7 +21,6 @@ import { useConversationContext } from '@/hooks/useConversationContext';
 import { useGraphHistory } from '@/hooks/graphHistoryProvider';
 import { cn } from '@/lib/utils';
 import { parseGraphToolResult } from '@/lib/mcp/graphResult';
-import { Slider } from '../ui/slider';
 import { useAudioTranscriptionRecorder } from '@/hooks/useAudioTranscriptionRecorder';
 import RecordingStatusBar from './RecordingStatusBar';
 import ConnectivityStatusBar from './ConnectivityStatusBar';
@@ -241,13 +240,6 @@ const ChatPane = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
     const [isSettingsDialogOpen, setSettingsDialogOpen] = useState(false);
-    const [fontScale, setFontScale] = useState(() => {
-        if (typeof window === 'undefined') return 1;
-        const stored = window.localStorage.getItem('life-currents.chat.font-scale');
-        if (!stored) return 1;
-        const parsed = parseFloat(stored);
-        return Number.isFinite(parsed) ? parsed : 1;
-    });
     const abortControllerRef = useRef<AbortController | null>(null);
     const scrollAreaRef = useRef<HTMLDivElement>(null);
     const formRef = useRef<HTMLFormElement>(null);
@@ -257,10 +249,6 @@ const ChatPane = () => {
     const { mode, summaryPrompt, applyContextToMessages, transforms, forcedRecentMessages } = useConversationContext();
     const { registerLatestMessage, revertToMessage, applyPatchResult, activeMessageId, isViewingHistorical, syncToThread } = useGraphHistory();
 
-    useEffect(() => {
-        if (typeof window === 'undefined') return;
-        window.localStorage.setItem('life-currents.chat.font-scale', fontScale.toString());
-    }, [fontScale]);
 
     // BUG FIX 1: Explicitly memoize activeThread, selectedLeafId, and messages to prevent invisible message bug
     // This ensures that the message chain is always recomputed when the underlying state changes,
@@ -319,7 +307,6 @@ const ChatPane = () => {
                 }
                 return updated;
             });
-            setIsInputExpanded(true);
         },
         [activeThreadId, updateDraft]
     );
@@ -405,10 +392,6 @@ const ChatPane = () => {
         return () => window.removeEventListener('keydown', handler);
     }, [toggleRecording]);
 
-    const handleFontScaleChange = useCallback((value: number[]) => {
-        const scale = value[0];
-        setFontScale(scale);
-    }, []);
 
     const recordingButtonDisabled =
         !isRecordingSupported || microphonePermission === 'denied' || microphonePermission === 'unsupported';
@@ -915,7 +898,6 @@ const ChatPane = () => {
 
         const userInput = input;
         setInput('');
-        setIsInputExpanded(false);
 
         const currentChain = getMessageChain(activeThread?.leafMessageId || null);
         const parentId = currentChain.length > 0 ? currentChain[currentChain.length - 1].id : null;
@@ -1001,33 +983,22 @@ const ChatPane = () => {
 
     return (
         <div className="relative flex h-full flex-col bg-background">
-            {/* Chat list button overlay */}
+            {/* Chat list button overlay - Mobile optimized: left edge, 48x48px touch target */}
             <button
                 type="button"
                 onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                className="absolute left-4 top-4 z-20 rounded-br-2xl bg-card p-3 shadow-md transition-all hover:shadow-lg"
+                className="absolute left-0 top-0 z-20 rounded-br-2xl bg-card shadow-md transition-all hover:shadow-lg"
+                style={{ width: '48px', height: '48px' }}
                 aria-label="Toggle chat list"
             >
-                <ChevronLeft className="h-5 w-5 text-foreground" />
+                <ChevronLeft className="h-6 w-6 text-foreground mx-auto" />
             </button>
 
             <ScrollArea
-                className="flex-1 min-h-0 p-4"
+                className="flex-1 min-h-0"
                 ref={scrollAreaRef}
             >
-                <div className="mb-4 flex w-full max-w-[220px] items-center gap-3 text-xs text-muted-foreground">
-                    <span className="font-semibold uppercase tracking-wide">Font</span>
-                    <Slider
-                        value={[fontScale]}
-                        onValueChange={handleFontScaleChange}
-                        min={0.25}
-                        max={1.0}
-                        step={0.05}
-                        aria-label="Adjust chat font size"
-                    />
-                    <span className="w-10 text-right font-medium">{Math.round(fontScale * 100)}%</span>
-                </div>
-                <div className="flex flex-col gap-4" style={{ fontSize: `${fontScale}rem`, lineHeight: 1.5 }}>
+                <div className="flex flex-col gap-4">
                     {messages.map((msg) => {
                         let branchInfo;
                         if (msg.parentId) {
@@ -1112,9 +1083,9 @@ const ChatPane = () => {
                                 }}
                             placeholder="Reply to Claude..."
                                 disabled={isLoading}
-                            rows={3}
+                            rows={1}
                                 className={cn(
-                                'min-h-[80px] max-h-[160px] w-full resize-none rounded-2xl border-0 bg-muted text-base text-foreground placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-ring'
+                                'min-h-[44px] max-h-[160px] w-full resize-none rounded-2xl border-0 bg-muted text-base text-foreground placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-ring'
                                 )}
                                 onKeyDown={(event) => {
                                     if (event.key === 'Enter' && !event.shiftKey) {
@@ -1128,23 +1099,25 @@ const ChatPane = () => {
                                 type="button"
                                 variant="ghost"
                                 onClick={() => setSettingsDialogOpen(true)}
-                                className={cn('relative h-8 w-8 rounded-full p-0', hasUnseenBuilds ? 'border-primary text-primary' : '')}
+                                className={cn('relative rounded-full p-0', hasUnseenBuilds ? 'border-primary text-primary' : '')}
+                                style={{ width: '48px', height: '48px' }}
                                 title={settingsButtonLabel}
                                 aria-label={settingsButtonLabel}
                             >
-                                <Cog className="h-4 w-4" />
+                                <Cog className="h-6 w-6" />
                                 {hasUnseenBuilds && (
-                                    <span className="pointer-events-none absolute -top-1 -right-1 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-destructive px-1 text-[0.6rem] font-semibold leading-none text-destructive-foreground">
+                                    <span className="pointer-events-none absolute -top-1 -right-1 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-destructive px-1.5 text-[0.65rem] font-semibold leading-none text-destructive-foreground">
                                         {displaySettingsBadge}
                                     </span>
                                 )}
                             </Button>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-3">
                                 <Button
                                     type="button"
                                     onClick={toggleRecording}
                                     variant={isRecording ? 'destructive' : 'ghost'}
-                                    className="h-8 w-8 rounded-full p-0"
+                                    className="rounded-full p-0"
+                                    style={{ width: '48px', height: '48px' }}
                                     title={recordingTooltip}
                                     aria-label={
                                         isRecording
@@ -1156,25 +1129,26 @@ const ChatPane = () => {
                                     aria-pressed={isRecording}
                                     disabled={recordingButtonDisabled || isRecording || isRecordingProcessing}
                                 >
-                                    {recordingButtonDisabled ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                                    {recordingButtonDisabled ? <MicOff className="h-6 w-6" /> : <Mic className="h-6 w-6" />}
                                 </Button>
                                 {isLoading ? (
-                                    <Button type="button" onClick={handleCancel} variant="destructive" className="h-8 w-8 rounded-full p-0">
-                                        <Square className="h-4 w-4" />
+                                    <Button type="button" onClick={handleCancel} variant="destructive" className="rounded-full p-0" style={{ width: '48px', height: '48px' }}>
+                                        <Square className="h-6 w-6" />
                                     </Button>
                                 ) : (
                                     <Button
                                         type="submit"
                                         disabled={!input.trim()}
                                         className={cn(
-                                            "h-8 w-8 rounded-full p-0 transition-all duration-300 ease-in-out",
+                                            "rounded-full p-0 transition-all duration-300 ease-in-out",
                                             input.trim()
                                                 ? "bg-blue-500 hover:bg-blue-600"
                                                 : "bg-secondary hover:bg-secondary/80"
                                         )}
+                                        style={{ width: '48px', height: '48px' }}
                                     >
                                         <Send className={cn(
-                                            "h-4 w-4 transition-transform duration-300 ease-in-out",
+                                            "h-6 w-6 transition-transform duration-300 ease-in-out",
                                             input.trim() ? "rotate-[-90deg]" : "rotate-0"
                                         )} />
                                     </Button>
