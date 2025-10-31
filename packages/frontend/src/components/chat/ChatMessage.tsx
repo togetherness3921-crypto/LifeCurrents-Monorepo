@@ -329,7 +329,10 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
                 )}
                 <div
                     ref={setMarkdownRef}
-                    className="prose prose-invert prose-sm max-w-none prose-p:leading-relaxed prose-pre:bg-muted/50 prose-pre:text-foreground"
+                    className={cn(
+                        "prose prose-invert prose-sm max-w-none prose-p:leading-relaxed prose-pre:bg-muted/50 prose-pre:text-foreground",
+                        !isUser && "font-medium text-[1.02em]"
+                    )}
                 >
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>
                         {message.content}
