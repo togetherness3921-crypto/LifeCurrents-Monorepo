@@ -128,12 +128,26 @@ All colors MUST be HSL.
     @apply border-border;
   }
 
+  html {
+    overflow-x: hidden;
+    width: 100%;
+  }
+
   body {
     @apply bg-background text-foreground;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
     overscroll-behavior: none;
     -webkit-touch-callout: none;
     -webkit-tap-highlight-color: transparent;
+    overflow-x: hidden;
+    width: 100%;
+    min-width: 0;
+  }
+
+  #root {
+    overflow-x: hidden;
+    width: 100%;
+    min-width: 0;
   }
 }
 
