@@ -1082,9 +1082,9 @@ const ChatPane = () => {
                                 }}
                             placeholder="Reply to Claude..."
                                 disabled={isLoading}
-                            rows={3}
+                            rows={1}
                                 className={cn(
-                                'min-h-[80px] max-h-[160px] w-full resize-none rounded-2xl border-0 bg-muted text-base text-foreground placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-ring'
+                                'min-h-[44px] max-h-[160px] w-full resize-none rounded-2xl border-0 bg-muted text-base text-foreground placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-ring'
                                 )}
                                 onKeyDown={(event) => {
                                     if (event.key === 'Enter' && !event.shiftKey) {
