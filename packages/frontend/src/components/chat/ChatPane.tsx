@@ -1108,7 +1108,7 @@ const ChatPane = () => {
                                 className={cn(
                                     "h-8 w-8 rounded-full p-0 transition-all duration-300 ease-in-out",
                                     input.trim()
-                                        ? "bg-blue-500 hover:bg-blue-600"
+                                        ? "bg-blue-500/60 hover:bg-blue-600/70"
                                         : "bg-secondary hover:bg-secondary/80"
                                 )}
                                 onClick={(e) => {
