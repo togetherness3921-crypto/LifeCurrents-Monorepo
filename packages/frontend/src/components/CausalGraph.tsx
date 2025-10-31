@@ -14,7 +14,7 @@ import '../custom-styles.css';
 
 import { ObjectiveNode } from './nodes/ObjectiveNode';
 import { Button } from './ui/button';
-import { RefreshCw, Loader2, ArrowLeft, Calendar as CalendarIcon } from 'lucide-react';
+import { RefreshCw, Loader2, ArrowLeft, Calendar as CalendarIcon, Maximize2 } from 'lucide-react';
 import { useGraphData } from '@/hooks/useGraphData';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from './ui/resizable';
 import DailyTaskPanel from './DailyTaskPanel';
@@ -515,9 +515,17 @@ function CausalGraphContent() {
                 <Controls
                   className="bg-card border-border text-foreground p-1 [&>button]:w-10 [&>button]:h-10 [&>button]:rounded-md scale-50 origin-bottom-left !left-2 !bottom-2 shadow-sm"
                   showZoom={false}
-                  showFitView={true}
+                  showFitView={false}
                   showInteractive={false}
                 >
+                  <Button
+                    onClick={handleAutoFit}
+                    variant="outline"
+                    size="icon"
+                    className="bg-background border-border"
+                  >
+                    <Maximize2 className="w-3 h-3" />
+                  </Button>
                   <Button
                     onClick={toggleFilterToSelectedDay}
                     variant="outline"
