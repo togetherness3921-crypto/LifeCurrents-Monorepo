@@ -1001,6 +1001,8 @@ const ChatPane = () => {
 
     return (
         <div className="relative flex h-full flex-col bg-background">
+            {/* Premium blue border with gradient glow effect */}
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-blue-500 to-transparent opacity-60 shadow-[0_0_20px_rgba(59,130,246,0.5)]"></div>
             {/* Chat list button overlay */}
             <button
                 type="button"
@@ -1089,13 +1091,13 @@ const ChatPane = () => {
                 />
             </div>
             <div
-                className="sticky bottom-0 left-0 right-0 z-10 rounded-t-3xl border-t bg-card shadow-lg"
+                className="sticky bottom-0 left-0 right-0 z-10 rounded-t-3xl border-t border-blue-500/20 bg-gradient-to-b from-card/98 to-card shadow-[0_-20px_50px_-12px_rgba(0,0,0,0.8),0_-8px_16px_-8px_rgba(59,130,246,0.3)] backdrop-blur-xl"
             >
                 <div className="relative flex w-full flex-col">
                     <form
                         ref={formRef}
                         onSubmit={handleSubmit}
-                        className="relative z-10 flex w-full flex-col gap-3 p-4"
+                        className="relative z-10 flex w-full flex-col gap-3 p-6 before:absolute before:inset-0 before:-top-8 before:h-8 before:bg-gradient-to-b before:from-transparent before:to-card/50 before:pointer-events-none"
                     >
                             <Textarea
                                 value={input}
@@ -1114,7 +1116,7 @@ const ChatPane = () => {
                                 disabled={isLoading}
                             rows={3}
                                 className={cn(
-                                'min-h-[80px] max-h-[160px] w-full resize-none rounded-2xl border-0 bg-muted text-base text-foreground placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-ring'
+                                'min-h-[80px] max-h-[160px] w-full resize-none rounded-2xl border border-border/50 bg-muted/80 backdrop-blur-sm text-base text-foreground placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-blue-500/50 focus-visible:border-blue-500/50 transition-all duration-300 shadow-inner'
                                 )}
                                 onKeyDown={(event) => {
                                     if (event.key === 'Enter' && !event.shiftKey) {
@@ -1128,23 +1130,26 @@ const ChatPane = () => {
                                 type="button"
                                 variant="ghost"
                                 onClick={() => setSettingsDialogOpen(true)}
-                                className={cn('relative h-8 w-8 rounded-full p-0', hasUnseenBuilds ? 'border-primary text-primary' : '')}
+                                className={cn('relative h-10 w-10 rounded-full p-0 transition-all duration-300 hover:scale-110 hover:bg-blue-500/10 hover:shadow-lg hover:shadow-blue-500/20', hasUnseenBuilds ? 'border-2 border-blue-500 text-blue-500' : '')}
                                 title={settingsButtonLabel}
                                 aria-label={settingsButtonLabel}
                             >
-                                <Cog className="h-4 w-4" />
+                                <Cog className="h-5 w-5" />
                                 {hasUnseenBuilds && (
-                                    <span className="pointer-events-none absolute -top-1 -right-1 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-destructive px-1 text-[0.6rem] font-semibold leading-none text-destructive-foreground">
+                                    <span className="pointer-events-none absolute -top-1 -right-1 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-blue-500 px-1.5 text-[0.65rem] font-bold leading-none text-white shadow-lg shadow-blue-500/50">
                                         {displaySettingsBadge}
                                     </span>
                                 )}
                             </Button>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-3">
                                 <Button
                                     type="button"
                                     onClick={toggleRecording}
                                     variant={isRecording ? 'destructive' : 'ghost'}
-                                    className="h-8 w-8 rounded-full p-0"
+                                    className={cn(
+                                        "h-10 w-10 rounded-full p-0 transition-all duration-300",
+                                        !isRecording && "hover:scale-110 hover:bg-blue-500/10 hover:shadow-lg hover:shadow-blue-500/20"
+                                    )}
                                     title={recordingTooltip}
                                     aria-label={
                                         isRecording
@@ -1156,26 +1161,26 @@ const ChatPane = () => {
                                     aria-pressed={isRecording}
                                     disabled={recordingButtonDisabled || isRecording || isRecordingProcessing}
                                 >
-                                    {recordingButtonDisabled ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                                    {recordingButtonDisabled ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
                                 </Button>
                                 {isLoading ? (
-                                    <Button type="button" onClick={handleCancel} variant="destructive" className="h-8 w-8 rounded-full p-0">
-                                        <Square className="h-4 w-4" />
+                                    <Button type="button" onClick={handleCancel} variant="destructive" className="h-12 w-12 rounded-full p-0 shadow-xl hover:scale-110 transition-all duration-300">
+                                        <Square className="h-5 w-5" />
                                     </Button>
                                 ) : (
                                     <Button
                                         type="submit"
                                         disabled={!input.trim()}
                                         className={cn(
-                                            "h-8 w-8 rounded-full p-0 transition-all duration-300 ease-in-out",
+                                            "h-12 w-12 rounded-full p-0 transition-all duration-500 ease-out shadow-xl",
                                             input.trim()
-                                                ? "bg-blue-500 hover:bg-blue-600"
-                                                : "bg-secondary hover:bg-secondary/80"
+                                                ? "bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 hover:scale-110 shadow-blue-500/50 hover:shadow-2xl hover:shadow-blue-500/60"
+                                                : "bg-secondary/50 hover:bg-secondary/70 shadow-black/20"
                                         )}
                                     >
                                         <Send className={cn(
-                                            "h-4 w-4 transition-transform duration-300 ease-in-out",
-                                            input.trim() ? "rotate-[-90deg]" : "rotate-0"
+                                            "h-5 w-5 transition-all duration-500 ease-out",
+                                            input.trim() ? "rotate-[-90deg] scale-110" : "rotate-0 scale-100"
                                         )} />
                                     </Button>
                                 )}
