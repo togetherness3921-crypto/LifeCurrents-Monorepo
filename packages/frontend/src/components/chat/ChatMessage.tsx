@@ -41,6 +41,10 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
     const [openContextActionId, setOpenContextActionId] = useState<string | null>(null);
     const [openDaySummaryId, setOpenDaySummaryId] = useState<string | null>(null);
     const [copied, setCopied] = useState(false);
+    const [bubbleMaxWidth, setBubbleMaxWidth] = useState<number | null>(null);
+
+    const containerRef = useRef<HTMLDivElement>(null);
+    const bubbleRef = useRef<HTMLDivElement>(null);
 
     // Configure copy-as-markdown to use GFM-style formatting (matches remarkGfm)
     // This converts HTML back to markdown when users copy rendered content
