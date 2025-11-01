@@ -234,7 +234,15 @@ All colors MUST be HSL.
   }
 
   .prose p, .prose li, .prose div, .prose span {
-    overflow: hidden !important;
+    max-width: 100% !important;
+  }
+
+  /* Mobile chat bubble width fix */
+  @media (max-width: 768px) {
+    [data-radix-scroll-area-viewport] {
+      padding-left: 0 !important;
+      padding-right: 0 !important;
+    }
   }
 }
 
