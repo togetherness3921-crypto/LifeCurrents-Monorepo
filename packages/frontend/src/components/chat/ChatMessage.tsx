@@ -152,7 +152,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
                 onKeyDown={handleKeyDown}
                 aria-pressed={isPressed}
                 aria-label={ariaLabel}
-                style={{ width: '100px', maxWidth: '100px', flex: '1 1 0%', overflowX: 'hidden' }}
+                style={{ width: '70%', maxWidth: '70%', flex: '1 1 0%', overflowX: 'hidden' }}
             >
                 {(isStreaming || (message.thinking && message.thinking.trim().length > 0)) && (
                     <div data-graph-interactive="true">
