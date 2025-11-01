@@ -92,9 +92,12 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
         }
     };
 
-    const containerClasses = cn('flex w-full max-w-full overflow-hidden', message.role === 'user' ? 'justify-start' : 'justify-start');
+    const containerClasses = cn(
+        'chat-message-container',
+        message.role === 'user' ? 'chat-message-user' : 'chat-message-assistant'
+    );
     const bubbleClasses = cn(
-        'relative w-full max-w-full rounded-lg px-4 py-3 transition-shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 break-words overflow-wrap-anywhere',
+        'chat-bubble relative rounded-lg transition-shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
         message.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-transparent text-foreground border border-border',
         onActivate ? 'cursor-pointer focus-visible:ring-primary/60 focus-visible:ring-offset-background' : '',
         isActiveSnapshot ? 'ring-2 ring-primary/60 ring-offset-2 ring-offset-background' : ''
@@ -374,22 +377,24 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
                         ))}
                     </div>
                 )}
-                <div
-                    ref={setMarkdownRef}
-                    className={cn(
-                        "prose prose-invert max-w-none prose-p:leading-relaxed prose-pre:bg-muted/50 prose-pre:text-foreground",
-                        message.role === 'assistant' ? "prose-base md:prose-lg" : "prose-sm"
-                    )}
-                    style={message.role === 'assistant' ? { 
-                        fontFamily: 'Georgia, serif',
-                        WebkitFontSmoothing: 'antialiased',
-                        MozOsxFontSmoothing: 'grayscale',
-                        textRendering: 'optimizeLegibility'
-                    } : undefined}
-                >
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                        {message.content}
-                    </ReactMarkdown>
+                <div className="chat-bubble-content">
+                    <div
+                        ref={setMarkdownRef}
+                        className={cn(
+                            "prose prose-invert max-w-none prose-p:leading-relaxed prose-pre:bg-muted/50 prose-pre:text-foreground",
+                            message.role === 'assistant' ? "prose-base md:prose-lg" : "prose-sm"
+                        )}
+                        style={message.role === 'assistant' ? {
+                            fontFamily: 'Georgia, serif',
+                            WebkitFontSmoothing: 'antialiased',
+                            MozOsxFontSmoothing: 'grayscale',
+                            textRendering: 'optimizeLegibility'
+                        } : undefined}
+                    >
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {message.content}
+                        </ReactMarkdown>
+                    </div>
                 </div>
 
                 {message.createdAt && (

@@ -1,9 +1,9 @@
-/* 
-This file contains custom CSS overrides for library styles that are too specific to be 
+/*
+This file contains custom CSS overrides for library styles that are too specific to be
 handled by Tailwind's utility classes alone.
 */
 
-/* 
+/*
 Force a larger font size on the progress graph's axis labels.
 The default React Flow styles override inline styles and utility classes,
 so we need a more specific rule with !important to ensure this is applied.
@@ -11,4 +11,157 @@ The SVG scales, so we need a larger base font size to ensure readability.
 */
 .progress-graph-svg text {
     font-size: 28px !important;
+}
+
+/*
+Modern CSS Chat Bubble Layout System
+Uses cutting-edge CSS features for bulletproof responsive chat bubbles:
+- CSS containment for performance optimization
+- Logical properties for internationalization
+- Intrinsic sizing for content-aware dimensions
+- Fluid typography with clamp()
+- Aspect-ratio and min/max constraints
+*/
+
+/* Container uses CSS containment for layout optimization */
+.chat-message-container {
+    /* Layout containment: isolates layout calculations from rest of page */
+    contain: layout style;
+
+    /* Use logical properties instead of physical */
+    inline-size: 100%;
+    max-inline-size: 100%;
+
+    /* Prevent overflow while allowing natural wrapping */
+    overflow: clip;
+    overflow-wrap: break-word;
+    word-break: break-word;
+
+    /* Enable GPU acceleration for smoother rendering */
+    will-change: transform;
+    transform: translateZ(0);
+}
+
+/* Chat bubble with intrinsic sizing and modern constraints */
+.chat-bubble {
+    /* Use intrinsic sizing - bubble adapts to content */
+    inline-size: fit-content;
+
+    /* Responsive width constraints using clamp() */
+    /* Min: 10ch (10 character widths), Preferred: 90%, Max: 100% */
+    max-inline-size: clamp(10ch, 90%, 100%);
+
+    /* Minimum width prevents awkward narrow bubbles */
+    min-inline-size: min(10ch, 100%);
+
+    /* Use logical properties for spacing */
+    padding-inline: 1rem;
+    padding-block: 0.75rem;
+
+    /* Layout containment for the bubble itself */
+    contain: layout paint style;
+
+    /* Prevent overflow at bubble level */
+    overflow-wrap: break-word;
+    word-break: break-word;
+    hyphens: auto;
+
+    /* Box sizing for predictable dimensions */
+    box-sizing: border-box;
+
+    /* Smooth transitions */
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Content area with proper text handling */
+.chat-bubble-content {
+    /* Max width for optimal reading (45-75 characters per line) */
+    max-inline-size: 65ch;
+
+    /* Ensure content doesn't overflow */
+    inline-size: 100%;
+    overflow-wrap: break-word;
+    word-break: break-word;
+
+    /* Fluid typography using clamp() */
+    font-size: clamp(0.875rem, 2vw, 1rem);
+    line-height: 1.6;
+
+    /* Containment for text rendering performance */
+    contain: layout style;
+}
+
+/* Responsive breakpoints using modern media queries */
+@media (inline-size <= 480px) {
+    .chat-bubble {
+        /* On mobile, allow more width usage */
+        max-inline-size: clamp(10ch, 95%, 100%);
+        padding-inline: 0.875rem;
+        padding-block: 0.625rem;
+    }
+
+    .chat-bubble-content {
+        /* Reduce max width for mobile */
+        max-inline-size: min(55ch, 100%);
+        font-size: clamp(0.875rem, 3vw, 0.9375rem);
+    }
+}
+
+@media (inline-size >= 768px) {
+    .chat-bubble {
+        /* On tablet/desktop, cap at 75% for better visual balance */
+        max-inline-size: clamp(10ch, 75%, 65rem);
+    }
+
+    .chat-bubble-content {
+        max-inline-size: 70ch;
+        font-size: clamp(0.9375rem, 1.5vw, 1.0625rem);
+    }
+}
+
+@media (inline-size >= 1024px) {
+    .chat-bubble {
+        /* On large screens, cap at 65% */
+        max-inline-size: clamp(10ch, 65%, 60rem);
+    }
+}
+
+/* User message alignment (typically right-aligned) */
+.chat-message-user .chat-message-container {
+    display: flex;
+    justify-content: flex-end;
+}
+
+/* Assistant message alignment (typically left-aligned) */
+.chat-message-assistant .chat-message-container {
+    display: flex;
+    justify-content: flex-start;
+}
+
+/* Ensure nested elements (code blocks, images, etc.) respect boundaries */
+.chat-bubble pre,
+.chat-bubble code,
+.chat-bubble img,
+.chat-bubble video {
+    max-inline-size: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+}
+
+/* Code blocks get horizontal scrolling on overflow */
+.chat-bubble pre {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Images maintain aspect ratio */
+.chat-bubble img {
+    block-size: auto;
+    object-fit: contain;
+}
+
+/* Prevent long URLs from breaking layout */
+.chat-bubble a {
+    word-break: break-all;
+    overflow-wrap: break-word;
 }

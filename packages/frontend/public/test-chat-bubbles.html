@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Bubble Responsive Test</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+            background: hsl(220, 13%, 15%);
+            color: white;
+            padding: 20px;
+        }
+
+        .test-section {
+            margin-bottom: 40px;
+            padding: 20px;
+            background: hsl(220, 13%, 12%);
+            border-radius: 12px;
+        }
+
+        .test-title {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: hsl(217, 91%, 60%);
+        }
+
+        .test-description {
+            font-size: 14px;
+            color: hsl(0, 0%, 70%);
+            margin-bottom: 20px;
+        }
+
+        .viewport-indicator {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: hsl(217, 91%, 60%);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 14px;
+            z-index: 1000;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .resize-handle {
+            position: fixed;
+            bottom: 0;
+            right: 0;
+            width: 40px;
+            height: 40px;
+            background: hsl(217, 91%, 60%);
+            cursor: nwse-resize;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-top-left-radius: 8px;
+            z-index: 1001;
+        }
+
+        .resize-handle::after {
+            content: '⇲';
+            color: white;
+            font-size: 24px;
+        }
+
+        /* Modern CSS Chat Bubble Styles */
+        .chat-message-container {
+            contain: layout style;
+            inline-size: 100%;
+            max-inline-size: 100%;
+            overflow: clip;
+            overflow-wrap: break-word;
+            word-break: break-word;
+            will-change: transform;
+            transform: translateZ(0);
+            margin-bottom: 16px;
+        }
+
+        .chat-bubble {
+            inline-size: fit-content;
+            max-inline-size: clamp(10ch, 90%, 100%);
+            min-inline-size: min(10ch, 100%);
+            padding-inline: 1rem;
+            padding-block: 0.75rem;
+            contain: layout paint style;
+            overflow-wrap: break-word;
+            word-break: break-word;
+            hyphens: auto;
+            box-sizing: border-box;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            border-radius: 12px;
+        }
+
+        .chat-bubble-content {
+            max-inline-size: 65ch;
+            inline-size: 100%;
+            overflow-wrap: break-word;
+            word-break: break-word;
+            font-size: clamp(0.875rem, 2vw, 1rem);
+            line-height: 1.6;
+            contain: layout style;
+        }
+
+        @media (inline-size <= 480px) {
+            .chat-bubble {
+                max-inline-size: clamp(10ch, 95%, 100%);
+                padding-inline: 0.875rem;
+                padding-block: 0.625rem;
+            }
+
+            .chat-bubble-content {
+                max-inline-size: min(55ch, 100%);
+                font-size: clamp(0.875rem, 3vw, 0.9375rem);
+            }
+        }
+
+        @media (inline-size >= 768px) {
+            .chat-bubble {
+                max-inline-size: clamp(10ch, 75%, 65rem);
+            }
+
+            .chat-bubble-content {
+                max-inline-size: 70ch;
+                font-size: clamp(0.9375rem, 1.5vw, 1.0625rem);
+            }
+        }
+
+        @media (inline-size >= 1024px) {
+            .chat-bubble {
+                max-inline-size: clamp(10ch, 65%, 60rem);
+            }
+        }
+
+        .chat-message-user .chat-message-container {
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        .chat-message-assistant .chat-message-container {
+            display: flex;
+            justify-content: flex-start;
+        }
+
+        .chat-bubble.user {
+            background: hsl(0, 0%, 8%);
+            color: white;
+        }
+
+        .chat-bubble.assistant {
+            background: transparent;
+            color: white;
+            border: 1px solid hsl(220, 13%, 25%);
+        }
+
+        .chat-bubble pre,
+        .chat-bubble code,
+        .chat-bubble img {
+            max-inline-size: 100%;
+            overflow-x: auto;
+        }
+
+        .chat-bubble a {
+            word-break: break-all;
+            overflow-wrap: break-word;
+            color: hsl(217, 91%, 60%);
+            text-decoration: underline;
+        }
+
+        .test-messages {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .breakpoint-tests {
+            display: grid;
+            gap: 20px;
+        }
+
+        .breakpoint-test {
+            padding: 15px;
+            background: hsl(220, 13%, 18%);
+            border-radius: 8px;
+        }
+
+        .breakpoint-label {
+            font-weight: bold;
+            color: hsl(217, 91%, 60%);
+            margin-bottom: 10px;
+        }
+
+        code {
+            background: hsl(220, 13%, 22%);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .stats {
+            margin-top: 10px;
+            padding: 10px;
+            background: hsl(220, 13%, 10%);
+            border-radius: 6px;
+            font-size: 12px;
+            color: hsl(0, 0%, 70%);
+        }
+    </style>
+</head>
+<body>
+    <div class="viewport-indicator" id="viewportIndicator"></div>
+
+    <div class="test-section">
+        <div class="test-title">Chat Bubble Responsive Test Suite</div>
+        <div class="test-description">
+            This page tests the modern CSS chat bubble implementation using:
+            <ul style="margin-left: 20px; margin-top: 10px;">
+                <li>CSS <code>contain</code> property for performance</li>
+                <li>Logical properties (<code>inline-size</code>, <code>block-size</code>)</li>
+                <li>Intrinsic sizing (<code>fit-content</code>, <code>min()</code>, <code>clamp()</code>)</li>
+                <li>Fluid typography with responsive breakpoints</li>
+            </ul>
+        </div>
+        <div class="stats" id="stats"></div>
+    </div>
+
+    <div class="test-section">
+        <div class="test-title">Test 1: Short Messages</div>
+        <div class="test-description">These should adapt to content width, never full width</div>
+        <div class="test-messages">
+            <div class="chat-message-user">
+                <div class="chat-message-container">
+                    <div class="chat-bubble user">
+                        <div class="chat-bubble-content">Hi!</div>
+                    </div>
+                </div>
+            </div>
+            <div class="chat-message-assistant">
+                <div class="chat-message-container">
+                    <div class="chat-bubble assistant">
+                        <div class="chat-bubble-content">Hello! How can I help you today?</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <div class="test-title">Test 2: Medium Messages</div>
+        <div class="test-description">Should wrap naturally, respecting character-based limits</div>
+        <div class="test-messages">
+            <div class="chat-message-user">
+                <div class="chat-message-container">
+                    <div class="chat-bubble user">
+                        <div class="chat-bubble-content">Can you explain how CSS containment works and why it's beneficial for performance in modern web applications?</div>
+                    </div>
+                </div>
+            </div>
+            <div class="chat-message-assistant">
+                <div class="chat-message-container">
+                    <div class="chat-bubble assistant">
+                        <div class="chat-bubble-content">CSS containment allows you to isolate parts of your page from the rest, which helps the browser optimize rendering. When you use properties like contain: layout, the browser knows that changes inside that element won't affect anything outside it, allowing for faster calculations and better performance.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <div class="test-title">Test 3: Long Messages</div>
+        <div class="test-description">Should respect max-width constraints at all breakpoints</div>
+        <div class="test-messages">
+            <div class="chat-message-assistant">
+                <div class="chat-message-container">
+                    <div class="chat-bubble assistant">
+                        <div class="chat-bubble-content">Modern CSS provides powerful tools for creating responsive layouts without JavaScript. The combination of logical properties like inline-size and block-size (which adapt to writing direction), intrinsic sizing functions like fit-content and clamp(), and CSS containment creates a robust system. These features work together to ensure content never overflows its container, maintains optimal readability through character-based width limits (45-75 characters per line is ideal), and provides excellent performance through layout isolation. The clamp() function is particularly useful as it allows us to set a minimum, preferred, and maximum value all in one declaration, making our layouts fluid and responsive across all screen sizes from mobile phones at 320px to ultra-wide monitors at 3000px and beyond.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <div class="test-title">Test 4: URLs and Code</div>
+        <div class="test-description">Long URLs and code should break properly without overflow</div>
+        <div class="test-messages">
+            <div class="chat-message-user">
+                <div class="chat-message-container">
+                    <div class="chat-bubble user">
+                        <div class="chat-bubble-content">Check out this link: https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_containment/Using_CSS_containment_for_performance_optimization_in_modern_web_applications</div>
+                    </div>
+                </div>
+            </div>
+            <div class="chat-message-assistant">
+                <div class="chat-message-container">
+                    <div class="chat-bubble assistant">
+                        <div class="chat-bubble-content">
+                            <pre><code>const bubbleClasses = cn(
+    'chat-bubble',
+    'relative rounded-lg',
+    message.role === 'user' ? 'user' : 'assistant'
+);</code></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <div class="test-title">Test 5: Very Long Single Words</div>
+        <div class="test-description">Should break with hyphens or word-break as needed</div>
+        <div class="test-messages">
+            <div class="chat-message-user">
+                <div class="chat-message-container">
+                    <div class="chat-bubble user">
+                        <div class="chat-bubble-content">Supercalifragilisticexpialidocious pneumonoultramicroscopicsilicovolcanoconiosis</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <div class="test-title">Breakpoint Reference</div>
+        <div class="breakpoint-tests">
+            <div class="breakpoint-test">
+                <div class="breakpoint-label">320px - Narrow Mobile</div>
+                Max width: 95% of viewport
+            </div>
+            <div class="breakpoint-test">
+                <div class="breakpoint-label">375px - iPhone</div>
+                Max width: 95% of viewport
+            </div>
+            <div class="breakpoint-test">
+                <div class="breakpoint-label">414px - Large Phone</div>
+                Max width: 95% of viewport
+            </div>
+            <div class="breakpoint-test">
+                <div class="breakpoint-label">768px - Tablet</div>
+                Max width: 75% of viewport
+            </div>
+            <div class="breakpoint-test">
+                <div class="breakpoint-label">1024px+ - Desktop</div>
+                Max width: 65% of viewport
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function updateViewportIndicator() {
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            const indicator = document.getElementById('viewportIndicator');
+            indicator.textContent = `${width}px × ${height}px`;
+
+            const stats = document.getElementById('stats');
+            const bubbles = document.querySelectorAll('.chat-bubble');
+            const measurements = Array.from(bubbles).map(b => {
+                const rect = b.getBoundingClientRect();
+                return {
+                    width: Math.round(rect.width),
+                    percentage: Math.round((rect.width / width) * 100)
+                };
+            });
+
+            const avgWidth = Math.round(measurements.reduce((sum, m) => sum + m.width, 0) / measurements.length);
+            const avgPercentage = Math.round(measurements.reduce((sum, m) => sum + m.percentage, 0) / measurements.length);
+
+            stats.innerHTML = `
+                <strong>Stats:</strong><br>
+                Viewport: ${width}px × ${height}px<br>
+                Bubbles tested: ${bubbles.length}<br>
+                Average bubble width: ${avgWidth}px (${avgPercentage}% of viewport)<br>
+                Breakpoint: ${width < 480 ? 'Mobile' : width < 768 ? 'Small Tablet' : width < 1024 ? 'Tablet' : 'Desktop'}
+            `;
+        }
+
+        window.addEventListener('resize', updateViewportIndicator);
+        updateViewportIndicator();
+
+        // Update every 100ms while resizing for smooth feedback
+        let resizeTimer;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(updateViewportIndicator, 100);
+        });
+    </script>
+</body>
+</html>
