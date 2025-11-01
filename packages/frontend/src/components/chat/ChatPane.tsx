@@ -995,7 +995,7 @@ const ChatPane = () => {
             </button>
 
             <ScrollArea
-                className="flex-1 min-h-0 min-w-0 px-2 md:px-4 relative -mt-1 max-w-full"
+                className="flex-1 min-h-0 px-2 md:px-4 relative -mt-1"
                 ref={scrollAreaRef}
             >
                 {/* Gradient fade at top - extended to cover resize handle */}
