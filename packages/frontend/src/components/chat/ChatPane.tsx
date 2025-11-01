@@ -995,12 +995,12 @@ const ChatPane = () => {
             </button>
 
             <ScrollArea
-                className="flex-1 min-h-0 px-2 md:px-4 relative -mt-1"
+                className="flex-1 min-h-0 min-w-0 px-2 md:px-4 relative -mt-1"
                 ref={scrollAreaRef}
             >
                 {/* Gradient fade at top - extended to cover resize handle */}
                 <div className="absolute -top-2 left-0 right-0 h-8 bg-gradient-to-b from-background via-background/80 to-transparent pointer-events-none z-10" />
-                <div className="flex flex-col gap-4 pt-9">
+                <div className="flex flex-col gap-4 pt-9 min-w-0">
                     {messages.map((msg) => {
                         let branchInfo;
                         if (msg.parentId) {
