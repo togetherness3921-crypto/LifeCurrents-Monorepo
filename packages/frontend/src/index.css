@@ -291,3 +291,30 @@ All colors MUST be HSL.
 .react-flow__controls-attribution {
   display: none !important;
 }
+
+/* Fix responsive overflow issues in chat message bubbles */
+/* Typography plugin's pre/code elements need explicit overflow handling for mobile */
+.prose pre {
+  overflow-x: auto !important;
+  max-width: 100% !important;
+  word-wrap: break-word !important;
+}
+
+.prose code {
+  overflow-wrap: break-word !important;
+  word-break: break-word !important;
+  max-width: 100% !important;
+}
+
+/* Ensure all prose content respects container bounds */
+.prose * {
+  max-width: 100% !important;
+  min-width: 0 !important;
+}
+
+/* Specifically handle tables which are notorious for overflow */
+.prose table {
+  display: block !important;
+  overflow-x: auto !important;
+  max-width: 100% !important;
+}
