@@ -988,7 +988,7 @@ const ChatPane = () => {
             <button
                 type="button"
                 onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                className="absolute left-0 top-0 z-20 rounded-br-xl bg-card/30 p-1.5 shadow-md transition-all hover:bg-card hover:shadow-lg border-r-2 border-b-2 border-border"
+                className="absolute left-0 top-0 z-20 rounded-br-xl bg-card/50 p-1.5 shadow-md transition-all hover:bg-card hover:shadow-lg border-r-2 border-b-2 border-border"
                 aria-label="Toggle chat list"
             >
                 <ChevronLeft className="h-3 w-3 text-foreground" />
@@ -1066,7 +1066,7 @@ const ChatPane = () => {
             >
                 <div className="relative flex w-full flex-col">
                     {/* Floating button group */}
-                    <div className="absolute -top-[52px] right-0 z-20 flex items-center gap-1 rounded-tl-2xl bg-card/30 p-2 shadow-md border-l-2 border-t-2 border-border">
+                    <div className="absolute -top-[52px] right-0 z-20 flex items-center gap-0.5 rounded-tl-2xl bg-card/50 p-1 shadow-md border-l-2 border-t-2 border-border">
                         <Button
                             type="button"
                             variant="ghost"
