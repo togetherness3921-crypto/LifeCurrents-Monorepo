@@ -1,5 +1,5 @@
 // This component will render a single chat message bubble
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Message } from '@/hooks/chatProviderContext';
 import { Button } from '../ui/button';
 import { Pencil, Save, X, ChevronLeft, ChevronRight, Copy, Check } from 'lucide-react';
