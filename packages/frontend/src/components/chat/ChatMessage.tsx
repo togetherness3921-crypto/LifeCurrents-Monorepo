@@ -1,5 +1,5 @@
 // This component will render a single chat message bubble
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Message } from '@/hooks/chatProviderContext';
 import { Button } from '../ui/button';
 import { Pencil, Save, X, ChevronLeft, ChevronRight, Copy, Check } from 'lucide-react';
@@ -41,6 +41,10 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
     const [openContextActionId, setOpenContextActionId] = useState<string | null>(null);
     const [openDaySummaryId, setOpenDaySummaryId] = useState<string | null>(null);
     const [copied, setCopied] = useState(false);
+    const [bubbleMaxWidth, setBubbleMaxWidth] = useState<number | null>(null);
+
+    const containerRef = useRef<HTMLDivElement>(null);
+    const bubbleRef = useRef<HTMLDivElement>(null);
 
     // Configure copy-as-markdown to use GFM-style formatting (matches remarkGfm)
     // This converts HTML back to markdown when users copy rendered content
@@ -108,6 +112,48 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
         }
     }, [isEditing, message.content]);
 
+    // Dynamic width calculation using ResizeObserver
+    useEffect(() => {
+        const container = containerRef.current;
+        if (!container) return;
+
+        const calculateBubbleWidth = () => {
+            const containerWidth = container.offsetWidth;
+            // Account for ScrollArea padding: px-2 (8px) on mobile, px-4 (16px) on md+
+            // We'll use a conservative approach and subtract a bit more to ensure no overflow
+            const scrollAreaPadding = window.innerWidth >= 768 ? 32 : 16; // 2x padding value (left + right)
+            const safetyMargin = 8; // Additional safety margin
+            const availableWidth = containerWidth - scrollAreaPadding - safetyMargin;
+
+            setBubbleMaxWidth(availableWidth);
+        };
+
+        // Calculate on mount
+        calculateBubbleWidth();
+
+        // Watch for container size changes
+        const resizeObserver = new ResizeObserver(() => {
+            calculateBubbleWidth();
+        });
+
+        resizeObserver.observe(container);
+
+        // Also listen for window resize and orientation change
+        const handleResize = () => {
+            calculateBubbleWidth();
+        };
+
+        window.addEventListener('resize', handleResize);
+        window.addEventListener('orientationchange', handleResize);
+
+        // Cleanup
+        return () => {
+            resizeObserver.disconnect();
+            window.removeEventListener('resize', handleResize);
+            window.removeEventListener('orientationchange', handleResize);
+        };
+    }, []);
+
     const handleSave = () => {
         onSave(message.id, editText);
         setIsEditing(false);
@@ -143,9 +189,11 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
     const isUser = message.role === 'user';
 
     return (
-        <div className={containerClasses}>
+        <div className={containerClasses} ref={containerRef}>
             <div
+                ref={bubbleRef}
                 className={bubbleClasses}
+                style={bubbleMaxWidth ? { maxWidth: `${bubbleMaxWidth}px` } : undefined}
                 role={onActivate ? 'button' : undefined}
                 tabIndex={onActivate ? 0 : undefined}
                 onClick={handleContainerClick}
