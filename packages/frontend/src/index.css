@@ -243,6 +243,15 @@ All colors MUST be HSL.
       padding-left: 0 !important;
       padding-right: 0 !important;
     }
+
+    .prose {
+      max-width: 100% !important;
+    }
+  }
+
+  /* Override prose default max-width */
+  .prose {
+    max-width: 100% !important;
   }
 }
 
