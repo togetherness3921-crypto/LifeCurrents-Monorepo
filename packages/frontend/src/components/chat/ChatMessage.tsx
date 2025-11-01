@@ -143,7 +143,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
     const isUser = message.role === 'user';
 
     return (
-        <div className={containerClasses}>
+        <div className={containerClasses} style={{ width: '100%', maxWidth: '100%' }}>
             <div
                 className={bubbleClasses}
                 role={onActivate ? 'button' : undefined}
@@ -152,6 +152,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
                 onKeyDown={handleKeyDown}
                 aria-pressed={isPressed}
                 aria-label={ariaLabel}
+                style={{ width: '100%', maxWidth: '100%' }}
             >
                 {(isStreaming || (message.thinking && message.thinking.trim().length > 0)) && (
                     <div data-graph-interactive="true">
