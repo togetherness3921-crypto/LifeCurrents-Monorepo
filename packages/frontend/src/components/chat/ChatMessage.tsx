@@ -330,15 +330,20 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
                 <div
                     ref={setMarkdownRef}
                     className={cn(
-                        "prose prose-invert max-w-none prose-p:leading-relaxed prose-pre:bg-muted/50 prose-pre:text-foreground",
+                        "prose prose-invert max-w-full prose-p:leading-relaxed prose-pre:bg-muted/50 prose-pre:text-foreground prose-pre:max-w-full prose-pre:overflow-x-auto [&_*]:max-w-full [&_*]:break-words",
                         message.role === 'assistant' ? "prose-base md:prose-lg" : "prose-sm"
                     )}
                     style={message.role === 'assistant' ? { 
                         fontFamily: 'Georgia, serif',
                         WebkitFontSmoothing: 'antialiased',
                         MozOsxFontSmoothing: 'grayscale',
-                        textRendering: 'optimizeLegibility'
-                    } : undefined}
+                        textRendering: 'optimizeLegibility',
+                        wordBreak: 'break-word',
+                        overflowWrap: 'anywhere'
+                    } : {
+                        wordBreak: 'break-word',
+                        overflowWrap: 'anywhere'
+                    }}
                 >
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>
                         {message.content}
