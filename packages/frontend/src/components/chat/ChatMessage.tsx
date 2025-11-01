@@ -337,8 +337,17 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
                         fontFamily: 'Georgia, serif',
                         WebkitFontSmoothing: 'antialiased',
                         MozOsxFontSmoothing: 'grayscale',
-                        textRendering: 'optimizeLegibility'
-                    } : undefined}
+                        textRendering: 'optimizeLegibility',
+                        wordBreak: 'break-word',
+                        overflowWrap: 'anywhere',
+                        maxWidth: '100%',
+                        overflow: 'hidden'
+                    } : {
+                        wordBreak: 'break-word',
+                        overflowWrap: 'anywhere',
+                        maxWidth: '100%',
+                        overflow: 'hidden'
+                    }}
                 >
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>
                         {message.content}
