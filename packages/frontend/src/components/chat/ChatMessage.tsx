@@ -88,9 +88,9 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
         }
     };
 
-    const containerClasses = cn('flex w-full max-w-full overflow-hidden', message.role === 'user' ? 'justify-start' : 'justify-start');
+    const containerClasses = cn('flex w-full max-w-full min-w-0 overflow-hidden', message.role === 'user' ? 'justify-start' : 'justify-start');
     const bubbleClasses = cn(
-        'relative w-full max-w-full rounded-lg px-4 py-3 transition-shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 break-words overflow-wrap-anywhere',
+        'relative w-full max-w-full min-w-0 rounded-lg px-2 md:px-4 py-3 transition-shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 break-words overflow-wrap-anywhere overflow-x-hidden',
         message.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-transparent text-foreground border border-border',
         onActivate ? 'cursor-pointer focus-visible:ring-primary/60 focus-visible:ring-offset-background' : '',
         isActiveSnapshot ? 'ring-2 ring-primary/60 ring-offset-2 ring-offset-background' : ''
@@ -330,15 +330,20 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
                 <div
                     ref={setMarkdownRef}
                     className={cn(
-                        "prose prose-invert max-w-none prose-p:leading-relaxed prose-pre:bg-muted/50 prose-pre:text-foreground",
+                        "prose prose-invert max-w-full prose-p:leading-relaxed prose-pre:bg-muted/50 prose-pre:text-foreground overflow-hidden",
                         message.role === 'assistant' ? "prose-base md:prose-lg" : "prose-sm"
                     )}
                     style={message.role === 'assistant' ? { 
                         fontFamily: 'Georgia, serif',
                         WebkitFontSmoothing: 'antialiased',
                         MozOsxFontSmoothing: 'grayscale',
-                        textRendering: 'optimizeLegibility'
-                    } : undefined}
+                        textRendering: 'optimizeLegibility',
+                        wordBreak: 'break-word',
+                        overflowWrap: 'anywhere'
+                    } : {
+                        wordBreak: 'break-word',
+                        overflowWrap: 'anywhere'
+                    }}
                 >
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>
                         {message.content}
