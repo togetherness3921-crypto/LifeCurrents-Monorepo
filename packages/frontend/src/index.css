@@ -202,6 +202,18 @@ All colors MUST be HSL.
   [data-panel] {
     max-width: 100% !important;
   }
+
+  /* On very narrow viewports, force panels to shrink properly */
+  @media (max-width: 480px) {
+    [data-panel] {
+      min-width: 0 !important;
+      flex-shrink: 1 !important;
+    }
+    
+    [data-panel-group] {
+      flex-wrap: nowrap !important;
+    }
+  }
 }
 
 /* Custom animations for the graph */
