@@ -88,9 +88,9 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
         }
     };
 
-    const containerClasses = cn('flex max-w-full min-w-0 box-border flex-shrink overflow-x-hidden', message.role === 'user' ? 'justify-start' : 'justify-start');
+    const containerClasses = cn('flex w-full max-w-full overflow-hidden', message.role === 'user' ? 'justify-start' : 'justify-start');
     const bubbleClasses = cn(
-        'relative max-w-full min-w-0 box-border flex-shrink rounded-lg px-3 py-3 pb-6 transition-shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 break-words overflow-wrap-anywhere overflow-x-hidden',
+        'relative w-full max-w-full rounded-lg px-4 py-3 transition-shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 break-words overflow-wrap-anywhere',
         message.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-transparent text-foreground border border-border',
         onActivate ? 'cursor-pointer focus-visible:ring-primary/60 focus-visible:ring-offset-background' : '',
         isActiveSnapshot ? 'ring-2 ring-primary/60 ring-offset-2 ring-offset-background' : ''
@@ -143,7 +143,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
     const isUser = message.role === 'user';
 
     return (
-        <div className={containerClasses} style={{ width: '100%', maxWidth: '100%', flex: '1 1 auto' }}>
+        <div className={containerClasses}>
             <div
                 className={bubbleClasses}
                 role={onActivate ? 'button' : undefined}
@@ -152,7 +152,6 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
                 onKeyDown={handleKeyDown}
                 aria-pressed={isPressed}
                 aria-label={ariaLabel}
-                style={{ width: '70%', maxWidth: '70%', flex: '1 1 0%', overflowX: 'hidden' }}
             >
                 {(isStreaming || (message.thinking && message.thinking.trim().length > 0)) && (
                     <div data-graph-interactive="true">
@@ -331,30 +330,15 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
                 <div
                     ref={setMarkdownRef}
                     className={cn(
-                        "prose prose-invert prose-p:leading-relaxed prose-pre:bg-muted/50 prose-pre:text-foreground w-full overflow-x-hidden",
+                        "prose prose-invert max-w-none prose-p:leading-relaxed prose-pre:bg-muted/50 prose-pre:text-foreground",
                         message.role === 'assistant' ? "prose-base md:prose-lg" : "prose-sm"
                     )}
                     style={message.role === 'assistant' ? { 
                         fontFamily: 'Georgia, serif',
                         WebkitFontSmoothing: 'antialiased',
                         MozOsxFontSmoothing: 'grayscale',
-                        textRendering: 'optimizeLegibility',
-                        wordBreak: 'break-word',
-                        overflowWrap: 'anywhere',
-                        maxWidth: '100%',
-                        boxSizing: 'border-box',
-                        margin: 0,
-                        padding: 0,
-                        overflowX: 'hidden'
-                    } : {
-                        wordBreak: 'break-word',
-                        overflowWrap: 'anywhere',
-                        maxWidth: '100%',
-                        boxSizing: 'border-box',
-                        margin: 0,
-                        padding: 0,
-                        overflowX: 'hidden'
-                    }}
+                        textRendering: 'optimizeLegibility'
+                    } : undefined}
                 >
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>
                         {message.content}
