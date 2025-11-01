@@ -1000,7 +1000,7 @@ const ChatPane = () => {
             >
                 {/* Gradient fade at top - extended to cover resize handle */}
                 <div className="absolute -top-2 left-0 right-0 h-8 bg-gradient-to-b from-background via-background/80 to-transparent pointer-events-none z-10" />
-                <div className="flex flex-col gap-4 pt-9 w-full max-w-full box-border">
+                <div className="flex flex-col gap-4 pt-9 w-full max-w-full box-border px-2 md:px-4">
                     {messages.map((msg) => {
                         let branchInfo;
                         if (msg.parentId) {
