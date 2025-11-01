@@ -209,9 +209,46 @@ All colors MUST be HSL.
       min-width: 0 !important;
       flex-shrink: 1 !important;
     }
-    
+
     [data-panel-group] {
       flex-wrap: nowrap !important;
+    }
+  }
+
+  /* Mobile browser-specific fixes for chat bubbles */
+  /* Disable Chrome Android font boosting that causes overflow */
+  p, div, span, pre, code {
+    -webkit-text-size-adjust: 100%;
+    -moz-text-size-adjust: 100%;
+    -ms-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  /* Mobile-specific safe area insets for notched devices */
+  @supports (padding: env(safe-area-inset-left)) {
+    body {
+      padding-left: env(safe-area-inset-left);
+      padding-right: env(safe-area-inset-right);
+    }
+  }
+
+  /* Mobile word breaking - ensure long words/URLs don't overflow */
+  @media (max-width: 768px) {
+    * {
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      -webkit-hyphens: auto;
+      -moz-hyphens: auto;
+      -ms-hyphens: auto;
+      hyphens: auto;
+    }
+
+    /* Prevent code blocks and pre elements from causing horizontal scroll */
+    pre, code {
+      white-space: pre-wrap !important;
+      word-break: break-all !important;
+      overflow-wrap: break-word !important;
+      max-width: 100% !important;
     }
   }
 }

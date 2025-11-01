@@ -88,10 +88,18 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
         }
     };
 
-    const containerClasses = cn('flex w-full max-w-full overflow-hidden', message.role === 'user' ? 'justify-start' : 'justify-start');
+    const containerClasses = cn('flex w-full', message.role === 'user' ? 'justify-start' : 'justify-start');
     const bubbleClasses = cn(
-        'relative w-full max-w-full rounded-lg px-4 py-3 transition-shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 break-words overflow-wrap-anywhere box-border max-w-[calc(100%-0.75rem)] sm:max-w-[calc(100%-1rem)]',
+        'relative rounded-lg px-4 py-3 transition-shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 box-border',
+        // Mobile-first text wrapping strategy
+        'break-words overflow-wrap-anywhere word-break-break-word',
+        // Flexible width with proper constraints
+        'w-full max-w-full',
+        // Prevent text overflow on mobile
+        'overflow-hidden',
+        // Role-specific styling
         message.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-transparent text-foreground border border-border',
+        // Interactive states
         onActivate ? 'cursor-pointer focus-visible:ring-primary/60 focus-visible:ring-offset-background' : '',
         isActiveSnapshot ? 'ring-2 ring-primary/60 ring-offset-2 ring-offset-background' : ''
     );
@@ -331,9 +339,13 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
                     ref={setMarkdownRef}
                     className={cn(
                         "prose prose-invert max-w-none prose-p:leading-relaxed prose-pre:bg-muted/50 prose-pre:text-foreground",
+                        // Mobile-optimized typography
+                        "prose-pre:overflow-x-auto prose-pre:max-w-full",
+                        "prose-code:break-words prose-code:whitespace-pre-wrap",
+                        "prose-a:break-words",
                         message.role === 'assistant' ? "prose-base md:prose-lg" : "prose-sm"
                     )}
-                    style={message.role === 'assistant' ? { 
+                    style={message.role === 'assistant' ? {
                         fontFamily: 'Georgia, serif',
                         WebkitFontSmoothing: 'antialiased',
                         MozOsxFontSmoothing: 'grayscale',

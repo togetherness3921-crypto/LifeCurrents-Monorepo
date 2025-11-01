@@ -31,11 +31,11 @@ const ChatLayout = () => {
                 <SystemInstructionsProvider>
                     <ConversationContextProvider>
                         <SidebarContext.Provider value={{ isSidebarOpen, setIsSidebarOpen }}>
-                            <div className="relative flex h-full w-full overflow-hidden bg-background">
+                            <div className="relative flex h-full w-full overflow-hidden bg-background max-w-[100vw]">
                                 {/* Sidebar overlay */}
                                 <div
                                     className={cn(
-                                        'absolute left-0 top-0 z-30 h-full w-[75%] transform rounded-r-3xl bg-card shadow-2xl transition-transform duration-300 ease-in-out',
+                                        'absolute left-0 top-0 z-30 h-full w-[75%] max-w-[calc(100vw-3rem)] transform rounded-r-3xl bg-card shadow-2xl transition-transform duration-300 ease-in-out',
                                         isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
                                     )}
                                 >
