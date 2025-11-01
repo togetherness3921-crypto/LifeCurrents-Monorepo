@@ -330,7 +330,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
                 <div
                     ref={setMarkdownRef}
                     className={cn(
-                        "prose prose-invert max-w-none prose-p:leading-relaxed prose-pre:bg-muted/50 prose-pre:text-foreground",
+                        "prose prose-invert max-w-full overflow-hidden prose-p:leading-relaxed prose-pre:bg-muted/50 prose-pre:text-foreground",
                         message.role === 'assistant' ? "prose-base md:prose-lg" : "prose-sm"
                     )}
                     style={message.role === 'assistant' ? { 
