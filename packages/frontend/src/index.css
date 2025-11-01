@@ -231,10 +231,12 @@ All colors MUST be HSL.
     max-width: 100% !important;
     word-break: break-word !important;
     overflow-wrap: anywhere !important;
+    overflow-x: hidden !important;
   }
 
   .prose p, .prose li, .prose div, .prose span {
     max-width: 100% !important;
+    overflow-x: hidden !important;
   }
 
   /* Mobile chat bubble width fix */
