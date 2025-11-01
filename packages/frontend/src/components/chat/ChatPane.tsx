@@ -1066,7 +1066,7 @@ const ChatPane = () => {
             >
                 <div className="relative flex w-full flex-col">
                     {/* Floating button group */}
-                    <div className="absolute top-0 right-0 z-20 flex items-center gap-0.5 rounded-tl-2xl bg-card/50 p-1 shadow-md border-l-2 border-t-2 border-border">
+                    <div className="absolute -top-px right-0 z-20 flex items-center gap-0.5 rounded-tl-2xl bg-card/50 p-1 shadow-md border-l-2 border-t-2 border-border">
                         <Button
                             type="button"
                             variant="ghost"
