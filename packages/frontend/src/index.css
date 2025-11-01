@@ -254,6 +254,12 @@ All colors MUST be HSL.
   /* Override prose default max-width */
   .prose {
     max-width: 100% !important;
+    overflow-x: hidden !important;
+  }
+  
+  /* Force ReactMarkdown container to respect bounds */
+  .prose > * {
+    overflow-x: hidden !important;
   }
 }
 
