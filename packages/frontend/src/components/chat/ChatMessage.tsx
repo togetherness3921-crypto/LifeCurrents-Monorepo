@@ -122,7 +122,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
             // Account for ScrollArea padding: px-2 (8px) on mobile, px-4 (16px) on md+
             // We'll use a conservative approach and subtract a bit more to ensure no overflow
             const scrollAreaPadding = window.innerWidth >= 768 ? 32 : 16; // 2x padding value (left + right)
-            const safetyMargin = 2; // Reduced from 8 to 2 to minimize right-side buffer
+            const safetyMargin = 0; // Reduced to 0 to eliminate right-side buffer
             const availableWidth = containerWidth - scrollAreaPadding - safetyMargin;
 
             setBubbleMaxWidth(availableWidth);
