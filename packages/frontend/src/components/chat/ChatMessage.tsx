@@ -189,9 +189,11 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming, onSave,
     const isUser = message.role === 'user';
 
     return (
-        <div className={containerClasses}>
+        <div className={containerClasses} ref={containerRef}>
             <div
+                ref={bubbleRef}
                 className={bubbleClasses}
+                style={bubbleMaxWidth ? { maxWidth: `${bubbleMaxWidth}px` } : undefined}
                 role={onActivate ? 'button' : undefined}
                 tabIndex={onActivate ? 0 : undefined}
                 onClick={handleContainerClick}
